@@ -1,0 +1,155 @@
+# docker-compose.yml (ROOT)
+version: '3.9'
+
+services:
+  # ─────────────────────────────────────────
+  # PostgreSQL 15
+  # ─────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: glowfix_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: glowfix_dev
+      POSTGRES_USER: glowfix
+      POSTGRES_PASSWORD: glowfix_dev_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+      - ./scripts/db/extensions.sql:/docker-entrypoint-initdb.d/02_extensions.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glowfix -d glowfix_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - glowfix_network
+
+  # ─────────────────────────────────────────
+  # PostgreSQL Test Database (separate from dev)
+  # ─────────────────────────────────────────
+  postgres_test:
+    image: postgres:15-alpine
+    container_name: glowfix_postgres_test
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: glowfix_test
+      POSTGRES_USER: glowfix
+      POSTGRES_PASSWORD: glowfix_dev_password
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data  # in-memory for fast tests
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glowfix -d glowfix_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - glowfix_network
+
+  # ─────────────────────────────────────────
+  # Redis 7
+  # ─────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: glowfix_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass glowfix_redis_password
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --appendfilename "glowfix.aof"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "glowfix_redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - glowfix_network
+
+  # ─────────────────────────────────────────
+  # MailHog (local email testing)
+  # UI at http://localhost:8025
+  # ─────────────────────────────────────────
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: glowfix_mailhog
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP server
+      - "8025:8025"   # Web UI
+    networks:
+      - glowfix_network
+
+  # ─────────────────────────────────────────
+  # MinIO (local S3 replacement)
+  # UI at http://localhost:9001 (admin/admin123)
+  # ─────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: glowfix_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - glowfix_network
+
+  # ─────────────────────────────────────────
+  # Redis Commander (Redis UI)
+  # UI at http://localhost:8081
+  # ─────────────────────────────────────────
+  redis_commander:
+    image: rediscommander/redis-commander:latest
+    container_name: glowfix_redis_ui
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: "local:redis:6379:0:glowfix_redis_password"
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - glowfix_network
+
+# ─────────────────────────────────────────
+# Named Volumes
+# ─────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+# ─────────────────────────────────────────
+# Network
+# ─────────────────────────────────────────
+networks:
+  glowfix_network:
+    driver: bridge
+    name: glowfix_network

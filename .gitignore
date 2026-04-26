@@ -1,0 +1,57 @@
+# .gitignore (ROOT)
+# ─── Dependencies ───
+node_modules/
+.pnp
+.pnp.js
+
+# ─── Build outputs ───
+dist/
+build/
+*.tsbuildinfo
+
+# ─── Environment ───
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ─── Logs ───
+logs/
+*.log
+npm-debug.log*
+
+# ─── Test ───
+coverage/
+.nyc_output/
+test-results/
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ─── IDE ───
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ─── Turbo ───
+.turbo/
+
+# ─── Docker ───
+.docker/
+
+# ─── Terraform ───
+infrastructure/terraform/.terraform/
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.backup
+infrastructure/terraform/*.tfvars
+!infrastructure/terraform/*.tfvars.example
+
+# ─── Misc ───
+*.pem
+.clinic/
