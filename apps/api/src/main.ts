@@ -1,65 +1,166 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { ValidationPipe, VersioningType, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+//import { CorsOptionsDelegate } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 async function bootstrap() {
+  const logger = new Logger('Bootstrap');
+
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log'],
+    bufferLogs: true,
   });
 
-  // Security
-  app.use(helmet());
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('app.port') || 3000;
+  const nodeEnv = configService.get<string>('app.nodeEnv');
+  const allowedOrigins =
+    configService.get<string[]>('app.allowedOrigins') || [];
+  const isProduction = nodeEnv === 'production';
+
+  // ─── Security Middleware ───
+  app.use(
+    helmet({
+      crossOriginEmbedderPolicy: false,
+      contentSecurityPolicy: isProduction
+        ? {
+            directives: {
+              defaultSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              imgSrc: ["'self'", 'data:', 'https:'],
+              scriptSrc: ["'self'"],
+            },
+          }
+        : false,
+    }),
+  );
   app.use(compression());
+  app.use(cookieParser());
+
+  // ─── CORS ───
   app.enableCors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || [
-      'http://localhost:3001',
-    ],
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Request-Id',
+      'X-Refresh-Token',
+    ],
+    exposedHeaders: ['X-Request-Id'],
+    maxAge: 86400, // 24 hours preflight cache
   });
 
-  // Global prefix and versioning
+  // ─── Global API Prefix & Versioning ───
   app.setGlobalPrefix('api');
-  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+  });
 
-  // Global pipes, filters, interceptors
+  // ─── Global Validation Pipe ───
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // strip unknown fields
-      forbidNonWhitelisted: true,
-      transform: true, // auto-transform types
-      transformOptions: { enableImplicitConversion: true },
+      forbidNonWhitelisted: true, // throw on unknown fields
+      transform: true, // auto-transform to DTO types
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      stopAtFirstError: false, // collect ALL validation errors
     }),
   );
-  app.useGlobalFilters(new HttpExceptionFilter());
+
+  // ─── Global Exception Filter ───
+  app.useGlobalFilters(new GlobalExceptionFilter());
+
+  // ─── Global Interceptors ───
   app.useGlobalInterceptors(
     new LoggingInterceptor(),
-    new TransformInterceptor(), // standardize response format
+    new TransformInterceptor(),
   );
 
-  // Swagger (development only)
-  if (process.env.NODE_ENV !== 'production') {
-    const config = new DocumentBuilder()
+  // ─── Swagger (non-production only) ───
+  if (!isProduction) {
+    const swaggerConfig = new DocumentBuilder()
       .setTitle('Glow Fix API')
-      .setDescription('Car Wash Management System API')
-      .setVersion('1.0')
-      .addBearerAuth()
+      .setDescription(
+        `
+        ## Car Wash Management System — REST API
+        
+        ### Authentication
+        Use Bearer token in Authorization header:
+        \`Authorization: Bearer <access_token>\`
+        
+        ### Versioning
+        All endpoints are prefixed with \`/api/v1/\`
+        `,
+      )
+      .setVersion('1.0.0')
+      .addBearerAuth(
+        {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Enter your JWT access token',
+        },
+        'JWT-auth',
+      )
+      .addTag('Auth', 'Authentication & authorization')
+      .addTag('Customers', 'Customer profile management')
+      .addTag('Vehicles', 'Customer vehicle management')
+      .addTag('Bookings', 'Service booking management')
+      .addTag('Staff', 'Staff operations')
+      .addTag('Admin', 'Admin management')
+      .addTag('Health', 'Health checks')
+      .addServer(`http://localhost:${port}`, 'Local Development')
       .build();
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document);
+
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true, // remember token on page refresh
+        tagsSorter: 'alpha',
+        operationsSorter: 'alpha',
+        docExpansion: 'none', // collapse all by default
+      },
+      customSiteTitle: 'Glow Fix API Docs',
+    });
+
+    logger.log(
+      `📚 Swagger docs available at http://localhost:${port}/api/docs`,
+    );
   }
 
-  // Health checks
+  // ─── Graceful Shutdown ───
   app.enableShutdownHooks();
 
-  await app.listen(process.env.PORT || 3000);
-  console.log(`🚀 Glow Fix API running on port ${process.env.PORT || 3000}`);
+  // ─── Start Server ───
+  await app.listen(port, '0.0.0.0');
+
+  logger.log(`🚀 Glow Fix API running in [${nodeEnv}] mode`);
+  logger.log(`🌐 Listening on http://localhost:${port}/api/v1`);
+  logger.log(`❤️  Health check: http://localhost:${port}/api/v1/health/live`);
 }
 
-bootstrap();
+bootstrap().catch((error) => {
+  new Logger('Bootstrap').error('Failed to start application', error);
+  process.exit(1);
+});
