@@ -1,0 +1,81 @@
+import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { PrismaClient, Prisma } from '@prisma/client';
+import { WinstonLoggerService } from '../../common/';
+
+@Injectable()
+export class PrismaService
+  extends PrismaClient<Prisma.PrismaClientOptions, 'query' | 'error' | 'warn'>
+  implements OnModuleInit, OnModuleDestroy
+{
+  constructor(private readonly logger: WinstonLoggerService) {
+    super({
+      log: [
+        { emit: 'event', level: 'query' },
+        { emit: 'event', level: 'error' },
+        { emit: 'event', level: 'warn' },
+      ],
+    });
+  }
+
+  async onModuleInit(): Promise<void> {
+    // Query logging for development
+    this.$on('query', (event) => {
+      if (event.duration > 200) {
+        this.logger.warn(
+          `Slow query detected (${event.duration}ms): ${event.query}`,
+          'PrismaService',
+        );
+      }
+    });
+
+    this.$on('error', (event) => {
+      this.logger.error(`Database error: ${event.message}`, event.target, 'PrismaService');
+    });
+
+    this.$on('warn', (event) => {
+      this.logger.warn(`Database warning: ${event.message}`, 'PrismaService');
+    });
+
+    await this.$connect();
+    this.logger.log('✅ Database connected', 'PrismaService');
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.$disconnect();
+    this.logger.log('Database disconnected', 'PrismaService');
+  }
+
+  /**
+   * Soft delete extension for Customer model
+   */
+  async softDelete(model: 'customer', id: string): Promise<void> {
+    await (this[model] as any).update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  /**
+   * Clean up expired sessions, carts, etc.
+   */
+  async cleanupExpiredRecords(): Promise<{
+    sessions: number;
+    carts: number;
+  }> {
+    const now = new Date();
+
+    const [sessions, carts] = await this.$transaction([
+      this.session.deleteMany({
+        where: { expiresAt: { lt: now } },
+      }),
+      this.cart.deleteMany({
+        where: { expiresAt: { lt: now } },
+      }),
+    ]);
+
+    return {
+      sessions: sessions.count,
+      carts: carts.count,
+    };
+  }
+}

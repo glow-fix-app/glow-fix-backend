@@ -1,7 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { RedisService } from '../redis/redis.service';
+import { RedisService } from '../../core/redis/redis.service';
 import { ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Health')

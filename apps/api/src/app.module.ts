@@ -11,7 +11,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { appConfig, databaseConfig, redisConfig, jwtConfig } from './config';
 
 // Modules
-import { RedisModule } from './modules/redis/redis.module';
+import { RedisModule } from './core/redis/redis.module';
 import { HealthModule } from './modules/health/health.module';
 
 // Future modules (add as you build them)
