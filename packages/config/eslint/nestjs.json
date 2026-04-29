@@ -1,0 +1,60 @@
+module.exports = {
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    project: 'tsconfig.json',
+    tsconfigRootDir: process.cwd(),
+    sourceType: 'module',
+  },
+  plugins: ['@typescript-eslint/eslint-plugin', 'import', 'security'],
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:@typescript-eslint/recommended-requiring-type-checking',
+    'plugin:import/typescript',
+    'plugin:security/recommended-legacy',
+    'prettier',
+  ],
+  root: true,
+  env: {
+    node: true,
+    jest: true,
+  },
+  ignorePatterns: ['dist', 'node_modules', 'coverage', '.turbo'],
+  rules: {
+    // TypeScript
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/explicit-function-return-type': 'warn',
+    '@typescript-eslint/explicit-module-boundary-types': 'warn',
+    '@typescript-eslint/no-explicit-any': 'warn',
+    '@typescript-eslint/no-floating-promises': 'error',
+    '@typescript-eslint/no-misused-promises': 'error',
+    '@typescript-eslint/await-thenable': 'error',
+    '@typescript-eslint/require-await': 'error',
+    '@typescript-eslint/naming-convention': [
+      'error',
+      { selector: 'interface', format: ['PascalCase'] },
+      { selector: 'typeAlias', format: ['PascalCase'] },
+      { selector: 'enum', format: ['PascalCase'] },
+      { selector: 'enumMember', format: ['UPPER_CASE'] },
+    ],
+
+    // Import
+    'import/order': [
+      'error',
+      {
+        groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
+        'newlines-between': 'always',
+        alphabetize: { order: 'asc' },
+      },
+    ],
+    'import/no-duplicates': 'error',
+
+    // General
+    'no-console': ['warn', { allow: ['warn', 'error'] }],
+    'no-return-await': 'off',
+    '@typescript-eslint/return-await': ['error', 'in-try-catch'],
+    'no-throw-literal': 'error',
+    'prefer-const': 'error',
+    'no-var': 'error',
+  },
+};

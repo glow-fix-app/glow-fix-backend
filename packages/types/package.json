@@ -2,15 +2,15 @@
   "name": "@glow-fix/types",
   "version": "1.0.0",
   "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist .turbo",
     "lint": "eslint src/**/*.ts",
-    "clean": "rm -rf dist"
+    "dev": "tsc -w -p tsconfig.json"
   },
   "devDependencies": {
-    "typescript": "*"
+    "typescript": "^5.5.0"
   }
 }

@@ -55,7 +55,15 @@ $ npm run test:e2e
 
 # test coverage
 $ npm run test:cov
+
+## Important
+# run this command to work with redis
+$ docker run -d -p 6379:6379 --name redis redis
+
 ```
+
+
+
 
 ## Deployment
 

@@ -2,9 +2,11 @@
 -- Creates the test database if it doesn't exist
 -- (handled by docker env vars, this is for extra setup)
 -- Create test schema
-\c
-glowfix_dev;
+-- Create extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "postgis";
 
-CREATE SCHEMA
-IF NOT EXISTS public;
-GRANT ALL ON SCHEMA public TO glowfix;
+-- Create test database
+CREATE DATABASE glowfix_test;
+GRANT ALL PRIVILEGES ON DATABASE glowfix_test TO glowfix;

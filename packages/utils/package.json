@@ -1,0 +1,24 @@
+{
+  "name": "@glow-fix/utils",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist .turbo",
+    "dev": "tsc -w -p tsconfig.json",
+    "test": "jest"
+  },
+  "dependencies": {
+    "date-fns": "^3.6.0",
+    "slugify": "^1.6.6"
+  },
+  "devDependencies": {
+    "@glow-fix/config": "*",
+    "typescript": "^5.5.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.0",
+    "ts-jest": "^29.2.0"
+  }
+}
