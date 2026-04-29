@@ -8,6 +8,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
+    "moduleResolution": "node16",
     "esModuleInterop": true,
     "target": "ES2022",
     "outDir": "./dist",
@@ -19,10 +20,10 @@
       "@modules/*": ["src/modules/*"],
       "@common/*": ["src/common/*"],
       "@config/*": ["src/config/*"],
-      "@database/*": ["src/database/*"]
+      "@database/*": ["src/database/*"],
     }
   },
-  "include": ["src/**/*", "jest.config.ts"],
+  "include": ["src/**/*", "jest.config.ts", "prisma/**/*.ts"],
   "exclude": ["node_modules", "dist", "coverage", "test"]
 }
 
