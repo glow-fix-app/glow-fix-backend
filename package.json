@@ -2,6 +2,7 @@
   "name": "glow-fix",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "npm@10.0.0",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -28,7 +29,7 @@
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.12.7",
+    "@types/node": "^20.19.39",
     "@typescript-eslint/eslint-plugin": "^7.8.0",
     "@typescript-eslint/parser": "^7.8.0",
     "eslint": "^8.57.0",

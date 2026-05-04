@@ -3,7 +3,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisService } from './redis.service';
 import Redis from 'ioredis';
 
-import { REDIS_CLIENT } from '../../constants/redis.constants';
+//import { REDIS_CLIENT } from '../../constants/redis.constants';
+
+export const REDIS_CLIENT = 'REDIS_CLIENT';
 
 @Global() // Available everywhere without importing
 @Module({

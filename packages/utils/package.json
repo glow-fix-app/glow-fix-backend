@@ -2,13 +2,20 @@
   "name": "@glow-fix/utils",
   "version": "1.0.0",
   "private": true,
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "clean": "rm -rf dist .turbo",
-    "dev": "tsc -w -p tsconfig.json",
-    "test": "jest"
+    "dev": "tsc -w -p tsconfig.build.json",
+    "test": "jest",
+    "lint": "eslint \"src/**/*.ts\" --fix"
   },
   "dependencies": {
     "date-fns": "^3.6.0",

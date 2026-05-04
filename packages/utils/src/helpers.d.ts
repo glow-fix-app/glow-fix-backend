@@ -1,0 +1,21 @@
+export declare function generateOtp(length?: number): string;
+export declare function generateReferralCode(prefix?: string): string;
+export declare function calculateLoyaltyPoints(amountInCents: number, isOffPeak?: boolean): number;
+export declare function loyaltyPointsToDollars(points: number): number;
+export declare function isOffPeakHour(date?: Date): boolean;
+export declare function calculateEstimatedWaitTime(queuePosition: number, avgServiceTimeMinutes: number, availableStaff: number, efficiencyFactor?: number): number;
+export declare function retryWithBackoff<T>(fn: () => Promise<T>, options?: {
+    maxRetries?: number;
+    initialDelayMs?: number;
+    maxDelayMs?: number;
+    factor?: number;
+}): Promise<T>;
+export declare function sleep(ms: number): Promise<void>;
+export declare function generateSecureToken(bytes?: number): string;
+export declare function chunkArray<T>(array: T[], size: number): T[][];
+export declare function pick<T extends Record<string, unknown>, K extends keyof T>(obj: T, keys: K[]): Pick<T, K>;
+export declare function omit<T extends Record<string, unknown>, K extends keyof T>(obj: T, keys: K[]): Omit<T, K>;
+export declare function deepClone<T>(obj: T): T;
+export declare function isEmpty(value: unknown): boolean;
+export declare function keyBy<T>(array: T[], keySelector: (item: T) => string): Record<string, T>;
+export declare function normalizeLicensePlate(plate: string): string;

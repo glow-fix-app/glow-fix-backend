@@ -1,6 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@prisma/client';
-import { WinstonLoggerService } from '../../common/';
+import { WinstonLoggerService } from '../../common/logger/winston-logger.service';
 
 @Injectable()
 export class PrismaService
@@ -18,7 +18,6 @@ export class PrismaService
   }
 
   async onModuleInit(): Promise<void> {
-    // Query logging for development
     this.$on('query', (event) => {
       if (event.duration > 200) {
         this.logger.warn(
@@ -29,7 +28,11 @@ export class PrismaService
     });
 
     this.$on('error', (event) => {
-      this.logger.error(`Database error: ${event.message}`, event.target, 'PrismaService');
+      this.logger.error(
+        `Database error: ${event.message}`,
+        event.target,
+        'PrismaService',
+      );
     });
 
     this.$on('warn', (event) => {
@@ -45,9 +48,6 @@ export class PrismaService
     this.logger.log('Database disconnected', 'PrismaService');
   }
 
-  /**
-   * Soft delete extension for Customer model
-   */
   async softDelete(model: 'customer', id: string): Promise<void> {
     await (this[model] as any).update({
       where: { id },
@@ -55,9 +55,6 @@ export class PrismaService
     });
   }
 
-  /**
-   * Clean up expired sessions, carts, etc.
-   */
   async cleanupExpiredRecords(): Promise<{
     sessions: number;
     carts: number;

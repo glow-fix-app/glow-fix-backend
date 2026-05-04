@@ -1,23 +1,41 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "lib": ["ES2022"],
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "strictNullChecks": true
+    "baseUrl": ".",
+    "paths": {
+      "@glow-fix/types": ["packages/types/src/index.ts"],
+      "@glow-fix/utils": ["packages/utils/src/index.ts"],
+      "@glow-fix/config": ["packages/config"]
+    }
   },
-  "exclude": ["node_modules", "dist", "coverage"]
+  "references": [
+    { "path": "packages/types" },
+    { "path": "packages/utils" },
+    { "path": "apps/api" }
+  ],
+  "files": []
 }
+
+// {
+//   "compilerOptions": {
+//     "target": "ES2022",
+//     "module": "commonjs",
+//     "lib": ["ES2022"],
+//     "strict": true,
+//     "esModuleInterop": true,
+//     "skipLibCheck": true,
+//     "forceConsistentCasingInFileNames": true,
+//     "resolveJsonModule": true,
+//     "declaration": true,
+//     "declarationMap": true,
+//     "sourceMap": true,
+//     "experimentalDecorators": true,
+//     "emitDecoratorMetadata": true,
+//     "noUnusedLocals": true,
+//     "noUnusedParameters": true,
+//     "noImplicitReturns": true,
+//     "noFallthroughCasesInSwitch": true,
+//     "strictNullChecks": true
+//   },
+//   "exclude": ["node_modules", "dist", "coverage"]
+// }
+

@@ -6,9 +6,10 @@ import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
-import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { HttpExceptionFilter  } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { WinstonLoggerService } from './common/logger/winston-logger.service';
 //import { CorsOptionsDelegate } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 async function bootstrap() {
@@ -89,7 +90,8 @@ async function bootstrap() {
   );
 
   // ─── Global Exception Filter ───
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter(app.get(WinstonLoggerService)));
+  // app.useGlobalFilters(new HttpExceptionFilter ());
 
   // ─── Global Interceptors ───
   app.useGlobalInterceptors(

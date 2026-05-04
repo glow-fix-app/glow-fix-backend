@@ -1,34 +1,38 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalEnv": [
-    "NODE_ENV",
-    "DATABASE_URL",
-    "REDIS_URL",
-    "JWT_SECRET"
-  ],
+  "globalDependencies": ["**/.env.*local", "**/.env"],
+  "globalEnv": ["NODE_ENV", "DATABASE_URL", "REDIS_URL"],
   "pipeline": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "cache": true
     },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },
-    "test": {
-      "dependsOn": ["build"],
-      "outputs": ["coverage/**"]
-    },
-    "test:coverage": {
-      "dependsOn": ["build"],
-      "outputs": ["coverage/**"]
+    "dev:api": {
+      "cache": false,
+      "persistent": true
     },
     "lint": {
-      "outputs": []
+      "cache": true
     },
-    "lint:fix": {
-      "outputs": [],
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": true,
+      "outputs": ["coverage/**"]
+    },
+    "test:e2e": {
+      "dependsOn": ["^build"],
       "cache": false
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "outputs": ["coverage/**"]
     },
     "clean": {
       "cache": false
@@ -39,8 +43,9 @@
     "db:seed": {
       "cache": false
     },
-    "db:reset": {
-      "cache": false
+    "db:studio": {
+      "cache": false,
+      "persistent": true
     }
   }
 }

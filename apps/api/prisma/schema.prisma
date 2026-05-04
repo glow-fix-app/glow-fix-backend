@@ -1,5 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
+  output   = "../node_modules/@prisma/client"  // Generate locally to api's node_modules
   previewFeatures = ["fullTextSearch", "postgresqlExtensions"]
 }
 

@@ -1,53 +1,43 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../packages/config/typescript/base.json",
   "compilerOptions": {
-    "module": "commonjs",
-    "declaration": true,
-    "removeComments": true,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "moduleResolution": "node",
-    "esModuleInterop": true,
-    "target": "ES2022",
+    "rootDir": "./src",
     "outDir": "./dist",
-    "baseUrl": "./",
-    "incremental": true,
-    "skipLibCheck": true,
-    "paths": {
-      "@glow-fix/types": ["../../packages/types/src"],
-      "@modules/*": ["src/modules/*"],
-      "@common/*": ["src/common/*"],
-      "@config/*": ["src/config/*"],
-      "@database/*": ["src/database/*"],
-    }
+    "noEmit": false,
+    "emitDeclarationOnly": false,
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "module": "node16",
+    "target": "ES2022",
+    "moduleResolution": "node16"
   },
-  "include": ["src/**/*", "jest.config.ts", "prisma/**/*.ts"],
-  "exclude": ["node_modules", "dist", "coverage", "test"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }
 
+
 // {
+//   "extends": "@glow-fix/config/typescript/nestjs.json",
 //   "compilerOptions": {
-//     "module": "nodenext",
-//     "moduleResolution": "nodenext",
-//     "resolvePackageJsonExports": true,
-//     "esModuleInterop": true,
-//     "isolatedModules": true,
-//     "declaration": true,
-//     "removeComments": true,
-//     "emitDecoratorMetadata": true,
-//     "experimentalDecorators": true,
-//     "allowSyntheticDefaultImports": true,
-//     "target": "ES2023",
-//     "sourceMap": true,
 //     "outDir": "./dist",
 //     "baseUrl": "./",
-//     "incremental": true,
-//     "skipLibCheck": true,
-//     "strictNullChecks": true,
-//     "forceConsistentCasingInFileNames": true,
-//     "noImplicitAny": true,
-//     "strictBindCallApply": true,
-//     "noFallthroughCasesInSwitch": true
-//   }
+//     "module": "preserve",
+//     "moduleResolution": "bundler",
+//     "paths": {
+//       "@/*": ["src/*"],
+//       "@glow-fix/types": ["../../packages/types/src/index.ts"],
+//       "@glow-fix/types/*": ["../../packages/types/src/*"],
+//       "@glow-fix/utils": ["../../packages/utils/src/index.ts"],
+//       "@glow-fix/utils/*": ["../../packages/utils/src/*"]
+//     }
+//   },
+//   "include": ["src/**/*", "test/**/*", "prisma/**/*"],
+//   "exclude": ["node_modules", "dist"],
+//   "references": [
+//     { "path": "../../packages/types" },
+//     { "path": "../../packages/utils" }
+//   ]
 // }
+
+
