@@ -18,7 +18,7 @@ export class PrismaService
   }
 
   async onModuleInit(): Promise<void> {
-    this.$on('query', (event) => {
+    this.$on('query', (event:any) => {
       if (event.duration > 200) {
         this.logger.warn(
           `Slow query detected (${event.duration}ms): ${event.query}`,
@@ -27,7 +27,7 @@ export class PrismaService
       }
     });
 
-    this.$on('error', (event) => {
+    this.$on('error', (event:any) => {
       this.logger.error(
         `Database error: ${event.message}`,
         event.target,
@@ -35,7 +35,7 @@ export class PrismaService
       );
     });
 
-    this.$on('warn', (event) => {
+    this.$on('warn', (event:any) => {
       this.logger.warn(`Database warning: ${event.message}`, 'PrismaService');
     });
 

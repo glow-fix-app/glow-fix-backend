@@ -3,10 +3,10 @@ version: '3.9'
 
 services:
   # ─────────────────────────────────────────
-  # PostgreSQL 15
+  # PostgreSQL 15 with PostGIS
   # ─────────────────────────────────────────
   postgres:
-    image: postgres:15-alpine
+    image: postgis/postgis:15-3.4-alpine
     container_name: glowfix-postgres
     restart: unless-stopped
     ports:
@@ -17,7 +17,7 @@ services:
       POSTGRES_DB: glowfix_dev
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U glowfix -d glowfix_dev']
       interval: 10s
@@ -28,7 +28,7 @@ services:
   # PostgreSQL Test Database (separate from dev)
   # ─────────────────────────────────────────
   postgres_test:
-    image: postgres:15-alpine
+    image: postgis/postgis:15-3.4-alpine
     container_name: glowfix_postgres_test
     restart: unless-stopped
     environment:

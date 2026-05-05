@@ -155,7 +155,9 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   // ─── Start Server ───
-  await app.listen(port, '0.0.0.0');
+  await app.listen(port,()=>{
+    logger.log(`🚀 Glow Fix API running in [${nodeEnv}] mode`);
+  });
 
   logger.log(`🚀 Glow Fix API running in [${nodeEnv}] mode`);
   logger.log(`🌐 Listening on http://localhost:${port}/api/v1`);
