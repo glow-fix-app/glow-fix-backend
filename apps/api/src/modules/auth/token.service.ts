@@ -17,24 +17,43 @@ export class TokenService {
   ) {}
 
   async generateTokenPair(
-    payload: Omit<JwtPayload, 'iat' | 'exp'>,
-  ): Promise<JwtTokenPair> {
-    const accessToken = this.jwtService.sign(
-      { ...payload },
-      {
-        secret: this.configService.get<string>('jwt.accessSecret'),
-        expiresIn: this.configService.get<string>('jwt.accessExpiry'),
-      },
-    );
+  payload: Omit<JwtPayload, 'iat' | 'exp'>,
+): Promise<JwtTokenPair> {
+  const accessToken = this.jwtService.sign(
+    { ...payload },
+    {
+      secret: this.configService.get<string>('jwt.accessSecret'),
+      expiresIn: this.configService.get<string>('jwt.accessExpiry'),
+    },
+  );
 
-    const refreshToken = this.generateRefreshToken();
+  const refreshToken = this.generateRefreshToken(); // This should return a string
+  const expiresIn = this.parseExpiry(
+    this.configService.get<string>('jwt.accessExpiry') || '15m',
+  );
 
-    const expiresIn = this.parseExpiry(
-      this.configService.get<string>('jwt.accessExpiry') || '15m',
-    );
+  return { accessToken, refreshToken, expiresIn };
+}
 
-    return { accessToken, refreshToken, expiresIn };
-  }
+  // async generateTokenPair(
+  //   payload: Omit<JwtPayload, 'iat' | 'exp'>,
+  // ): Promise<JwtTokenPair> {
+  //   const accessToken = this.jwtService.sign(
+  //     { ...payload },
+  //     {
+  //       secret: this.configService.get<string>('jwt.accessSecret'),
+  //       expiresIn: this.configService.get<string>('jwt.accessExpiry'),
+  //     },
+  //   );
+
+  //   const refreshToken = this.generateRefreshToken();
+
+  //   const expiresIn = this.parseExpiry(
+  //     this.configService.get<string>('jwt.accessExpiry') || '15m',
+  //   );
+
+  //   return { accessToken, refreshToken, expiresIn };
+  // }
 
   async generateMfaToken(userId: string): Promise<string> {
     return this.jwtService.sign(

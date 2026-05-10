@@ -10,6 +10,7 @@ import {
   HttpStatus,
   Delete,
   Param,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -35,6 +36,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
 
 @ApiTags('Auth')
 @Controller({ path: 'auth', version: '1' })
@@ -101,6 +103,21 @@ export class AuthController {
     };
   }
 
+  // ─── Resend OTP ───
+
+  @Post('resend-otp')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend OTP to email or mobile' })
+  @ApiResponse({ status: 200, description: 'OTP resent successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'Already verified or cooldown active',
+  })
+  async resendOtp(@Body() dto: ResendOtpDto): Promise<{ message: string }> {
+    return this.authService.resendOtp(dto);
+  }
+
   // ─── Login ───
 
   @Post('login')
@@ -132,6 +149,7 @@ export class AuthController {
 
     return {
       accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
       expiresIn: result.expiresIn,
       customer: result.customer,
     };
@@ -243,17 +261,45 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Change password (requires current password)' })
+  @ApiResponse({ status: 200, description: 'Password changed successfully' })
+  @ApiResponse({ status: 400, description: 'New password same as current' })
+  @ApiResponse({ status: 401, description: 'Current password is incorrect' })
   async changePassword(
     @Body() dto: ChangePasswordDto,
     @CurrentUser() user: JwtPayload,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
     if (dto.newPassword !== dto.confirmPassword) {
-      throw new Error('Passwords do not match');
+      throw new BadRequestException('Passwords do not match');
     }
-
-    // Delegated to auth service — implementation similar to reset
-    return { message: 'Password changed successfully' };
+ 
+    const result = await this.authService.changePassword(user.sub, dto);
+ 
+    // Clear refresh token cookie — all sessions were invalidated, force re-login
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/api/v1/auth',
+    });
+ 
+    return result;
   }
+  // @Post('change-password')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiBearerAuth('access-token')
+  // @ApiOperation({ summary: 'Change password (requires current password)' })
+  // async changePassword(
+  //   @Body() dto: ChangePasswordDto,
+  //   @CurrentUser() user: JwtPayload,
+  // ): Promise<{ message: string }> {
+  //   if (dto.newPassword !== dto.confirmPassword) {
+  //     throw new Error('Passwords do not match');
+  //   }
+
+  //   // Delegated to auth service — implementation similar to reset
+  //   return { message: 'Password changed successfully' };
+  // }
 
   // ─── Google OAuth ───
 

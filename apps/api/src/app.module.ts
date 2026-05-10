@@ -19,13 +19,15 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 // Middleware
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
+import { UsersModule } from './modules/users/users.module';
+import mailConfig from './config/mail.config';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [configuration],
+      load: [configuration, mailConfig],
       cache: true,
     }),
 
@@ -48,6 +50,7 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
 
     // Features
     AuthModule,
+    UsersModule,
   ],
   providers: [
     {

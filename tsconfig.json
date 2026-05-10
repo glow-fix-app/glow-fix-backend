@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "paths": {
       "@glow-fix/types": ["packages/types/src/index.ts"],
       "@glow-fix/utils": ["packages/utils/src/index.ts"],
