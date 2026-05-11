@@ -15,68 +15,39 @@ export class SessionService {
   ) {}
 
   async createSession(
-  userId: string,
-  userType: string,
-  ipAddress: string,
-  userAgent: string,
-): Promise<{ id: string }> {
-  const parsed = new UAParser(userAgent);
-  const browser = parsed.getBrowser();
-  const os = parsed.getOS();
-  const device = parsed.getDevice();
+    userId: string,
+    userType: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<{ id: string }> {
+    const parsed = new UAParser(userAgent);
+    const browser = parsed.getBrowser();
+    const os = parsed.getOS();
+    const device = parsed.getDevice();
 
-  const expiresAt = new Date(
-    Date.now() + SESSION.REMEMBER_ME_DAYS * 24 * 60 * 60 * 1000,
-  );
+    const expiresAt = new Date(
+      Date.now() + SESSION.REMEMBER_ME_DAYS * 24 * 60 * 60 * 1000,
+    );
 
-  const session = await this.prisma.session.create({
-    data: {
-      userId,
-      userType,
-      refreshToken: crypto.randomBytes(64).toString('hex'),
-      deviceType: device.type || 'desktop',
-      browser: browser.name ? `${browser.name} ${browser.version || ''}`.trim() : null,
-      os: os.name ? `${os.name} ${os.version || ''}`.trim() : null,
-      ipAddress,
-      userAgent,
-      expiresAt,
-      lastActivityAt: new Date(), // Add this
-    },
-  });
+    const session = await this.prisma.session.create({
+      data: {
+        userId,
+        userType,
+        refreshToken: crypto.randomBytes(64).toString('hex'),
+        deviceType: device.type || 'desktop',
+        browser: browser.name
+          ? `${browser.name} ${browser.version || ''}`.trim()
+          : null,
+        os: os.name ? `${os.name} ${os.version || ''}`.trim() : null,
+        ipAddress,
+        userAgent,
+        expiresAt,
+        lastActivityAt: new Date(), // Add this
+      },
+    });
 
-  return { id: session.id };  // ← Make sure this returns the ID
-}
-  //   async createSession(
-  //   userId: string,
-  //   userType: string,
-  //   ipAddress: string,
-  //   userAgent: string,
-  // ): Promise<{ id: string }> {
-  //   const parsed = new UAParser(userAgent);
-  //   const browser = parsed.getBrowser();
-  //   const os = parsed.getOS();
-  //   const device = parsed.getDevice();
-
-  //   const expiresAt = new Date(
-  //     Date.now() + SESSION.REMEMBER_ME_DAYS * 24 * 60 * 60 * 1000,
-  //   );
-
-  //   const session = await this.prisma.session.create({
-  //     data: {
-  //       userId,
-  //       userType,
-  //       refreshToken: crypto.randomBytes(64).toString('hex'), // placeholder
-  //       deviceType: device.type || 'desktop',
-  //       browser: browser.name ? `${browser.name} ${browser.version || ''}`.trim() : null,
-  //       os: os.name ? `${os.name} ${os.version || ''}`.trim() : null,
-  //       ipAddress,
-  //       userAgent,
-  //       expiresAt,
-  //     },
-  //   });
-
-  //   return { id: session.id };
-  // }
+    return { id: session.id }; // ← Make sure this returns the ID
+  }
 
   async invalidateSession(sessionId: string): Promise<void> {
     try {
@@ -98,7 +69,6 @@ export class SessionService {
     });
     return result.count;
   }
-
 
   async enforceSessionLimit(userId: string): Promise<void> {
     const sessions = await this.prisma.session.findMany({
@@ -156,11 +126,13 @@ export class SessionService {
   }
 
   async updateActivity(sessionId: string): Promise<void> {
-    await this.prisma.session.update({
-      where: { id: sessionId },
-      data: { lastActivityAt: new Date() },
-    }).catch(() => {
-      // Silent fail — non-critical operation
-    });
+    await this.prisma.session
+      .update({
+        where: { id: sessionId },
+        data: { lastActivityAt: new Date() },
+      })
+      .catch(() => {
+        // Silent fail — non-critical operation
+      });
   }
 }

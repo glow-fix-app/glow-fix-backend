@@ -135,84 +135,6 @@ export class AuthService {
       requiresOtp: true,
     };
   }
-  // async register(
-  //   dto: RegisterDto,
-  //   ipAddress: string,
-  //   userAgent: string,
-  // ): Promise<{ message: string; requiresOtp: boolean }> {
-  //   // Check if email already exists
-  //   const existingEmail = await this.prisma.customer.findUnique({
-  //     where: { email: dto.email.toLowerCase() },
-  //   });
-  //   if (existingEmail) {
-  //     throw new ConflictException('An account with this email already exists');
-  //   }
-
-  //   // Check if mobile number already exists
-  //   const existingMobile = await this.prisma.customer.findUnique({
-  //     where: { mobileNumber: dto.mobileNumber },
-  //   });
-  //   if (existingMobile) {
-  //     throw new ConflictException(
-  //       'An account with this mobile number already exists',
-  //     );
-  //   }
-
-  //   // Hash password
-  //   const passwordHash = await this.passwordService.hash(dto.password);
-
-  //   // Generate unique referral code
-  //   let referralCode: string;
-  //   let isUnique = false;
-  //   do {
-  //     referralCode = generateReferralCode('GF');
-  //     const existing = await this.prisma.customer.findUnique({
-  //       where: { referralCode },
-  //     });
-  //     isUnique = !existing;
-  //   } while (!isUnique);
-
-  //   // Handle referral
-  //   let referredBy: string | null = null;
-  //   if (dto.referralCode) {
-  //     const referrer = await this.prisma.customer.findUnique({
-  //       where: { referralCode: dto.referralCode },
-  //     });
-  //     if (referrer) {
-  //       referredBy = referrer.id;
-  //     }
-  //   }
-
-  //   // Create customer
-  //   await this.prisma.customer.create({
-  //     data: {
-  //       fullName: dto.fullName,
-  //       mobileNumber: dto.mobileNumber,
-  //       email: dto.email.toLowerCase(),
-  //       passwordHash,
-  //       referralCode,
-  //       referredBy,
-  //       marketingConsent: dto.marketingConsent || false,
-  //       mobileVerified: false,
-  //       emailVerified: false,
-  //     },
-  //   });
-
-  //   // Send OTP for mobile verification
-  //   await this.otpService.sendOtp(dto.mobileNumber, 'REGISTRATION');
-
-  //   this.logger.log('Customer registered', 'AuthService', {
-  //     email: dto.email,
-  //     mobile: dto.mobileNumber,
-  //     ipAddress,
-  //   });
-
-  //   return {
-  //     message:
-  //       'Registration successful. Please verify your mobile number with the OTP sent.',
-  //     requiresOtp: true,
-  //   };
-  // }
 
   // ─── OTP Verification ───
 
@@ -346,70 +268,6 @@ export class AuthService {
 
     return { message: 'A new verification code has been sent.' };
   }
-  // async verifyOtp(
-  //   dto: VerifyOtpDto,
-  //   ipAddress: string,
-  //   userAgent: string,
-  // ): Promise<JwtTokenPair & { customer: Record<string, unknown> }> {
-  //   // Verify OTP
-  //   const isValid = await this.otpService.verifyOtp(
-  //     dto.mobileNumber,
-  //     dto.otp,
-  //     dto.purpose,
-  //   );
-
-  //   if (!isValid) {
-  //     throw new BadRequestException('Invalid or expired OTP');
-  //   }
-
-  //   // Find customer
-  //   const customer = await this.prisma.customer.findUnique({
-  //     where: { mobileNumber: dto.mobileNumber },
-  //   });
-
-  //   if (!customer) {
-  //     throw new BadRequestException('Customer not found');
-  //   }
-
-  //   // Mark mobile as verified
-  //   if (!customer.mobileVerified) {
-  //     await this.prisma.customer.update({
-  //       where: { id: customer.id },
-  //       data: { mobileVerified: true },
-  //     });
-  //   }
-
-  //   // Handle referral activation for new registrations
-  //   if (dto.purpose === 'REGISTRATION' && customer.referredBy) {
-  //     await this.activateReferral(customer.id, customer.referredBy);
-  //   }
-
-  //   // Generate tokens and create session
-  //   const tokens = await this.createSession(
-  //     customer.id,
-  //     UserRole.CUSTOMER,
-  //     ipAddress,
-  //     userAgent,
-  //   );
-
-  //   this.logger.log('OTP verified successfully', 'AuthService', {
-  //     customerId: customer.id,
-  //     purpose: dto.purpose,
-  //   });
-
-  //   return {
-  //     ...tokens,
-  //     customer: {
-  //       id: customer.id,
-  //       fullName: customer.fullName,
-  //       email: customer.email,
-  //       mobileNumber: customer.mobileNumber,
-  //       loyaltyPoints: customer.loyaltyPoints,
-  //       mobileVerified: true,
-  //       emailVerified: customer.emailVerified,
-  //     },
-  //   };
-  // }
 
   // ─── Login ───
 
@@ -499,96 +357,6 @@ export class AuthService {
       },
     };
   }
-  // // ─── Login ───
-
-  // async login(
-  //   dto: LoginDto,
-  //   ipAddress: string,
-  //   userAgent: string,
-  // ): Promise<
-  //   JwtTokenPair & { customer: Record<string, unknown>; requiresMfa?: boolean }
-  // > {
-  //   // Find customer by email or mobile
-  //   const customer = await this.prisma.customer.findFirst({
-  //     where: {
-  //       OR: [
-  //         { email: dto.identifier.toLowerCase() },
-  //         { mobileNumber: dto.identifier },
-  //       ],
-  //       deletedAt: null,
-  //     },
-  //   });
-
-  //   if (!customer || !customer.passwordHash) {
-  //     // Check rate limit before revealing info
-  //     await this.checkLoginRateLimit(ipAddress);
-  //     throw new UnauthorizedException('Invalid credentials');
-  //   }
-
-  //   // Check rate limit
-  //   await this.checkLoginRateLimit(ipAddress);
-
-  //   // Verify password
-  //   const isPasswordValid = await this.passwordService.compare(
-  //     dto.password,
-  //     customer.passwordHash,
-  //   );
-
-  //   if (!isPasswordValid) {
-  //     await this.recordFailedLogin(customer.id, ipAddress, userAgent);
-  //     throw new UnauthorizedException('Invalid credentials');
-  //   }
-
-  //   // Check if MFA is enabled
-  //   if (customer.twoFactorEnabled) {
-  //     // Return a temporary token that requires MFA verification
-  //     const mfaToken = await this.tokenService.generateMfaToken(customer.id);
-  //     return {
-  //       accessToken: mfaToken,
-  //       refreshToken: '',
-  //       expiresIn: 300, // 5 minutes to complete MFA
-  //       customer: { id: customer.id },
-  //       requiresMfa: true,
-  //     };
-  //   }
-
-  //   // Update last active
-  //   await this.prisma.customer.update({
-  //     where: { id: customer.id },
-  //     data: { lastActiveAt: new Date() },
-  //   });
-
-  //   // Generate tokens
-  //   const tokens = await this.createSession(
-  //     customer.id,
-  //     UserRole.CUSTOMER,
-  //     ipAddress,
-  //     userAgent,
-  //   );
-
-  //   // Clear failed login attempts
-  //   await this.redis.del(RedisKeys.loginAttempts(ipAddress));
-
-  //   this.logger.log('Customer logged in', 'AuthService', {
-  //     customerId: customer.id,
-  //     ipAddress,
-  //   });
-
-  //   return {
-  //     ...tokens,
-  //     customer: {
-  //       id: customer.id,
-  //       fullName: customer.fullName,
-  //       email: customer.email,
-  //       mobileNumber: customer.mobileNumber,
-  //       loyaltyPoints: customer.loyaltyPoints,
-  //       profilePhotoUrl: customer.profilePhotoUrl,
-  //       mobileVerified: customer.mobileVerified,
-  //       emailVerified: customer.emailVerified,
-  //       twoFactorEnabled: customer.twoFactorEnabled,
-  //     },
-  //   };
-  // }
 
   // ─── Refresh Token ───
 
@@ -782,7 +550,7 @@ export class AuthService {
     if (!customer) {
       throw new NotFoundException('Customer not found');
     }
-    
+
     if (!customer.passwordHash) {
       throw new BadRequestException('Password is not set for this account');
     }
@@ -796,7 +564,6 @@ export class AuthService {
     if (!isCurrentPasswordValid) {
       throw new UnauthorizedException('Current password is incorrect');
     }
-
 
     // Prevent reusing the same password
     const isSamePassword = await this.passwordService.compare(
@@ -979,46 +746,6 @@ export class AuthService {
 
     return tokens; // ← This returns { accessToken, refreshToken, expiresIn }
   }
-  // private async createSession(
-  //   userId: string,
-  //   role: UserRole,
-  //   ipAddress: string,
-  //   userAgent: string,
-  // ): Promise<JwtTokenPair> {
-  //   // Check concurrent session limit
-  //   await this.sessionService.enforceSessionLimit(userId);
-
-  //   // Create session record
-  //   const session = await this.sessionService.createSession(
-  //     userId,
-  //     role === UserRole.CUSTOMER
-  //       ? 'CUSTOMER'
-  //       : role === UserRole.STAFF
-  //         ? 'STAFF'
-  //         : 'ADMIN',
-  //     ipAddress,
-  //     userAgent,
-  //   );
-
-  //   // Generate token pair
-  //   const payload: Omit<JwtPayload, 'iat' | 'exp'> = {
-  //     sub: userId,
-  //     role,
-  //     permissions: this.getPermissionsForRole(role),
-  //     sessionId: session.id,
-  //     deviceFingerprint: this.generateDeviceFingerprint(userAgent, ipAddress),
-  //   };
-
-  //   const tokens = await this.tokenService.generateTokenPair(payload);
-
-  //   // Update session with refresh token
-  //   await this.prisma.session.update({
-  //     where: { id: session.id },
-  //     data: { refreshToken: tokens.refreshToken },
-  //   });
-
-  //   return tokens;
-  // }
 
   private getPermissionsForRole(role: UserRole): Permission[] {
     switch (role) {

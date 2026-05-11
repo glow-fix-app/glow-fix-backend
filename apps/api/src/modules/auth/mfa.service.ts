@@ -6,7 +6,11 @@ import { MfaSetupResponse } from '@glow-fix/types';
 
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { WinstonLoggerService } from '../../common/logger/winston-logger.service';
+import { log } from 'console';
 
+// Allow ±1 window (30s each) to account for clock drift between
+// the server and the authenticator app
+// authenticator.options = { window: 1 };
 @Injectable()
 export class MfaService {
   private readonly APP_NAME = 'GlowFix';
@@ -17,15 +21,13 @@ export class MfaService {
     private readonly logger: WinstonLoggerService,
   ) {}
 
-  async setupMfa(
-    userId: string,
-    email: string,
-  ): Promise<MfaSetupResponse> {
+  async setupMfa(userId: string, email: string): Promise<MfaSetupResponse> {
     // Generate secret
     const secret = authenticator.generateSecret();
+    this.logger.debug(` 😊😊😊😊😊😊  ${email} `, 'MfaService');
 
     // Generate QR code URL
-    const otpAuthUrl = authenticator.keyuri(email, this.APP_NAME, secret);
+    const otpAuthUrl = authenticator.keyuri("ahmedgebrel101@gmail.com", this.APP_NAME, secret);
     const qrCodeUrl = await QRCode.toDataURL(otpAuthUrl);
 
     // Generate backup codes
@@ -62,17 +64,22 @@ export class MfaService {
     });
 
     if (!customer?.twoFactorSecret) {
-      throw new BadRequestException('MFA setup not initiated. Please start setup first.');
+      throw new BadRequestException(
+        'MFA setup not initiated. Please start setup first.',
+      );
     }
+    this.logger.debug(`😊😊Verifying MFA code for user ${userId} ${code} ${customer.twoFactorSecret}`, 'MfaService');
 
     // Verify the code
-    const isValid = authenticator.verify({
+    const isValid =  await authenticator.verify({
       token: code,
       secret: customer.twoFactorSecret,
     });
 
     if (!isValid) {
-      throw new BadRequestException('Invalid verification code. Please try again.');
+      throw new BadRequestException(
+        'Invalid verification code. Please try again.',
+      );
     }
 
     // Enable MFA

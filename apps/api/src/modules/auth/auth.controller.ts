@@ -99,6 +99,7 @@ export class AuthController {
     return {
       accessToken: result.accessToken,
       expiresIn: result.expiresIn,
+      refreshToken: result.refreshToken,
       customer: result.customer,
     };
   }
@@ -272,9 +273,9 @@ export class AuthController {
     if (dto.newPassword !== dto.confirmPassword) {
       throw new BadRequestException('Passwords do not match');
     }
- 
+
     const result = await this.authService.changePassword(user.sub, dto);
- 
+
     // Clear refresh token cookie — all sessions were invalidated, force re-login
     res.clearCookie('refreshToken', {
       httpOnly: true,
@@ -282,24 +283,9 @@ export class AuthController {
       sameSite: 'strict',
       path: '/api/v1/auth',
     });
- 
+
     return result;
   }
-  // @Post('change-password')
-  // @HttpCode(HttpStatus.OK)
-  // @ApiBearerAuth('access-token')
-  // @ApiOperation({ summary: 'Change password (requires current password)' })
-  // async changePassword(
-  //   @Body() dto: ChangePasswordDto,
-  //   @CurrentUser() user: JwtPayload,
-  // ): Promise<{ message: string }> {
-  //   if (dto.newPassword !== dto.confirmPassword) {
-  //     throw new Error('Passwords do not match');
-  //   }
-
-  //   // Delegated to auth service — implementation similar to reset
-  //   return { message: 'Password changed successfully' };
-  // }
 
   // ─── Google OAuth ───
 
@@ -347,13 +333,6 @@ export class AuthController {
 
   // ─── MFA ───
 
-  // @Post('mfa/setup')
-  // @ApiBearerAuth('access-token')
-  // @ApiOperation({ summary: 'Start MFA setup — returns QR code and backup codes' })
-  // async setupMfa(@CurrentUser() user: JwtPayload): Promise<Record<string, unknown>> {
-  //   return this.mfaService.setupMfa(user.sub, user.sub); // email lookup needed
-  // }
-
   @Post('mfa/setup')
   @ApiBearerAuth('access-token')
   @ApiOperation({
@@ -377,7 +356,33 @@ export class AuthController {
     return this.mfaService.verifyAndEnableMfa(user.sub, code);
   }
 
-  @Delete('mfa')
+  // @Post('mfa/verify-login')
+  // @Public()
+  // @HttpCode(HttpStatus.OK)
+  // async verifyMfaLogin(
+  //     @Body('mfaToken') mfaToken: string,
+  //     @Body('code') code: string,
+  //     @Req() req: Request,
+  //     @Res({ passthrough: true }) res: Response,
+  // ) {
+  //     const result = await this.mfaService.verifyMfaCode(
+  //         mfaToken,
+  //         code,
+  //         req.ip || '',
+  //         req.get('user-agent') || '',
+  //     );
+
+  //     this.setRefreshTokenCookie(res, result.refreshToken);
+
+  //     return {
+  //         accessToken: result.accessToken,
+  //         refreshToken: result.refreshToken,
+  //         expiresIn: result.expiresIn,
+  //         customer: result.customer,
+  //     };
+  // }
+
+  @Delete('mfa/disable')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Disable MFA (requires current TOTP code)' })
   async disableMfa(
