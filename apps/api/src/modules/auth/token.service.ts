@@ -17,43 +17,23 @@ export class TokenService {
   ) {}
 
   async generateTokenPair(
-  payload: Omit<JwtPayload, 'iat' | 'exp'>,
-): Promise<JwtTokenPair> {
-  const accessToken = this.jwtService.sign(
-    { ...payload },
-    {
-      secret: this.configService.get<string>('jwt.accessSecret'),
-      expiresIn: this.configService.get<string>('jwt.accessExpiry'),
-    },
-  );
+    payload: Omit<JwtPayload, 'iat' | 'exp'>,
+  ): Promise<JwtTokenPair> {
+    const accessToken = this.jwtService.sign(
+      { ...payload },
+      {
+        secret: this.configService.get<string>('jwt.accessSecret'),
+        expiresIn: this.configService.get<string>('jwt.accessExpiry'),
+      },
+    );
 
-  const refreshToken = this.generateRefreshToken(); // This should return a string
-  const expiresIn = this.parseExpiry(
-    this.configService.get<string>('jwt.accessExpiry') || '15m',
-  );
+    const refreshToken = this.generateRefreshToken(); // This should return a string
+    const expiresIn = this.parseExpiry(
+      this.configService.get<string>('jwt.accessExpiry') || '15m',
+    );
 
-  return { accessToken, refreshToken, expiresIn };
-}
-
-  // async generateTokenPair(
-  //   payload: Omit<JwtPayload, 'iat' | 'exp'>,
-  // ): Promise<JwtTokenPair> {
-  //   const accessToken = this.jwtService.sign(
-  //     { ...payload },
-  //     {
-  //       secret: this.configService.get<string>('jwt.accessSecret'),
-  //       expiresIn: this.configService.get<string>('jwt.accessExpiry'),
-  //     },
-  //   );
-
-  //   const refreshToken = this.generateRefreshToken();
-
-  //   const expiresIn = this.parseExpiry(
-  //     this.configService.get<string>('jwt.accessExpiry') || '15m',
-  //   );
-
-  //   return { accessToken, refreshToken, expiresIn };
-  // }
+    return { accessToken, refreshToken, expiresIn };
+  }
 
   async generateMfaToken(userId: string): Promise<string> {
     return this.jwtService.sign(
@@ -72,11 +52,7 @@ export class TokenService {
   }
 
   async blacklistToken(jti: string, expiresInSeconds: number): Promise<void> {
-    await this.redis.set(
-      RedisKeys.tokenBlacklist(jti),
-      '1',
-      expiresInSeconds,
-    );
+    await this.redis.set(RedisKeys.tokenBlacklist(jti), '1', expiresInSeconds);
   }
 
   async isTokenBlacklisted(jti: string): Promise<boolean> {
@@ -95,11 +71,16 @@ export class TokenService {
     const unit = match[2];
 
     switch (unit) {
-      case 's': return value;
-      case 'm': return value * 60;
-      case 'h': return value * 3600;
-      case 'd': return value * 86400;
-      default: return 900;
+      case 's':
+        return value;
+      case 'm':
+        return value * 60;
+      case 'h':
+        return value * 3600;
+      case 'd':
+        return value * 86400;
+      default:
+        return 900;
     }
   }
 }
