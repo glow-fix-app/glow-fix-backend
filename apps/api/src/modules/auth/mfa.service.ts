@@ -6,11 +6,10 @@ import { MfaSetupResponse } from '@glow-fix/types';
 
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { WinstonLoggerService } from '../../common/logger/winston-logger.service';
-import { log } from 'console';
 
-// Allow ±1 window (30s each) to account for clock drift between
-// the server and the authenticator app
-// authenticator.options = { window: 1 };
+// Allow ±1 window (30s) to account for clock drift
+authenticator.options = { window: 1 };
+
 @Injectable()
 export class MfaService {
   private readonly APP_NAME = 'GlowFix';
@@ -21,37 +20,33 @@ export class MfaService {
     private readonly logger: WinstonLoggerService,
   ) {}
 
-  async setupMfa(userId: string, email: string): Promise<MfaSetupResponse> {
-    // Generate secret
-    const secret = authenticator.generateSecret();
-    this.logger.debug(` 😊😊😊😊😊😊  ${email} `, 'MfaService');
-
-    // Generate QR code URL
-    const otpAuthUrl = authenticator.keyuri("ahmedgebrel101@gmail.com", this.APP_NAME, secret);
-    const qrCodeUrl = await QRCode.toDataURL(otpAuthUrl);
-
-    // Generate backup codes
-    const backupCodes = this.generateBackupCodes();
-
-    // Store secret temporarily (not enabled yet)
-    await this.prisma.customer.update({
+  async setupMfa(userId: string): Promise<MfaSetupResponse> {
+    const customer = await this.prisma.customer.findUnique({
       where: { id: userId },
-      data: {
-        twoFactorSecret: secret,
-        // Don't enable yet — wait for verification
-      },
+      select: { email: true },
     });
 
-    // Store backup codes in Redis temporarily
-    // (will be persisted after verification)
+    if (!customer) {
+      throw new BadRequestException('Customer not found');
+    }
+
+    const secret = authenticator.generateSecret();
+    const otpAuthUrl = authenticator.keyuri(
+      customer.email,
+      this.APP_NAME,
+      secret,
+    );
+    const qrCodeUrl = await QRCode.toDataURL(otpAuthUrl);
+    const backupCodes = this.generateBackupCodes();
+
+    await this.prisma.customer.update({
+      where: { id: userId },
+      data: { twoFactorSecret: secret },
+    });
 
     this.logger.log('MFA setup initiated', 'MfaService', { userId });
 
-    return {
-      secret,
-      qrCodeUrl,
-      backupCodes,
-    };
+    return { secret, qrCodeUrl, backupCodes };
   }
 
   async verifyAndEnableMfa(
@@ -68,10 +63,8 @@ export class MfaService {
         'MFA setup not initiated. Please start setup first.',
       );
     }
-    this.logger.debug(`😊😊Verifying MFA code for user ${userId} ${code} ${customer.twoFactorSecret}`, 'MfaService');
 
-    // Verify the code
-    const isValid =  await authenticator.verify({
+    const isValid = authenticator.verify({
       token: code,
       secret: customer.twoFactorSecret,
     });
@@ -82,7 +75,6 @@ export class MfaService {
       );
     }
 
-    // Enable MFA
     await this.prisma.customer.update({
       where: { id: userId },
       data: { twoFactorEnabled: true },
@@ -99,7 +91,7 @@ export class MfaService {
       select: { twoFactorSecret: true, twoFactorEnabled: true },
     });
 
-    if (!customer?.twoFactorEnabled || !customer?.twoFactorSecret) {
+    if (!customer?.twoFactorSecret) {
       throw new BadRequestException('MFA is not enabled for this account.');
     }
 
@@ -110,8 +102,22 @@ export class MfaService {
   }
 
   async disableMfa(userId: string, code: string): Promise<void> {
-    // Verify current code before disabling
-    const isValid = await this.verifyMfaCode(userId, code);
+    // Check secret directly — works even if twoFactorEnabled is still false
+    // (e.g. user set up MFA but never called mfa/verify to enable it)
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: userId },
+      select: { twoFactorSecret: true },
+    });
+
+    if (!customer?.twoFactorSecret) {
+      throw new BadRequestException('MFA is not set up for this account.');
+    }
+
+    const isValid = authenticator.verify({
+      token: code,
+      secret: customer.twoFactorSecret,
+    });
+
     if (!isValid) {
       throw new BadRequestException('Invalid verification code.');
     }

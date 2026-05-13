@@ -341,7 +341,8 @@ export class AuthController {
   async setupMfa(
     @CurrentUser() user: JwtPayload,
   ): Promise<Record<string, unknown>> {
-    const result = await this.mfaService.setupMfa(user.sub, user.sub);
+    // Pass only userId — service fetches email from DB directly
+    const result = await this.mfaService.setupMfa(user.sub);
     return result as unknown as Record<string, unknown>;
   }
 
@@ -356,31 +357,42 @@ export class AuthController {
     return this.mfaService.verifyAndEnableMfa(user.sub, code);
   }
 
-  // @Post('mfa/verify-login')
-  // @Public()
-  // @HttpCode(HttpStatus.OK)
-  // async verifyMfaLogin(
-  //     @Body('mfaToken') mfaToken: string,
-  //     @Body('code') code: string,
-  //     @Req() req: Request,
-  //     @Res({ passthrough: true }) res: Response,
-  // ) {
-  //     const result = await this.mfaService.verifyMfaCode(
-  //         mfaToken,
-  //         code,
-  //         req.ip || '',
-  //         req.get('user-agent') || '',
-  //     );
+  @Post('mfa/validate')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Complete MFA login — exchange mfaToken + TOTP code for full tokens',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'MFA validated, full tokens returned',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or expired MFA token / wrong code',
+  })
+  async validateMfaLogin(
+    @Body('mfaToken') mfaToken: string,
+    @Body('code') code: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<Record<string, unknown>> {
+    const result = await this.authService.verifyMfaLogin(
+      mfaToken,
+      code,
+      req.ip || '',
+      req.get('user-agent') || '',
+    );
 
-  //     this.setRefreshTokenCookie(res, result.refreshToken);
+    this.setRefreshTokenCookie(res, result.refreshToken);
 
-  //     return {
-  //         accessToken: result.accessToken,
-  //         refreshToken: result.refreshToken,
-  //         expiresIn: result.expiresIn,
-  //         customer: result.customer,
-  //     };
-  // }
+    return {
+      accessToken: result.accessToken,
+      expiresIn: result.expiresIn,
+      customer: result.customer,
+    };
+  }
 
   @Delete('mfa/disable')
   @ApiBearerAuth('access-token')

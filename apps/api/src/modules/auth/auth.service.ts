@@ -358,6 +358,89 @@ export class AuthService {
     };
   }
 
+  async verifyMfaLogin(
+    mfaToken: string,
+    code: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<JwtTokenPair & { customer: Record<string, unknown> }> {
+    // Decode and validate the mfa_pending token
+    let payload: JwtPayload;
+    try {
+      payload = await this.tokenService.verifyMfaToken(mfaToken);
+    } catch {
+      throw new UnauthorizedException('MFA token is invalid or expired');
+    }
+
+    if ((payload as any).type !== 'mfa_pending') {
+      throw new UnauthorizedException('Invalid MFA token');
+    }
+
+    const customerId = payload.sub;
+
+    // Fetch customer
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: customerId, deletedAt: null },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        mobileNumber: true,
+        loyaltyPoints: true,
+        profilePhotoUrl: true,
+        mobileVerified: true,
+        emailVerified: true,
+        twoFactorEnabled: true,
+        twoFactorSecret: true,
+      },
+    });
+
+    if (!customer?.twoFactorEnabled || !customer?.twoFactorSecret) {
+      throw new BadRequestException('MFA is not enabled for this account');
+    }
+
+    // Verify the TOTP code
+    const { authenticator } = require('otplib');
+    authenticator.options = { window: 1 };
+
+    const isValid = authenticator.verify({
+      token: code,
+      secret: customer.twoFactorSecret,
+    });
+
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid MFA code');
+    }
+
+    // MFA passed — create full session
+    const tokens = await this.createSession(
+      customer.id,
+      UserRole.CUSTOMER,
+      ipAddress,
+      userAgent,
+    );
+
+    this.logger.log('MFA login completed', 'AuthService', {
+      customerId: customer.id,
+      ipAddress,
+    });
+
+    return {
+      ...tokens,
+      customer: {
+        id: customer.id,
+        fullName: customer.fullName,
+        email: customer.email,
+        mobileNumber: customer.mobileNumber,
+        loyaltyPoints: customer.loyaltyPoints,
+        profilePhotoUrl: customer.profilePhotoUrl,
+        mobileVerified: customer.mobileVerified,
+        emailVerified: customer.emailVerified,
+        twoFactorEnabled: customer.twoFactorEnabled,
+      },
+    };
+  }
+
   // ─── Refresh Token ───
 
   async refreshTokens(

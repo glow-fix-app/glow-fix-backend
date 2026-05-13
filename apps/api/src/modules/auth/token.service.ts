@@ -51,6 +51,23 @@ export class TokenService {
     });
   }
 
+   async verifyMfaToken(token: string): Promise<JwtPayload> {
+    try {
+      const payload = this.jwtService.verify<JwtPayload & { type?: string }>(token, {
+        secret: this.configService.get<string>('jwt.accessSecret'),
+      });
+      
+      // Additional validation to ensure it's an MFA token
+      if (payload.type !== 'mfa_pending') {
+        throw new Error('Not an MFA token');
+      }
+      
+      return payload;
+    } catch (error) {
+      throw new Error('Invalid or expired MFA token');
+    }
+  }
+
   async blacklistToken(jti: string, expiresInSeconds: number): Promise<void> {
     await this.redis.set(RedisKeys.tokenBlacklist(jti), '1', expiresInSeconds);
   }
