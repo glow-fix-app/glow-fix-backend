@@ -48,7 +48,7 @@ export class PrismaService
     this.logger.log('Database disconnected', 'PrismaService');
   }
 
-  async softDelete(model: 'customer', id: string): Promise<void> {
+  async softDelete(model: 'user', id: string): Promise<void> {
     await (this[model] as any).update({
       where: { id },
       data: { deletedAt: new Date() },
@@ -61,18 +61,18 @@ export class PrismaService
   }> {
     const now = new Date();
 
-    const [sessions, carts] = await this.$transaction([
-      this.session.deleteMany({
+    const [sessions] = await this.$transaction([
+      this.userSession.deleteMany({
         where: { expiresAt: { lt: now } },
       }),
-      this.cart.deleteMany({
-        where: { expiresAt: { lt: now } },
-      }),
+      // this.cart.deleteMany({
+      //   where: { expiresAt: { lt: now } },
+      // }),
     ]);
 
     return {
       sessions: sessions.count,
-      carts: carts.count,
+      carts: 0,
     };
   }
 }

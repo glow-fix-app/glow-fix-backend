@@ -8,6 +8,8 @@ export const RedisKeys = {
     `session:${userId}:${sessionId}`,
   userSessions: (userId: string) =>
     `session:${userId}:*`,
+  userLogoutTimestamp: (userId: string) =>
+     `user:logout-timestamp:${userId}`,
 
   // ─── OTP ───
   otp: (identifier: string, purpose: string) =>

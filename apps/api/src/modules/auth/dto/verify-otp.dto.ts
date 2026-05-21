@@ -8,20 +8,21 @@ import {
 } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 
+// Must match OtpPurpose enum in prisma schema exactly
 export enum OtpPurpose {
-  REGISTRATION = 'REGISTRATION',
-  LOGIN = 'LOGIN',
   PASSWORD_RESET = 'PASSWORD_RESET',
-  MFA = 'MFA',
+  PHONE_VERIFICATION = 'PHONE_VERIFICATION',
+  EMAIL_VERIFICATION = 'EMAIL_VERIFICATION',
+  TWO_FACTOR = 'TWO_FACTOR',
 }
 
 export class VerifyOtpDto {
   @ApiPropertyOptional({ example: '+201092887320', description: 'Use this OR email' })
   @IsOptional()
   @IsString()
-  mobileNumber?: string;
+  phone?: string;
 
-  @ApiPropertyOptional({ example: 'jane@example.com', description: 'Use this OR mobileNumber' })
+  @ApiPropertyOptional({ example: 'ahmed@example.com', description: 'Use this OR phone' })
   @IsOptional()
   @IsEmail()
   email?: string;
@@ -32,50 +33,47 @@ export class VerifyOtpDto {
   @Matches(/^\d{6}$/, { message: 'OTP must be a 6-digit number' })
   otp: string;
 
-  @ApiProperty({ enum: OtpPurpose, example: OtpPurpose.REGISTRATION })
+  @ApiProperty({ enum: OtpPurpose, example: OtpPurpose.EMAIL_VERIFICATION })
   @IsEnum(OtpPurpose)
   purpose: OtpPurpose;
 }
 
-// // import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-// // import { IsString, IsNotEmpty, IsOptional, IsEmail } from 'class-validator';
 
-// // export enum OtpPurpose {
-// //   REGISTRATION = 'REGISTRATION',
-// //   LOGIN = 'LOGIN',
-// //   FORGOT_PASSWORD = 'FORGOT_PASSWORD',
-// //   CHANGE_PASSWORD = 'CHANGE_PASSWORD',
-// // }
 
-// // export class VerifyOtpDto {
-// //   @ApiProperty({
-// //     example: '+201012345678',
-// //     description: 'Mobile number (use this OR email)',
-// //   })
-// //   @IsOptional()
-// //   @IsString()
-// //   mobileNumber?: string;
+// dto/verify-otp.dto.ts
+// import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+// import { IsString, IsOptional, IsEnum, MinLength, MaxLength } from 'class-validator';
 
-// // @ApiPropertyOptional({
-// //   example: 'jane@example.com',
-// //   description: 'Email address (use this OR mobileNumber)',
-// // })
-// // @IsOptional()
-// // @IsEmail()
-// // email?: string;
+// export enum OtpPurpose {
+//   EMAIL_VERIFICATION = 'EMAIL_VERIFICATION',
+//   PHONE_VERIFICATION = 'PHONE_VERIFICATION',
+//   LOGIN = 'LOGIN',
+//   PASSWORD_RESET = 'PASSWORD_RESET',
+// }
 
-// //   @ApiProperty({ example: '492817' })
-// //   @IsString()
-// //   @IsNotEmpty()
-// //   otp: string;
+// export class VerifyOtpDto {
+//   @ApiPropertyOptional({ example: 'user@example.com' })
+//   @IsOptional()
+//   @IsString()
+//   email?: string;
 
-// //   @ApiProperty({ enum: OtpPurpose, example: OtpPurpose.REGISTRATION })
-// //   @IsString()
-// //   @IsNotEmpty()
-// //   purpose: OtpPurpose;
-// // }
+//   @ApiPropertyOptional({ example: '+201000000000' })
+//   @IsOptional()
+//   @IsString()
+//   phone?: string;
 
-// import { 
+//   @ApiProperty({ example: '123456' })
+//   @IsString()
+//   @MinLength(6)
+//   @MaxLength(6)
+//   otp: string;
+
+//   @ApiProperty({ enum: OtpPurpose })
+//   @IsEnum(OtpPurpose)
+//   purpose: OtpPurpose;
+// }
+
+// import {
 //   IsOptional,
 //   IsString,
 //   IsNotEmpty,
@@ -83,7 +81,7 @@ export class VerifyOtpDto {
 //   Matches,
 //   IsEmail,
 // } from 'class-validator';
-// import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+// import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
 
 // export enum OtpPurpose {
 //   REGISTRATION = 'REGISTRATION',
@@ -93,20 +91,17 @@ export class VerifyOtpDto {
 // }
 
 // export class VerifyOtpDto {
-//   @ApiProperty({ example: '+12025551234' })
+//   @ApiPropertyOptional({ example: '+201092887320', description: 'Use this OR email' })
+//   @IsOptional()
 //   @IsString()
-//   @IsNotEmpty()
-//   mobileNumber: string;
+//   mobileNumber?: string;
 
-//   @ApiPropertyOptional({
-//     example: 'jane@example.com',
-//     description: 'Email address (use this OR mobileNumber)',
-//   })
+//   @ApiPropertyOptional({ example: 'jane@example.com', description: 'Use this OR mobileNumber' })
 //   @IsOptional()
 //   @IsEmail()
 //   email?: string;
 
-//   @ApiProperty({ example: '123456' })
+//   @ApiProperty({ example: '403930' })
 //   @IsString()
 //   @IsNotEmpty()
 //   @Matches(/^\d{6}$/, { message: 'OTP must be a 6-digit number' })
