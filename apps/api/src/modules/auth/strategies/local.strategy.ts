@@ -18,11 +18,11 @@ export class LocalStrategy extends PassportStrategy(Strategy, 'local') {
   }
 
   async validate(identifier: string, password: string): Promise<{ id: string }> {
-    const customer = await this.prisma.customer.findFirst({
+    const customer = await this.prisma.user.findFirst({
       where: {
         OR: [
           { email: identifier.toLowerCase() },
-          { mobileNumber: identifier },
+          { phone: identifier },
         ],
         deletedAt: null,
       },

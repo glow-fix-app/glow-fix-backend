@@ -1,195 +1,257 @@
-// import { Test, TestingModule } from '@nestjs/testing';
-// import { SessionService } from '../session.service';
-// import { PrismaService } from '../../../core/prisma/prisma.service';
-// import { WinstonLoggerService } from '../../../common/logger/winston-logger.service';
+/// <reference types="jest" />
+import { Test, TestingModule } from '@nestjs/testing';
+import { SessionService } from '../session.service';
+import { PrismaService } from '../../../core/prisma/prisma.service';
+import { WinstonLoggerService } from '../../../common/logger/winston-logger.service';
 
-// describe('SessionService', () => {
-//   let service: SessionService;
-//   let prisma: jest.Mocked<PrismaService>;
+describe('SessionService', () => {
+  let service: SessionService;
+  let prisma: jest.Mocked<PrismaService>;
 
-//   const mockPrisma = {
-//     session: {
-//       create: jest.fn(),
-//       findMany: jest.fn(),
-//       delete: jest.fn(),
-//       deleteMany: jest.fn(),
-//       update: jest.fn(),
-//     },
-//   };
+  const mockPrisma = {
+    userSession: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      delete: jest.fn(),
+      deleteMany: jest.fn(),
+      update: jest.fn(),
+    },
+  };
 
-//   const mockLogger = {
-//     log: jest.fn(),
-//     error: jest.fn(),
-//     warn: jest.fn(),
-//     debug: jest.fn(),
-//   };
+  const mockLogger = {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+  };
 
-//   beforeEach(async () => {
-//     const module: TestingModule = await Test.createTestingModule({
-//       providers: [
-//         SessionService,
-//         { provide: PrismaService, useValue: mockPrisma },
-//         { provide: WinstonLoggerService, useValue: mockLogger },
-//       ],
-//     }).compile();
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SessionService,
+        { provide: PrismaService, useValue: mockPrisma },
+        { provide: WinstonLoggerService, useValue: mockLogger },
+      ],
+    }).compile();
 
-//     service = module.get<SessionService>(SessionService);
-//     prisma = module.get(PrismaService);
+    service = module.get<SessionService>(SessionService);
+    prisma = module.get(PrismaService);
 
-//     jest.clearAllMocks();
-//   });
+    jest.clearAllMocks();
+  });
 
-//   describe('createSession', () => {
-//     it('should create a session with parsed user agent', async () => {
-//       mockPrisma.session.create.mockResolvedValue({
-//         id: 'session-id',
-//       });
+  describe('createSession', () => {
+    const userId = 'user-id';
+    const refreshToken = 'test-refresh-token';
+    const ipAddress = '127.0.0.1';
+    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0';
 
-//       const result = await service.createSession(
-//         'user-id',
-//         'CUSTOMER',
-//         '127.0.0.1',
-//         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120.0.0.0',
-//       );
+    it('should create a session with parsed device info and return id', async () => {
+      mockPrisma.userSession.create.mockResolvedValue({ id: 'session-id' });
 
-//       expect(result.id).toBe('session-id');
-//       expect(mockPrisma.session.create).toHaveBeenCalledWith(
-//         expect.objectContaining({
-//           data: expect.objectContaining({
-//             userId: 'user-id',
-//             userType: 'CUSTOMER',
-//             ipAddress: '127.0.0.1',
-//             browser: expect.stringContaining('Chrome'),
-//           }),
-//         }),
-//       );
-//     });
-//   });
+      const result = await service.createSession(userId, refreshToken, ipAddress, userAgent);
 
-//   describe('enforceSessionLimit', () => {
-//     it('should remove oldest sessions when limit exceeded', async () => {
-//       const sessions = Array.from({ length: 6 }, (_, i) => ({
-//         id: `session-${i}`,
-//         lastActivityAt: new Date(Date.now() - (6 - i) * 3600000),
-//       }));
+      expect(result.id).toBe('session-id');
+      expect(mockPrisma.userSession.create).toHaveBeenCalledTimes(1);
+      const data = mockPrisma.userSession.create.mock.calls[0][0].data;
+      expect(data.userId).toBe(userId);
+      expect(data.ipAddress).toBe(ipAddress);
+      expect(data.userAgent).toBe(userAgent);
+      expect(data.deviceInfo).toContain('desktop');
+      expect(data.tokenHash).toBeDefined();
+      expect(data.expiresAt).toBeInstanceOf(Date);
+      expect(data.lastUsedAt).toBeInstanceOf(Date);
+    });
+  });
 
-//       mockPrisma.session.findMany.mockResolvedValue(sessions);
-//       mockPrisma.session.deleteMany.mockResolvedValue({ count: 2 });
+  describe('invalidateSession', () => {
+    it('should delete session by id', async () => {
+      mockPrisma.userSession.delete.mockResolvedValue({} as any);
 
-//       await service.enforceSessionLimit('user-id');
+      await service.invalidateSession('session-id');
 
-//       expect(mockPrisma.session.deleteMany).toHaveBeenCalledWith(
-//         expect.objectContaining({
-//           where: expect.objectContaining({
-//             id: expect.objectContaining({
-//               in: expect.arrayContaining(['session-0', 'session-1']),
-//             }),
-//           }),
-//         }),
-//       );
-//     });
+      expect(mockPrisma.userSession.delete).toHaveBeenCalledWith({
+        where: { id: 'session-id' },
+      });
+    });
 
-//     it('should not remove sessions when under limit', async () => {
-//       const sessions = Array.from({ length: 3 }, (_, i) => ({
-//         id: `session-${i}`,
-//         lastActivityAt: new Date(),
-//       }));
+    it('should handle non-existent session gracefully', async () => {
+      mockPrisma.userSession.delete.mockRejectedValue(new Error('Not found'));
 
-//       mockPrisma.session.findMany.mockResolvedValue(sessions);
+      await expect(service.invalidateSession('non-existent')).resolves.not.toThrow();
+    });
+  });
 
-//       await service.enforceSessionLimit('user-id');
+  describe('invalidateAllSessions', () => {
+    it('should delete all sessions for user and return count', async () => {
+      mockPrisma.userSession.deleteMany.mockResolvedValue({ count: 4 });
 
-//       expect(mockPrisma.session.deleteMany).not.toHaveBeenCalled();
-//     });
-//   });
+      const result = await service.invalidateAllSessions('user-id');
 
-//   describe('invalidateSession', () => {
-//     it('should delete specified session', async () => {
-//       mockPrisma.session.delete.mockResolvedValue({});
+      expect(result).toBe(4);
+      expect(mockPrisma.userSession.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'user-id' },
+      });
+    });
 
-//       await service.invalidateSession('session-id');
+    it('should return 0 when no sessions exist', async () => {
+      mockPrisma.userSession.deleteMany.mockResolvedValue({ count: 0 });
 
-//       expect(mockPrisma.session.delete).toHaveBeenCalledWith({
-//         where: { id: 'session-id' },
-//       });
-//     });
+      const result = await service.invalidateAllSessions('user-id');
 
-//     it('should handle non-existent session gracefully', async () => {
-//       mockPrisma.session.delete.mockRejectedValue(new Error('Not found'));
+      expect(result).toBe(0);
+    });
+  });
 
-//       await expect(
-//         service.invalidateSession('non-existent'),
-//       ).resolves.not.toThrow();
-//     });
-//   });
+  describe('invalidateByTokenHash', () => {
+    it('should delete sessions by hashed refresh token', async () => {
+      mockPrisma.userSession.deleteMany.mockResolvedValue({ count: 1 });
 
-//   describe('invalidateAllSessions', () => {
-//     it('should delete all sessions for user', async () => {
-//       mockPrisma.session.deleteMany.mockResolvedValue({ count: 4 });
+      await service.invalidateByTokenHash('some-refresh-token');
 
-//       const result = await service.invalidateAllSessions('user-id');
+      expect(mockPrisma.userSession.deleteMany).toHaveBeenCalledTimes(1);
+      const arg = mockPrisma.userSession.deleteMany.mock.calls[0][0];
+      expect(arg.where.tokenHash).toBeDefined();
+      expect(typeof arg.where.tokenHash).toBe('string');
+    });
+  });
 
-//       expect(result).toBe(4);
-//       expect(mockPrisma.session.deleteMany).toHaveBeenCalledWith({
-//         where: { userId: 'user-id' },
-//       });
-//     });
-//   });
+  describe('findByTokenHash', () => {
+    it('should find session by hashed refresh token', async () => {
+      const mockSession = { id: 'session-id', userId: 'user-id' };
+      mockPrisma.userSession.findUnique.mockResolvedValue(mockSession);
 
-//   describe('getActiveSessions', () => {
-//     it('should return non-expired sessions', async () => {
-//       const sessions = [
-//         {
-//           id: 'session-1',
-//           deviceType: 'desktop',
-//           browser: 'Chrome 120',
-//           os: 'macOS 14',
-//           ipAddress: '127.0.0.1',
-//           lastActivityAt: new Date(),
-//           createdAt: new Date(),
-//         },
-//       ];
+      const result = await service.findByTokenHash('some-refresh-token');
 
-//       mockPrisma.session.findMany.mockResolvedValue(sessions);
+      expect(result).toEqual(mockSession);
+      const arg = mockPrisma.userSession.findUnique.mock.calls[0][0];
+      expect(arg.where.tokenHash).toBeDefined();
+      expect(arg.select).toEqual({ id: true, userId: true });
+    });
 
-//       const result = await service.getActiveSessions('user-id');
+    it('should return null when no session found', async () => {
+      mockPrisma.userSession.findUnique.mockResolvedValue(null);
 
-//       expect(result).toHaveLength(1);
-//       expect(mockPrisma.session.findMany).toHaveBeenCalledWith(
-//         expect.objectContaining({
-//           where: expect.objectContaining({
-//             userId: 'user-id',
-//             expiresAt: expect.objectContaining({
-//               gt: expect.any(Date),
-//             }),
-//           }),
-//         }),
-//       );
-//     });
-//   });
+      const result = await service.findByTokenHash('invalid-token');
 
-//   describe('updateActivity', () => {
-//     it('should update lastActivityAt', async () => {
-//       mockPrisma.session.update.mockResolvedValue({});
+      expect(result).toBeNull();
+    });
+  });
 
-//       await service.updateActivity('session-id');
+  describe('enforceSessionLimit', () => {
+    it('should remove oldest sessions when limit exceeded', async () => {
+      const sessions = Array.from({ length: 6 }, (_, i) => ({
+        id: `session-${i}`,
+        lastUsedAt: new Date(Date.now() - (6 - i) * 3600000),
+      }));
+      mockPrisma.userSession.findMany.mockResolvedValue(sessions);
+      mockPrisma.userSession.deleteMany.mockResolvedValue({ count: 2 });
 
-//       expect(mockPrisma.session.update).toHaveBeenCalledWith(
-//         expect.objectContaining({
-//           where: { id: 'session-id' },
-//           data: expect.objectContaining({
-//             lastActivityAt: expect.any(Date),
-//           }),
-//         }),
-//       );
-//     });
+      await service.enforceSessionLimit('user-id');
 
-//     it('should fail silently on error', async () => {
-//       mockPrisma.session.update.mockRejectedValue(new Error('Not found'));
+      expect(mockPrisma.userSession.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: expect.objectContaining({
+              in: expect.arrayContaining(['session-0', 'session-1']),
+            }),
+          }),
+        }),
+      );
+    });
 
-//       await expect(
-//         service.updateActivity('non-existent'),
-//       ).resolves.not.toThrow();
-//     });
-//   });
-// });
+    it('should not remove sessions when under limit', async () => {
+      const sessions = Array.from({ length: 3 }, (_, i) => ({
+        id: `session-${i}`,
+        lastUsedAt: new Date(),
+      }));
+      mockPrisma.userSession.findMany.mockResolvedValue(sessions);
+
+      await service.enforceSessionLimit('user-id');
+
+      expect(mockPrisma.userSession.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('should remove oldest session when exactly at limit', async () => {
+      const sessions = Array.from({ length: 5 }, (_, i) => ({
+        id: `session-${i}`,
+        lastUsedAt: new Date(Date.now() - (5 - i) * 3600000),
+      }));
+      mockPrisma.userSession.findMany.mockResolvedValue(sessions);
+      mockPrisma.userSession.deleteMany.mockResolvedValue({ count: 1 });
+
+      await service.enforceSessionLimit('user-id');
+
+      expect(mockPrisma.userSession.deleteMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: expect.objectContaining({
+              in: ['session-0'],
+            }),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('getActiveSessions', () => {
+    it('should return non-expired sessions ordered by lastUsedAt desc', async () => {
+      const sessions = [
+        {
+          id: 'session-1',
+          deviceInfo: 'desktop | Chrome 120 | Windows 10',
+          ipAddress: '127.0.0.1',
+          lastUsedAt: new Date(),
+          createdAt: new Date(),
+        },
+      ];
+      mockPrisma.userSession.findMany.mockResolvedValue(sessions);
+
+      const result = await service.getActiveSessions('user-id');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('session-1');
+      expect(mockPrisma.userSession.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: 'user-id',
+            expiresAt: expect.objectContaining({ gt: expect.any(Date) }),
+          }),
+          orderBy: { lastUsedAt: 'desc' },
+        }),
+      );
+    });
+
+    it('should return empty array when no active sessions', async () => {
+      mockPrisma.userSession.findMany.mockResolvedValue([]);
+
+      const result = await service.getActiveSessions('user-id');
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('updateActivity', () => {
+    it('should update lastUsedAt for session', async () => {
+      mockPrisma.userSession.update.mockResolvedValue({} as any);
+
+      await service.updateActivity('session-id');
+
+      expect(mockPrisma.userSession.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'session-id' },
+          data: expect.objectContaining({
+            lastUsedAt: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
+    it('should fail silently on error', async () => {
+      mockPrisma.userSession.update.mockRejectedValue(new Error('Not found'));
+
+      await expect(service.updateActivity('non-existent')).resolves.not.toThrow();
+    });
+  });
+});

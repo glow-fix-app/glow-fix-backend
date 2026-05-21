@@ -18,6 +18,7 @@ export class TokenService {
 
   async generateTokenPair(
     payload: Omit<JwtPayload, 'iat' | 'exp'>,
+    existingRefreshToken?: string, // ← optional — pass when already stored in DB
   ): Promise<JwtTokenPair> {
     const accessToken = this.jwtService.sign(
       { ...payload },
@@ -27,7 +28,9 @@ export class TokenService {
       },
     );
 
-    const refreshToken = this.generateRefreshToken(); // This should return a string
+    // Use the provided refresh token (already hashed in DB) or generate a new one
+    const refreshToken = existingRefreshToken ?? this.generateRefreshToken();
+
     const expiresIn = this.parseExpiry(
       this.configService.get<string>('jwt.accessExpiry') || '15m',
     );
@@ -51,17 +54,20 @@ export class TokenService {
     });
   }
 
-   async verifyMfaToken(token: string): Promise<JwtPayload> {
+  async verifyMfaToken(token: string): Promise<JwtPayload> {
     try {
-      const payload = this.jwtService.verify<JwtPayload & { type?: string }>(token, {
-        secret: this.configService.get<string>('jwt.accessSecret'),
-      });
-      
+      const payload = this.jwtService.verify<JwtPayload & { type?: string }>(
+        token,
+        {
+          secret: this.configService.get<string>('jwt.accessSecret'),
+        },
+      );
+
       // Additional validation to ensure it's an MFA token
       if (payload.type !== 'mfa_pending') {
         throw new Error('Not an MFA token');
       }
-      
+
       return payload;
     } catch (error) {
       throw new Error('Invalid or expired MFA token');

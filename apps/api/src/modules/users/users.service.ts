@@ -44,7 +44,7 @@ export class UsersService {
   // ─── Get single user by ID ───
 
   async getUser(id: string): Promise<Record<string, unknown>> {
-    const customer = await this.prisma.customer.findUnique({
+    const customer = await this.prisma.user.findUnique({
       where: { id, deletedAt: null },
       select: USER_SELECT,
     });
@@ -88,14 +88,14 @@ export class UsersService {
     };
 
     const [data, total] = await Promise.all([
-      this.prisma.customer.findMany({
+      this.prisma.user.findMany({
         where,
         select: USER_SELECT,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
-      this.prisma.customer.count({ where }),
+      this.prisma.user.count({ where }),
     ]);
 
     return {
@@ -119,7 +119,7 @@ export class UsersService {
       throw new ForbiddenException('You are not allowed to update this user');
     }
 
-    const existing = await this.prisma.customer.findUnique({
+    const existing = await this.prisma.user.findUnique({
       where: { id, deletedAt: null },
     });
 
@@ -129,7 +129,7 @@ export class UsersService {
 
     // Uniqueness checks only when the field is actually changing
     if (dto.email && dto.email !== existing.email) {
-      const emailTaken = await this.prisma.customer.findUnique({
+      const emailTaken = await this.prisma.user.findUnique({
         where: { email: dto.email },
       });
       if (emailTaken) {
@@ -137,16 +137,16 @@ export class UsersService {
       }
     }
 
-    if (dto.mobileNumber && dto.mobileNumber !== existing.mobileNumber) {
-      const mobileTaken = await this.prisma.customer.findUnique({
-        where: { mobileNumber: dto.mobileNumber },
+    if (dto.mobileNumber && dto.mobileNumber !== existing.phone) {
+      const mobileTaken = await this.prisma.user.findUnique({
+        where: { phone: dto.mobileNumber },
       });
       if (mobileTaken) {
         throw new ConflictException('Mobile number is already in use');
       }
     }
 
-    const updated = await this.prisma.customer.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: {
         ...(dto.fullName && { fullName: dto.fullName }),
@@ -186,7 +186,7 @@ export class UsersService {
     //   throw new ForbiddenException('You are not allowed to delete this user');
     // }
 
-    const existing = await this.prisma.customer.findUnique({
+    const existing = await this.prisma.user.findUnique({
       where: { id, deletedAt: null },
     });
 
@@ -197,25 +197,25 @@ export class UsersService {
     // Permanently delete the user and all related data
     await this.prisma.$transaction([
       // Delete sessions first (foreign key constraint)
-      this.prisma.session.deleteMany({
+      this.prisma.userSession.deleteMany({
         where: { userId: id },
       }),
-      // Delete OAuth accounts
-      this.prisma.oAuthAccount.deleteMany({
-        where: { customerId: id },
-      }),
-      // Delete security events
-      this.prisma.securityEvent.deleteMany({
-        where: { userId: id },
-      }),
-      // Delete referrals
-      this.prisma.referral.deleteMany({
-        where: {
-          OR: [{ referrerId: id }, { refereeId: id }],
-        },
-      }),
+      // // Delete OAuth accounts
+      // this.prisma.oAuthAccount.deleteMany({
+      //   where: { customerId: id },
+      // }),
+      // // Delete security events
+      // this.prisma.securityEvent.deleteMany({
+      //   where: { userId: id },
+      // }),
+      // // Delete referrals
+      // this.prisma.referral.deleteMany({
+      //   where: {
+      //     OR: [{ referrerId: id }, { refereeId: id }],
+      //   },
+      // }),
       // Finally delete the customer
-      this.prisma.customer.delete({
+      this.prisma.user.delete({
         where: { id },
       }),
     ]);
