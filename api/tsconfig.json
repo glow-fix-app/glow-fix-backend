@@ -1,0 +1,42 @@
+{
+  "extends": "../packages/config/typescript/base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "noEmit": false,
+    "emitDeclarationOnly": false,
+
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "useDefineForClassFields": false,
+
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+
+    "module": "commonjs",
+    "target": "ES2021",
+    "moduleResolution": "node"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+}
+//     "rootDir": "./src",
+//     "outDir": "./dist",
+//     "noEmit": false,
+//     "emitDeclarationOnly": false,
+//     "experimentalDecorators": true,
+//     "emitDecoratorMetadata": true,
+//     "sourceMap": true,
+//     "declaration": true,
+//     "declarationMap": true,
+//     "module": "node16",
+//     "target": "ES2022",
+//     "moduleResolution": "node16"
+//   },
+//   "include": ["src/**/*"],
+//   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+// }
+
+
+
