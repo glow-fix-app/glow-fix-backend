@@ -9,6 +9,8 @@ import { PrismaService } from '../../core/prisma/prisma.service';
 import { WinstonLoggerService } from '../../common/logger/winston-logger.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUsersQueryDto } from './dto/get-users-query.dto';
+import { AvatarService }  from './avatar.service';
+import { UserProfile } from './user.types';
 
 // Shared select — passwordHash is never included
 const USER_SELECT = {
@@ -33,8 +35,32 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: WinstonLoggerService,
+    private readonly avatarService:  AvatarService,
   ) {}
 
+  async getProfile(userId: string): Promise<UserProfile> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId, deletedAt: null },
+      select: {
+        id:               true,
+        fullName:         true,
+        email:            true,
+        phone:            true,
+        role:             true,
+        emailVerified:    true,
+        phoneVerified:    true,
+        twoFactorEnabled: true,
+        createdAt:        true,
+      },
+    });
+ 
+    if (!user) throw new NotFoundException('User not found');
+ 
+    // avatarUrl resolved here — Redis O(1) on warm cache, one DB query on miss
+    const avatarUrl = await this.avatarService.resolve(userId);
+ 
+    return { ...user, avatarUrl };
+  }
   // ─── Get own profile ───
 
   async getMe(id: string): Promise<Record<string, unknown>> {

@@ -22,8 +22,8 @@
     "db:reset": "npx prisma migrate reset"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.637.0",
-    "@aws-sdk/s3-request-presigner": "^3.637.0",
+    "@aws-sdk/client-s3": "^3.1053.0",
+    "@aws-sdk/s3-request-presigner": "^3.1053.0",
     "@glow-fix/types": "*",
     "@glow-fix/utils": "*",
     "@nestjs/bullmq": "^10.2.0",
@@ -62,7 +62,7 @@
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "sharp": "^0.33.4",
+    "sharp": "^0.33.5",
     "stripe": "^16.8.0",
     "swagger-ui-express": "^5.0.1",
     "twilio": "^5.2.0",
@@ -83,7 +83,7 @@
     "@types/cookie-parser": "^1.4.7",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.14",
-    "@types/multer": "^1.4.11",
+    "@types/multer": "^1.4.13",
     "@types/node": "^20.19.41",
     "@types/nodemailer": "^8.0.0",
     "@types/passport-google-oauth20": "^2.0.16",
