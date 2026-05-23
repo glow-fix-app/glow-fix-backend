@@ -2,7 +2,7 @@ export interface JwtPayload {
   sub: string;
   role: string;
   sessionId: string;
-  iat?: number;
+  iat: number;
   exp?: number;
 }
 

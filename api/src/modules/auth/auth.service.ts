@@ -30,6 +30,9 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { RegisterAdminDto } from './dto/registerAdmin.dto';
+import { RegisterManagerDto } from './dto/registerManager.dto';
+import { RegisterClientDto } from './dto/registerClient.dto';
 
 authenticator.options = { window: 1 };
 
@@ -47,23 +50,21 @@ export class AuthService {
 
   // ─── Registration ───
 
-  async register(
-    dto: RegisterDto,
-    ipAddress: string,
-    userAgent: string,
-  ): Promise<{ message: string; requiresOtp: boolean }> {
-    // Check email uniqueness
+  // ── Shared pre-registration checks ──────────────────────────────────────────
+  private async assertUniqueEmailAndPhone(
+    email: string,
+    phone?: string,
+  ): Promise<void> {
     const existingEmail = await this.prisma.user.findUnique({
-      where: { email: dto.email.toLowerCase() },
+      where: { email: email.toLowerCase() },
     });
     if (existingEmail) {
       throw new ConflictException('An account with this email already exists');
     }
 
-    // Check phone uniqueness if provided
-    if (dto.phone) {
+    if (phone) {
       const existingPhone = await this.prisma.user.findUnique({
-        where: { phone: dto.phone },
+        where: { phone },
       });
       if (existingPhone) {
         throw new ConflictException(
@@ -71,66 +72,251 @@ export class AuthService {
         );
       }
     }
+  }
+
+  // ── Shared post-creation steps (auth provider + OTP) ────────────────────────
+  private async finaliseRegistration(
+    userId: string,
+    email: string,
+    phone?: string | null,
+  ): Promise<{ message: string; requiresOtp: boolean }> {
+    await this.prisma.userAuthProvider.create({
+      data: { userId, provider: 'EMAIL', email },
+    });
+
+    await this.otpService.sendOtpToEmail(
+      userId,
+      email,
+      OtpPurpose.EMAIL_VERIFICATION,
+    );
+
+    if (phone) {
+      await this.otpService.sendOtpToPhone(
+        userId,
+        phone,
+        OtpPurpose.PHONE_VERIFICATION,
+      );
+    }
+
+    return {
+      message: phone
+        ? 'Registration successful. Verification codes have been sent to your email and phone.'
+        : 'Registration successful. A verification code has been sent to your email.',
+      requiresOtp: true,
+    };
+  }
+
+  // ── CLIENT registration (public) ─────────────────────────────────────────────
+  async registerClient(
+    dto: RegisterClientDto,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<{ message: string; requiresOtp: boolean }> {
+    await this.assertUniqueEmailAndPhone(dto.email, dto.phone);
 
     const passwordHash = await this.passwordService.hash(dto.password);
 
-    // Create user with CLIENT role
     const user = await this.prisma.user.create({
       data: {
         role: 'CLIENT',
         fullName: dto.fullName,
         email: dto.email.toLowerCase(),
-        phone: dto.phone || null,
+        phone: dto.phone ?? null,
         passwordHash,
         emailVerified: false,
         phoneVerified: false,
       },
     });
 
-    // Create Client profile
-    await this.prisma.client.create({
-      data: { userId: user.id },
-    });
+    // CLIENT role → create Client profile row (location defaults to Cairo centre)
+    await this.prisma.client.create({ data: { userId: user.id } });
 
-    // Link email auth provider
-    await this.prisma.userAuthProvider.create({
-      data: {
-        userId: user.id,
-        provider: 'EMAIL',
-        email: user.email,
-        // isPrimary: true,
-      },
-    });
-
-    // Send email OTP for verification
-    await this.otpService.sendOtpToEmail(
-      user.id,
-      user.email,
-      OtpPurpose.EMAIL_VERIFICATION,
-    );
-
-    // Optionally send phone OTP if phone provided
-    if (dto.phone) {
-      await this.otpService.sendOtpToPhone(
-        user.id,
-        dto.phone,
-        OtpPurpose.PHONE_VERIFICATION,
-      );
-    }
-
-    this.logger.log('User registered', 'AuthService', {
+    this.logger.log('Client registered', 'AuthService', {
       userId: user.id,
       email: user.email,
       ipAddress,
     });
 
-    return {
-      message: dto.phone
-        ? 'Registration successful. Verification codes have been sent to your email and phone.'
-        : 'Registration successful. A verification code has been sent to your email.',
-      requiresOtp: true,
-    };
+    return this.finaliseRegistration(user.id, user.email, dto.phone);
   }
+
+  // ── MANAGER registration (public — business verified separately by admin) ────
+  async registerManager(
+    dto: RegisterManagerDto,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<{ message: string; requiresOtp: boolean }> {
+    await this.assertUniqueEmailAndPhone(dto.email, dto.phone);
+
+    const passwordHash = await this.passwordService.hash(dto.password);
+
+    const user = await this.prisma.user.create({
+      data: {
+        role: 'MANAGER',
+        fullName: dto.fullName,
+        email: dto.email.toLowerCase(),
+        phone: dto.phone ?? null,
+        passwordHash,
+        emailVerified: false,
+        phoneVerified: false,
+      },
+    });
+
+    // MANAGER role → no profile table; their Business row is created separately
+    // after admin approves their business application.
+
+    this.logger.log('Manager registered', 'AuthService', {
+      userId: user.id,
+      email: user.email,
+      ipAddress,
+    });
+
+    return this.finaliseRegistration(user.id, user.email, dto.phone);
+  }
+
+  // ── ADMIN registration (protected — only existing admins can create admins) ──
+  async registerAdmin(
+    dto: RegisterAdminDto,
+    actorId: string,           // ID of the admin performing the action
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<{ message: string; requiresOtp: boolean }> {
+    // Verify the caller is actually an admin
+    const actor = await this.prisma.user.findUnique({
+      where: { id: actorId, isActive: true },
+      select: { role: true },
+    });
+
+    if (!actor || actor.role !== 'ADMIN') {
+      throw new ForbiddenException('Only admins can create admin accounts');
+    }
+
+    await this.assertUniqueEmailAndPhone(dto.email, dto.phone);
+
+    const passwordHash = await this.passwordService.hash(dto.password);
+
+    const user = await this.prisma.user.create({
+      data: {
+        role: 'ADMIN',
+        fullName: dto.fullName,
+        email: dto.email.toLowerCase(),
+        phone: dto.phone ?? null,
+        passwordHash,
+        emailVerified: false,
+        phoneVerified: false,
+      },
+    });
+
+    // ADMIN role → no profile table needed.
+
+    this.logger.log('Admin registered', 'AuthService', {
+      actorId,
+      newAdminId: user.id,
+      email: user.email,
+      ipAddress,
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        actorId,
+        entityType: 'USER',
+        entityId: user.id,
+        action: 'CREATED',
+        newData: { role: 'ADMIN', email: user.email },
+        ipAddress,
+        userAgent,
+      },
+    });
+
+    return this.finaliseRegistration(user.id, user.email, dto.phone);
+  }
+
+  // // ─── Registration ───
+
+  // async register(
+  //   dto: RegisterDto,
+  //   ipAddress: string,
+  //   userAgent: string,
+  // ): Promise<{ message: string; requiresOtp: boolean }> {
+  //   // Check email uniqueness
+  //   const existingEmail = await this.prisma.user.findUnique({
+  //     where: { email: dto.email.toLowerCase() },
+  //   });
+  //   if (existingEmail) {
+  //     throw new ConflictException('An account with this email already exists');
+  //   }
+
+  //   // Check phone uniqueness if provided
+  //   if (dto.phone) {
+  //     const existingPhone = await this.prisma.user.findUnique({
+  //       where: { phone: dto.phone },
+  //     });
+  //     if (existingPhone) {
+  //       throw new ConflictException(
+  //         'An account with this phone number already exists',
+  //       );
+  //     }
+  //   }
+
+  //   const passwordHash = await this.passwordService.hash(dto.password);
+
+  //   // Create user with CLIENT role
+  //   const user = await this.prisma.user.create({
+  //     data: {
+  //       role: 'CLIENT',
+  //       fullName: dto.fullName,
+  //       email: dto.email.toLowerCase(),
+  //       phone: dto.phone || null,
+  //       passwordHash,
+  //       emailVerified: false,
+  //       phoneVerified: false,
+  //     },
+  //   });
+
+  //   // Create Client profile
+  //   await this.prisma.client.create({
+  //     data: { userId: user.id },
+  //   });
+
+  //   // Link email auth provider
+  //   await this.prisma.userAuthProvider.create({
+  //     data: {
+  //       userId: user.id,
+  //       provider: 'EMAIL',
+  //       email: user.email,
+  //       // isPrimary: true,
+  //     },
+  //   });
+
+  //   // Send email OTP for verification
+  //   await this.otpService.sendOtpToEmail(
+  //     user.id,
+  //     user.email,
+  //     OtpPurpose.EMAIL_VERIFICATION,
+  //   );
+
+  //   // Optionally send phone OTP if phone provided
+  //   if (dto.phone) {
+  //     await this.otpService.sendOtpToPhone(
+  //       user.id,
+  //       dto.phone,
+  //       OtpPurpose.PHONE_VERIFICATION,
+  //     );
+  //   }
+
+  //   this.logger.log('User registered', 'AuthService', {
+  //     userId: user.id,
+  //     email: user.email,
+  //     ipAddress,
+  //   });
+
+  //   return {
+  //     message: dto.phone
+  //       ? 'Registration successful. Verification codes have been sent to your email and phone.'
+  //       : 'Registration successful. A verification code has been sent to your email.',
+  //     requiresOtp: true,
+  //   };
+  // }
 
   // ─── OTP Verification ───
 

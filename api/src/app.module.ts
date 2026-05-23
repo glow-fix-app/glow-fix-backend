@@ -21,13 +21,14 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 // Middleware
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import mailConfig from './config/mail.config';
+import storageConfig from './config/storage.config';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [configuration, mailConfig],
+      load: [configuration, mailConfig, storageConfig],
       cache: true,
     }),
 

@@ -38,6 +38,9 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthUser } from '../auth/types/auth.types';
+import { RegisterAdminDto } from './dto/registerAdmin.dto';
+import { RegisterManagerDto } from './dto/registerManager.dto';
+import { RegisterClientDto } from './dto/registerClient.dto';
 
 @ApiTags('Auth')
 @Controller({ path: 'auth', version: '1' })
@@ -50,28 +53,90 @@ export class AuthController {
 
   // ─── Registration ───
 
-  @Post('register')
+  @Post('register/client')
   @Public()
-  @ApiOperation({ summary: 'Register new client account' })
-  @ApiResponse({
-    status: 201,
-    description: 'Registration successful, OTP sent',
-  })
+  @ApiOperation({ summary: 'Register a new client account' })
+  @ApiResponse({ status: 201, description: 'Registration successful, OTP sent' })
   @ApiResponse({ status: 409, description: 'Email or phone already exists' })
-  async register(
-    @Body() dto: RegisterDto,
+  async registerClient(
+    @Body() dto: RegisterClientDto,
     @Req() req: Request,
   ): Promise<{ message: string; requiresOtp: boolean }> {
     if (dto.password !== dto.confirmPassword) {
       throw new BadRequestException('Passwords do not match');
     }
-
-    return this.authService.register(
+    return this.authService.registerClient(
       dto,
       req.ip || '',
       req.get('user-agent') || '',
     );
   }
+
+  @Post('register/manager')
+  @Public()
+  @ApiOperation({ summary: 'Register a new manager (workshop owner) account' })
+  @ApiResponse({ status: 201, description: 'Registration successful, OTP sent' })
+  @ApiResponse({ status: 409, description: 'Email or phone already exists' })
+  async registerManager(
+    @Body() dto: RegisterManagerDto,
+    @Req() req: Request,
+  ): Promise<{ message: string; requiresOtp: boolean }> {
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+    return this.authService.registerManager(
+      dto,
+      req.ip || '',
+      req.get('user-agent') || '',
+    );
+  }
+
+  @Post('register/admin')
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Register a new admin account (admins only)' })
+  @ApiResponse({ status: 201, description: 'Admin account created, OTP sent' })
+  @ApiResponse({ status: 403, description: 'Caller is not an admin' })
+  @ApiResponse({ status: 409, description: 'Email or phone already exists' })
+  async registerAdmin(
+    @Body() dto: RegisterAdminDto,
+    @CurrentUser() actor: JwtPayload,
+    @Req() req: Request,
+  ): Promise<{ message: string; requiresOtp: boolean }> {
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+    return this.authService.registerAdmin(
+      dto,
+      actor.sub,
+      req.ip || '',
+      req.get('user-agent') || '',
+    );
+  }
+
+  // // ─── Registration ───
+
+  // @Post('register')
+  // @Public()
+  // @ApiOperation({ summary: 'Register new client account' })
+  // @ApiResponse({
+  //   status: 201,
+  //   description: 'Registration successful, OTP sent',
+  // })
+  // @ApiResponse({ status: 409, description: 'Email or phone already exists' })
+  // async register(
+  //   @Body() dto: RegisterDto,
+  //   @Req() req: Request,
+  // ): Promise<{ message: string; requiresOtp: boolean }> {
+  //   if (dto.password !== dto.confirmPassword) {
+  //     throw new BadRequestException('Passwords do not match');
+  //   }
+
+  //   return this.authService.register(
+  //     dto,
+  //     req.ip || '',
+  //     req.get('user-agent') || '',
+  //   );
+  // }
 
   // ─── OTP Verification ───
 
