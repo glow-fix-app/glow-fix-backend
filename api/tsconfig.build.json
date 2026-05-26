@@ -1,0 +1,14 @@
+{
+  "extends": "@glow-fix/config/typescript/base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationMap": true
+  },
+  "include": [
+    "src/main.ts",
+    "src/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+}

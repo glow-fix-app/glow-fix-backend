@@ -12,7 +12,7 @@
   "references": [
     { "path": "packages/types" },
     { "path": "packages/utils" },
-    { "path": "apps/api" }
+    { "path": "api" }
   ],
   "files": []
 }
