@@ -40,7 +40,6 @@ CREATE TYPE "log_action" AS ENUM ('CREATED', 'UPDATED', 'DELETED', 'STATUS_CHANG
 -- CreateTable
 CREATE TABLE "statuses" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
-    "name" TEXT NOT NULL,
     "context" TEXT NOT NULL,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -311,7 +310,6 @@ CREATE TABLE "booking_cancellations" (
 CREATE TABLE "booking_items" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "booking_id" UUID NOT NULL,
-    "item_type" "booking_item_type" NOT NULL,
     "business_service_id" UUID NOT NULL,
     "price" BIGINT NOT NULL,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -360,7 +358,6 @@ CREATE TABLE "recommended_repairs" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "report_id" UUID NOT NULL,
     "business_service_id" UUID NOT NULL,
-    "is_selected" BOOLEAN,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -536,9 +533,6 @@ CREATE TABLE "audit_logs" (
 
     CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
 );
-
--- CreateIndex
-CREATE UNIQUE INDEX "statuses_name_key" ON "statuses"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "payment_methods_name_key" ON "payment_methods"("name");

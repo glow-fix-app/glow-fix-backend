@@ -94,11 +94,24 @@ async function main() {
 
   const statusMap: Record<string, string> = {};
   for (const s of statusDefs) {
-    const row = await prisma.status.upsert({
-      where: { name: s.name },
-      update: {},
-      create: { name: s.name, context: s.context },
+    const existing = await prisma.status.findFirst({
+      where: {
+        context: s.context,
+      },
     });
+
+    let row;
+
+    if (!existing) {
+      row = await prisma.status.create({
+        data: {
+          context: s.context,
+        },
+      });
+    } else {
+      row = existing;
+    }
+
     statusMap[s.name] = row.id;
   }
 
@@ -890,7 +903,6 @@ async function main() {
   await prisma.bookingItem.create({
     data: {
       bookingId: booking1.id,
-      itemType: 'CATALOG_SERVICE',
       businessServiceId: bs1ExteriorWash.id,
       price: 15000n,
     },
@@ -899,7 +911,6 @@ async function main() {
   await prisma.bookingItem.create({
     data: {
       bookingId: booking2.id,
-      itemType: 'CATALOG_SERVICE',
       businessServiceId: bs1FullDetail.id,
       price: 45000n,
     },
@@ -908,7 +919,6 @@ async function main() {
   await prisma.bookingItem.create({
     data: {
       bookingId: booking3.id,
-      itemType: 'CATALOG_SERVICE',
       businessServiceId: bs1EngineDiagnosis.id,
       price: 20000n,
     },
@@ -917,7 +927,6 @@ async function main() {
   await prisma.bookingItem.create({
     data: {
       bookingId: booking4.id,
-      itemType: 'CATALOG_SERVICE',
       businessServiceId: bs1OilChange.id,
       price: 25000n,
     },
@@ -1047,7 +1056,6 @@ async function main() {
     data: {
       reportId: report.id,
       businessServiceId: bs1OilChange.id, // closest match in new schema
-      isSelected: null,
     },
   });
 
@@ -1055,7 +1063,6 @@ async function main() {
     data: {
       reportId: report.id,
       businessServiceId: bs1EngineDiagnosis.id,
-      isSelected: null,
     },
   });
 

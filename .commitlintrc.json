@@ -4,7 +4,7 @@
     "scope-enum": [
       2,
       "always",
-      ["api", "web", "dashboard", "types", "ui", "config", "utils", "infra", "ci", "docs"]
+      ["server", "web", "dashboard", "types", "ui", "config", "utils", "infra", "ci", "docs"]
     ],
     "type-enum": [
       2,

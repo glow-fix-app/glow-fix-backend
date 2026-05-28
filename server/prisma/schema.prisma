@@ -142,8 +142,6 @@ enum LogAction {
 /// (e.g., context = 'BOOKING', 'PAYMENT', 'BUSINESS').
 model Status {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  /// e.g., 'PENDING_REVIEW', 'APPROVED', 'ACTIVE', 'COMPLETED', 'FAILED'
-  name      String   @unique
   /// Domain this status belongs to: 'BUSINESS' | 'DOCUMENT' | 'BOOKING' | 'PAYMENT' | 'CONVERSATION' | 'MESSAGE'
   context   String
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -560,7 +558,6 @@ model BookingCancellation {
 model BookingItem {
   id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   bookingId         String          @map("booking_id") @db.Uuid
-  itemType          BookingItemType @map("item_type")
   businessServiceId String          @map("business_service_id") @db.Uuid
   /// Price snapshot at the time of booking
   price             BigInt
@@ -622,7 +619,6 @@ model RecommendedRepair {
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   reportId          String   @map("report_id") @db.Uuid
   businessServiceId String   @map("business_service_id") @db.Uuid
-  isSelected        Boolean? @map("is_selected")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
