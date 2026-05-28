@@ -35,12 +35,10 @@ import storageConfig from './config/storage.config';
     // Rate Limiting
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => [
-        {
-          ttl: (config.get<number>('throttle.ttl') || 60) * 1000,
-          limit: config.get<number>('throttle.limit') || 100,
-        },
-      ],
+      useFactory: async (config: ConfigService) => ({
+        ttl: config.get<number>('throttle.ttl') || 60,
+        limit: config.get<number>('throttle.limit') || 100,
+      }) as any,
     }),
 
     // Core
@@ -54,10 +52,7 @@ import storageConfig from './config/storage.config';
     UsersModule,
   ],
   providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
+    JwtAuthGuard,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

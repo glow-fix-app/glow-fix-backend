@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HttpExceptionFilter  } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -155,6 +156,9 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   // ─── Start Server ───
+  // Register global JWT guard
+  app.useGlobalGuards(app.get(JwtAuthGuard));
+
   await app.listen(port,()=>{
     logger.log(`🚀 Glow Fix API running in [${nodeEnv}] mode`);
   });
