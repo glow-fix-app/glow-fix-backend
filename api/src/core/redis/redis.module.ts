@@ -19,6 +19,7 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
           port: configService.get<number>('redis.port'),
           password: configService.get<string>('redis.password'),
           db: configService.get<number>('redis.db'),
+          tls: configService.get<string>('redis.tls') === 'true' ? {} : undefined,
           maxRetriesPerRequest: 3,
           enableReadyCheck: true,
           lazyConnect: false,

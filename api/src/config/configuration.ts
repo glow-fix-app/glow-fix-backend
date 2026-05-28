@@ -14,6 +14,8 @@ export default () => ({
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
     password: process.env.REDIS_PASSWORD || undefined,
+    db: parseInt(process.env.REDIS_DB || '0', 10),
+    tls: process.env.REDIS_TLS || 'false',
   },
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET,
