@@ -93,7 +93,10 @@ export class ClientsService {
   async updateLocation(
     userId: string,
     dto: UpdateClientLocationDto,
-  ): Promise<{ success: boolean; location: { latitude: number; longitude: number } }> {
+  ): Promise<{
+    success: boolean;
+    location: { latitude: number; longitude: number };
+  }> {
     const client = await this.prisma.client.findUnique({
       where: { userId: userId },
     });
@@ -104,13 +107,15 @@ export class ClientsService {
 
     // Create PostGIS point: ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
     await this.prisma.$executeRaw`
-      UPDATE clients 
-      SET location = ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)::geography,
-          updated_at = NOW()
-      WHERE user_id = ${userId}
-    `;
+    UPDATE clients 
+    SET location = ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)::geography,
+    updated_at = NOW()
+    WHERE user_id = ${userId}::uuid
+  `;
 
-    this.logger.log(`Location updated for client ${userId}: ${dto.latitude}, ${dto.longitude}`);
+    this.logger.log(
+      `Location updated for client ${userId}: ${dto.latitude}, ${dto.longitude}`,
+    );
 
     this.eventEmitter.emit('client.location_updated', {
       userId,
@@ -127,13 +132,17 @@ export class ClientsService {
   /**
    * Get client location
    */
-  async getLocation(userId: string): Promise<{ latitude: number; longitude: number } | null> {
-    const result = await this.prisma.$queryRaw<Array<{ latitude: number; longitude: number }>>`
+  async getLocation(
+    userId: string,
+  ): Promise<{ latitude: number; longitude: number } | null> {
+    const result = await this.prisma.$queryRaw<
+    Array<{ latitude: number; longitude: number }>
+    >`
       SELECT 
         ST_Y(location::geometry) as latitude,
         ST_X(location::geometry) as longitude
       FROM clients 
-      WHERE user_id = ${userId}
+      WHERE user_id = ${userId}::uuid
     `;
 
     if (!result || result.length === 0) {
@@ -155,7 +164,13 @@ export class ClientsService {
     radiusKm: number = 10,
     limit: number = 50,
     page: number = 1,
-  ): Promise<{ data: NearbyClientDto[]; total: number; page: number; limit: number; totalPages: number }> {
+  ): Promise<{
+    data: NearbyClientDto[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     const skip = (page - 1) * limit;
     const radiusMeters = radiusKm * 1000;
 
@@ -218,7 +233,7 @@ export class ClientsService {
     `;
 
     return {
-      data: results.map(r => ({
+      data: results.map((r) => ({
         id: r.id,
         user_id: r.user_id,
         full_name: r.full_name,
@@ -276,8 +291,9 @@ export class ClientsService {
     let totalSpent = 0;
 
     for (const booking of bookings) {
-      const latestStatus = booking.statusHistory?.[0]?.status?.context || 'PENDING';
-      
+      const latestStatus =
+        booking.statusHistory?.[0]?.status?.context || 'PENDING';
+
       switch (latestStatus) {
         case 'COMPLETED':
           completedBookings++;
@@ -318,7 +334,8 @@ export class ClientsService {
       pending_bookings: pendingBookings,
       in_progress_bookings: inProgressBookings,
       total_spent: totalSpent,
-      average_booking_value: bookings.length > 0 ? totalSpent / bookings.length : 0,
+      average_booking_value:
+        bookings.length > 0 ? totalSpent / bookings.length : 0,
       loyalty_points: loyaltyPoints,
       vehicles_count: vehiclesCount,
       member_since: client.user.createdAt,
@@ -400,7 +417,7 @@ export class ClientsService {
       this.prisma.booking.count({ where }),
     ]);
 
-    const formattedBookings = bookings.map(booking => {
+    const formattedBookings = bookings.map((booking) => {
       const latestStatus = booking.statusHistory?.[0];
       const payment = booking.payment;
       const review = booking.review;
@@ -416,7 +433,7 @@ export class ClientsService {
         },
         scheduled_at: booking.scheduledAt,
         expected_delivery_at: booking.expectedDeliveryAt,
-        services: booking.items.map(item => ({
+        services: booking.items.map((item) => ({
           name: item.businessService?.service?.title,
           price: Number(item.price),
         })),
@@ -450,7 +467,14 @@ export class ClientsService {
   async getFavoriteServices(
     userId: string,
     limit: number = 10,
-  ): Promise<Array<{ service_id: string; service_name: string; category: string; booking_count: number }>> {
+  ): Promise<
+    Array<{
+      service_id: string;
+      service_name: string;
+      category: string;
+      booking_count: number;
+    }>
+  > {
     const client = await this.prisma.client.findUnique({
       where: { userId: userId },
     });
@@ -517,18 +541,21 @@ export class ClientsService {
     ]);
 
     let runningBalance = await this.getClientPointsBalance(client.id);
-    
-    const transactionsWithBalance = [...transactions].reverse().map((t, idx, arr) => {
-      if (idx === 0) {
+
+    const transactionsWithBalance = [...transactions]
+      .reverse()
+      .map((t, idx, arr) => {
+        if (idx === 0) {
+          return { ...t, balance_after: runningBalance };
+        }
+        const prevPoints = arr[idx - 1]?.points || 0;
+        runningBalance = runningBalance - prevPoints;
         return { ...t, balance_after: runningBalance };
-      }
-      const prevPoints = arr[idx - 1]?.points || 0;
-      runningBalance = runningBalance - prevPoints;
-      return { ...t, balance_after: runningBalance };
-    }).reverse();
+      })
+      .reverse();
 
     return {
-      data: transactionsWithBalance.map(t => ({
+      data: transactionsWithBalance.map((t) => ({
         id: t.id,
         type: t.type,
         points: t.points,
@@ -631,9 +658,10 @@ export class ClientsService {
     startDate?: Date,
     endDate?: Date,
   ): Promise<ClientResponseDto[]> {
-    const dateFilter = startDate && endDate
-      ? { created_at: { gte: startDate, lte: endDate } }
-      : {};
+    const dateFilter =
+      startDate && endDate
+        ? { created_at: { gte: startDate, lte: endDate } }
+        : {};
 
     const topClients = await this.prisma.$queryRaw<Array<any>>`
       SELECT 
@@ -657,7 +685,7 @@ export class ClientsService {
       LIMIT ${limit}
     `;
 
-    return topClients.map(client => ({
+    return topClients.map((client) => ({
       id: client.id,
       user_id: client.user_id,
       full_name: client.full_name,
@@ -678,7 +706,11 @@ export class ClientsService {
   /**
    * Delete client (soft delete user, which cascades)
    */
-  async deleteClient(userId: string, requesterId: string, requesterRole: string): Promise<{ success: boolean; message: string }> {
+  async deleteClient(
+    userId: string,
+    requesterId: string,
+    requesterRole: string,
+  ): Promise<{ success: boolean; message: string }> {
     if (requesterId !== userId && requesterRole !== 'ADMIN') {
       throw new ForbiddenException('You are not allowed to delete this client');
     }
@@ -718,9 +750,11 @@ export class ClientsService {
 
   // ==================== PRIVATE HELPERS ====================
 
-  private parseLocation(location: any): { latitude: number; longitude: number } | undefined {
+  private parseLocation(
+    location: any,
+  ): { latitude: number; longitude: number } | undefined {
     if (!location) return undefined;
-    
+
     try {
       const coords = (location as any).coordinates;
       if (coords && Array.isArray(coords) && coords.length === 2) {
@@ -735,7 +769,10 @@ export class ClientsService {
     return undefined;
   }
 
-  private mapToResponseDto(client: any, stats: ClientStatsDto): ClientResponseDto {
+  private mapToResponseDto(
+    client: any,
+    stats: ClientStatsDto,
+  ): ClientResponseDto {
     return {
       id: client.id,
       user_id: client.userId || client.user_id,
@@ -755,7 +792,6 @@ export class ClientsService {
     };
   }
 }
-
 
 // import {
 //   Injectable,
@@ -924,7 +960,7 @@ export class ClientsService {
 //     const locationPoint = `ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)`;
 
 //     await this.prisma.$executeRawUnsafe(`
-//       UPDATE clients 
+//       UPDATE clients
 //       SET location = ${locationPoint}::geography,
 //           updated_at = NOW()
 //       WHERE user_id = '${userId}'
@@ -954,7 +990,7 @@ export class ClientsService {
 //     limit: number = 50,
 //   ): Promise<any[]> {
 //     const results = await this.prisma.$queryRaw`
-//       SELECT 
+//       SELECT
 //         c.id,
 //         c.user_id,
 //         u.full_name,
@@ -966,7 +1002,7 @@ export class ClientsService {
 //       JOIN users u ON c.user_id = u.id
 //       WHERE u.is_active = true
 //         AND ST_DWithin(
-//           c.location, 
+//           c.location,
 //           ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
 //           ${radiusKm * 1000}
 //         )
@@ -1016,7 +1052,7 @@ export class ClientsService {
 
 //     const completedBookings = bookings.filter(b => {
 //       const statuses = bookingStatuses.filter(bs => bs.bookingId === b.id);
-//       const latestStatus = statuses.sort((a, b) => 
+//       const latestStatus = statuses.sort((a, b) =>
 //         b.createdAt.getTime() - a.createdAt.getTime()
 //       )[0];
 //       return latestStatus?.status?.context === 'COMPLETED';
@@ -1024,7 +1060,7 @@ export class ClientsService {
 
 //     const cancelledBookings = bookings.filter(b => {
 //       const statuses = bookingStatuses.filter(bs => bs.bookingId === b.id);
-//       const latestStatus = statuses.sort((a, b) => 
+//       const latestStatus = statuses.sort((a, b) =>
 //         b.createdAt.getTime() - a.createdAt.getTime()
 //       )[0];
 //       return latestStatus?.status?.context === 'CANCELLED';
