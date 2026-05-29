@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["**/.env.*local", "**/.env"],
+  "globalDependencies": ["server/.env"],
   "globalEnv": ["NODE_ENV", "DATABASE_URL", "REDIS_URL"],
   "pipeline": {
     "build": {
