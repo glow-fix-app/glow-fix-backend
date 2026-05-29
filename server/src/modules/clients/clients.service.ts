@@ -573,10 +573,10 @@ export class ClientsService {
       user: {
         isActive: true,
         deletedAt: null,
-        role: 'CLIENT',
+        role: 'CLIENT' as const,
         OR: [
-          { fullName: { contains: searchTerm, mode: 'insensitive' } },
-          { email: { contains: searchTerm, mode: 'insensitive' } },
+          { fullName: { contains: searchTerm, mode: 'insensitive' as const } },
+          { email: { contains: searchTerm, mode: 'insensitive' as const } },
           { phone: { contains: searchTerm } },
         ],
       },

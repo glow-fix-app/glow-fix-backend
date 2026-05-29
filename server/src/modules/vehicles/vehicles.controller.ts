@@ -1,4 +1,3 @@
-// vehicles.controller.ts
 import {
   Controller,
   Get,
