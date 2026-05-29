@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsQueryDto } from './dto/notifications-query.dto';
+import {
+  notificationDetailsSelect,
+  sanitizeNotification,
+} from './notifications.presenter';
 
 @Injectable()
 export class NotificationsService {
@@ -35,11 +39,12 @@ export class NotificationsService {
         actionUrl: input.actionUrl ?? null,
         sentAt: new Date(),
       },
-      include: { type: true, actor: true, recipient: true },
+      select: notificationDetailsSelect,
     });
 
-    this.gateway.emitNotificationCreated(input.recipientUserId, notification);
-    return notification;
+    const sanitized = sanitizeNotification(notification, { includeRecipient: true });
+    this.gateway.emitNotificationCreated(input.recipientUserId, sanitized);
+    return sanitized;
   }
 
   async listForUser(userId: string, query: NotificationsQueryDto) {
@@ -52,7 +57,7 @@ export class NotificationsService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.notification.findMany({
         where,
-        include: { type: true, actor: true },
+        select: notificationDetailsSelect,
         orderBy: { createdAt: 'desc' },
         skip: (query.page - 1) * query.limit,
         take: query.limit,
@@ -61,7 +66,7 @@ export class NotificationsService {
     ]);
 
     return {
-      data: items,
+      data: items.map((item) => sanitizeNotification(item, { includeRecipient: true })),
       meta: {
         page: query.page,
         limit: query.limit,
@@ -76,17 +81,16 @@ export class NotificationsService {
   }
 
   async markRead(notificationId: string, userId: string) {
-    const notification = await this.prisma.notification.findUnique({ where: { id: notificationId } });
-    if (!notification || notification.recipientUserId !== userId) {
-      throw new ForbiddenException('Access denied');
-    }
+    const notification = await this.ensureOwnership(notificationId, userId);
 
     const updated = await this.prisma.notification.update({
       where: { id: notificationId },
       data: { readAt: notification.readAt ?? new Date() },
+      select: notificationDetailsSelect,
     });
-    this.gateway.emitNotificationRead(userId, updated);
-    return updated;
+    const sanitized = sanitizeNotification(updated, { includeRecipient: true });
+    this.gateway.emitNotificationRead(userId, sanitized);
+    return sanitized;
   }
 
   async markAllRead(userId: string) {
@@ -99,10 +103,20 @@ export class NotificationsService {
   }
 
   async delete(notificationId: string, userId: string): Promise<void> {
-    const notification = await this.prisma.notification.findUnique({ where: { id: notificationId } });
-    if (!notification || notification.recipientUserId !== userId) {
-      throw new ForbiddenException('Access denied');
-    }
+    await this.ensureOwnership(notificationId, userId);
     await this.prisma.notification.delete({ where: { id: notificationId } });
+  }
+
+  private async ensureOwnership(notificationId: string, userId: string) {
+    const notification = await this.prisma.notification.findFirst({
+      where: { id: notificationId, recipientUserId: userId },
+      select: { id: true, readAt: true },
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    return notification;
   }
 }

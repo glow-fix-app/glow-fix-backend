@@ -10,12 +10,24 @@ import { TokenService } from '../auth/token.service';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { MetricsService } from '../../core/metrics/metrics.service';
 
-@WebSocketGateway({ namespace: '/notifications', cors: { origin: true, credentials: true } })
+const notificationAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+@WebSocketGateway({
+  namespace: '/notifications',
+  cors: {
+    origin: notificationAllowedOrigins.length > 0 ? notificationAllowedOrigins : false,
+    credentials: true,
+  },
+})
 export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
   private readonly logger = new Logger(NotificationsGateway.name);
+  private readonly authenticatedSocketIds = new Set<string>();
 
   constructor(
     private readonly tokenService: TokenService,
@@ -24,12 +36,23 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   ) {}
 
   async handleConnection(client: Socket): Promise<void> {
-    const user = await this.authenticate(client);
-    await client.join(`user:${user.id}`);
-    this.metrics.websocketConnections.inc();
+    try {
+      const user = await this.authenticate(client);
+      await client.join(`user:${user.id}`);
+      this.authenticatedSocketIds.add(client.id);
+      this.metrics.websocketConnections.inc();
+    } catch (error) {
+      this.logger.warn(
+        `Socket authentication failed: ${(error as Error).message}`,
+      );
+      client.disconnect(true);
+    }
   }
 
-  handleDisconnect(): void {
+  handleDisconnect(client: Socket): void {
+    if (!this.authenticatedSocketIds.delete(client.id)) {
+      return;
+    }
     this.metrics.websocketConnections.dec();
   }
 
@@ -66,10 +89,10 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
 
     const session = await this.prisma.userSession.findUnique({
       where: { id: payload.sessionId },
-      select: { id: true },
+      select: { id: true, expiresAt: true },
     });
 
-    if (!session) {
+    if (!session || session.expiresAt <= new Date()) {
       throw new Error('Session expired');
     }
 
