@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "npm@10.0.0",
   "workspaces": [
-    "api",
+    "server",
     "packages/*"
   ],
   "scripts": {
@@ -16,7 +16,7 @@
     "lint:fix": "turbo run lint:fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
-    "db:reset": "turbo run db:reset --filter=api",
+    "db:reset": "turbo run db:reset --filter=server",
     "docker:logs": "docker-compose logs -f",
     "docker:reset": "docker-compose down -v && docker-compose up -d",
     "db:migrate": "turbo run db:migrate --filter=@glow-fix/api",
@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
-    "@types/node": "^20.19.39",
+    "@types/node": "^20.19.41",
     "@typescript-eslint/eslint-plugin": "^7.8.0",
     "@typescript-eslint/parser": "^7.8.0",
     "eslint": "^8.57.0",
@@ -44,6 +44,9 @@
   },
   "dependencies": {
     "@nestjs/event-emitter": "^3.1.0",
-    "nodemailer": "^8.0.7"
+    "@vercel/node": "^5.8.8",
+    "express": "^5.2.1",
+    "nodemailer": "^8.0.7",
+    "serverless-http": "^4.0.0"
   }
 }

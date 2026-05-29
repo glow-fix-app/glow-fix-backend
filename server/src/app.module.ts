@@ -22,6 +22,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
 import mailConfig from './config/mail.config';
 import storageConfig from './config/storage.config';
+import { ClientsModule } from './modules/clients/clients.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import storageConfig from './config/storage.config';
     // Features
     AuthModule,
     UsersModule,
+    ClientsModule,
   ],
   providers: [
     JwtAuthGuard,
