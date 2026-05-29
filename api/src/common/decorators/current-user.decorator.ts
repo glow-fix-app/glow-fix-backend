@@ -1,10 +1,10 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { JwtPayload } from '@glow-fix/types';
+import { AuthUser } from '../../modules/auth/types/auth.types';
 
 export const CurrentUser = createParamDecorator(
-  (data: keyof JwtPayload | undefined, ctx: ExecutionContext): JwtPayload | unknown => {
+  (data: keyof AuthUser | undefined, ctx: ExecutionContext): AuthUser | unknown => {
     const request = ctx.switchToHttp().getRequest();
-    const user = request.user as JwtPayload;
+    const user = request.user as AuthUser;
 
     if (data) {
       return user[data];

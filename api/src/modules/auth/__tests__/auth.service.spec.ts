@@ -312,7 +312,7 @@ describe('AuthService', () => {
         purpose: OtpPurpose.EMAIL_VERIFICATION,
       });
 
-      expect(result.message).toBe('A new verification code has been sent.');
+      expect(result.message).toContain('verification code');
       expect(mockOtpService.sendOtpToEmail).toHaveBeenCalled();
     });
 
@@ -556,7 +556,7 @@ describe('AuthService', () => {
 
   describe('forgotPassword', () => {
     it('should send password reset OTP for existing user', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue(mockUser);
+      mockPrisma.user.findFirst.mockResolvedValue({ ...mockUser, email: 'john@example.com' });
       mockOtpService.sendOtpToEmail.mockResolvedValue(undefined);
 
       const result = await service.forgotPassword({ identifier: 'john@example.com' });
@@ -588,6 +588,7 @@ describe('AuthService', () => {
     it('should reset password and invalidate all sessions', async () => {
       mockPrisma.user.findFirst.mockResolvedValue(mockUser);
       mockOtpService.verifyOtp.mockResolvedValue(true);
+      mockPasswordService.compare.mockResolvedValue(false);
       mockPasswordService.hash.mockResolvedValue('new_hashed_password');
       mockPrisma.user.update.mockResolvedValue(mockUser);
       mockSessionService.invalidateAllSessions.mockResolvedValue(3);

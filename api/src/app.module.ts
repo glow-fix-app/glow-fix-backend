@@ -14,6 +14,8 @@ import { HealthModule } from './core/health/health.module';
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 // Guards
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -50,6 +52,8 @@ import storageConfig from './config/storage.config';
     // Features
     AuthModule,
     UsersModule,
+    NotificationsModule,
+    ChatModule,
   ],
   providers: [
     JwtAuthGuard,

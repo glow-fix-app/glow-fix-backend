@@ -90,6 +90,7 @@ async function main() {
     { name: 'SENT', context: 'MESSAGE' },
     { name: 'DELIVERED', context: 'MESSAGE' },
     { name: 'READ', context: 'MESSAGE' },
+    { name: 'DELETED', context: 'MESSAGE' },
   ] as const;
 
   const statusMap: Record<string, string> = {};

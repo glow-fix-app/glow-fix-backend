@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UserRole, AdminRole, JwtPayload } from '@glow-fix/types';
+import { UserRole, AdminRole } from '@glow-fix/types';
+import { AuthUser } from '../../modules/auth/types/auth.types';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
 @Injectable()
@@ -18,14 +19,14 @@ export class RolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user as JwtPayload;
+    const user = request.user as AuthUser;
 
     if (!user) {
       throw new ForbiddenException('Access denied');
     }
 
     const hasRole = requiredRoles.some(
-      (role) => user.role === role || user.adminRole === role,
+      (role) => user.role === role,
     );
 
     if (!hasRole) {

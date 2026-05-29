@@ -23,13 +23,12 @@ export class MfaService {
     if (!userId) {
       throw new BadRequestException('Invalid user');
     }
-    const user = await this.prisma.user.findFirst({
-      where: { id: userId, deletedAt: null },
-      select: { email: true },
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, deletedAt: true },
     });
-    console.log('JWT payload:', user);
 
-    if (!user) {
+    if (!user || user.deletedAt) {
       throw new BadRequestException('User not found');
     }
 

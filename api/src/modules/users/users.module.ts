@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
-import { AvatarController } from './avatar.controller';
 import { AvatarService } from './avatar.service';
 import { StorageModule } from '../../core/storage/storage.module';
 
@@ -10,7 +9,7 @@ import { StorageModule } from '../../core/storage/storage.module';
 // If not, import their modules here explicitly.
 
 @Module({
-  controllers: [UsersController, AvatarController],
+  controllers: [UsersController],
   providers: [UsersService, AvatarService],
   //exports: [UsersService, AvatarService],
   imports: [StorageModule], // no imports needed if PrismaService and WinstonLoggerService are global

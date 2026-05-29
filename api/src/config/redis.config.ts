@@ -1,6 +1,13 @@
 import { registerAs } from '@nestjs/config';
 
+const resolveRedisEnabled = (): boolean => {
+  if (process.env.REDIS_ENABLED === 'true') return true;
+  if (process.env.REDIS_ENABLED === 'false') return false;
+  return process.env.NODE_ENV === 'production';
+};
+
 export default registerAs('redis', () => ({
+  enabled: resolveRedisEnabled(),
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   password: process.env.REDIS_PASSWORD || 'glowfix_redis_password',

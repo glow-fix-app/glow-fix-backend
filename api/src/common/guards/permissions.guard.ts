@@ -1,6 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Permission, JwtPayload } from '@glow-fix/types';
+import { Permission } from '@glow-fix/types';
+import { AuthUser } from '../../modules/auth/types/auth.types';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 
 @Injectable()
@@ -18,7 +19,7 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user as JwtPayload;
+    const user = request.user as AuthUser;
 
     if (!user || !user.permissions) {
       throw new ForbiddenException('Access denied');
@@ -29,8 +30,9 @@ export class PermissionsGuard implements CanActivate {
       return true;
     }
 
+    const permissions = user.permissions ?? [];
     const hasAllPermissions = requiredPermissions.every((permission) =>
-      user.permissions.includes(permission),
+      permissions.includes(permission),
     );
 
     if (!hasAllPermissions) {

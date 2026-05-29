@@ -30,7 +30,7 @@ import { memoryStorage } from 'multer';
 import { UsersService }  from './users.service';
 import { AvatarService } from './avatar.service';
 import { CurrentUser }   from '../../common/decorators/current-user.decorator';
-import { JwtPayload }    from '@glow-fix/types';
+import { AuthUser } from '../auth/types/auth.types';
  
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -49,8 +49,8 @@ export class UsersController {
   @Get('me')
   @ApiOperation({ summary: 'Get the authenticated user\'s full profile' })
   @ApiResponse({ status: 200, description: 'Profile returned successfully' })
-  async getMe(@CurrentUser() actor: JwtPayload) {
-    return this.usersService.getProfile(actor.sub);
+  async getMe(@CurrentUser() actor: AuthUser) {
+    return this.usersService.getProfile(actor.id);
   }
  
   // ── PUT /v1/users/me/avatar ────────────────────────────────────────────────
@@ -82,7 +82,7 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'No file / wrong type / too large' })
   async uploadAvatar(
     @UploadedFile() file: Express.Multer.File | undefined,
-    @CurrentUser() actor: JwtPayload,
+    @CurrentUser() actor: AuthUser,
   ): Promise<{ message: string; url: string }> {
     if (!file) {
       throw new BadRequestException(
@@ -90,7 +90,7 @@ export class UsersController {
       );
     }
  
-    const result = await this.avatarService.upload(actor.sub, {
+    const result = await this.avatarService.upload(actor.id, {
       buffer:   file.buffer,
       mimetype: file.mimetype,
       size:     file.size,
@@ -107,9 +107,9 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Avatar removed' })
   @ApiResponse({ status: 404, description: 'No avatar found' })
   async deleteAvatar(
-    @CurrentUser() actor: JwtPayload,
+    @CurrentUser() actor: AuthUser,
   ): Promise<{ message: string }> {
-    await this.avatarService.delete(actor.sub);
+    await this.avatarService.delete(actor.id);
     return { message: 'Avatar removed successfully' };
   }
 }

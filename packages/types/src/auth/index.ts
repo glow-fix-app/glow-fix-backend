@@ -11,6 +11,16 @@ export interface JwtPayload {
   exp: number;
 }
 
+export interface AuthUser {
+  id: string;
+  sub?: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  sessionId: string;
+  permissions?: Permission[];
+}
+
 export interface JwtTokenPair {
   accessToken: string;
   refreshToken: string;

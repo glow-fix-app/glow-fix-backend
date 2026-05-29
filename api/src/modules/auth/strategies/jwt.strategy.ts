@@ -6,8 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { RedisService } from '../../../core/redis/redis.service';
 import { RedisKeys } from '../../../core/redis/redis-keys';
-import { JwtPayload, AuthUser  } from '../types/auth.types';
-import { AvatarService } from '../../users/avatar.service';
+import { JwtPayload } from '../types/auth.types';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
@@ -72,7 +71,11 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     // req.user contains only identity data — no profile, no avatar.
     // Call GET /v1/users/me to get the full profile.
     return {
-      ...user,
+      id: user.id,
+      sub: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
       sessionId: payload.sessionId,
     };
   }

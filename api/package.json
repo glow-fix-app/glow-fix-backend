@@ -3,7 +3,6 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
-    "prebuild": "prisma generate",
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main",
@@ -114,27 +113,5 @@
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node",
-    "moduleNameMapper": {
-      "^@app/(.*)$": "<rootDir>/app/$1",
-      "^@common/(.*)$": "<rootDir>/common/$1",
-      "^@core/(.*)$": "<rootDir>/core/$1"
-    }
   }
 }

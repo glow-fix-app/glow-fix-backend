@@ -1,3 +1,9 @@
+const resolveRedisEnabled = (): boolean => {
+  if (process.env.REDIS_ENABLED === 'true') return true;
+  if (process.env.REDIS_ENABLED === 'false') return false;
+  return process.env.NODE_ENV === 'production';
+};
+
 export default () => ({
   app: {
     nodeEnv: process.env.NODE_ENV || 'development',
@@ -5,12 +11,13 @@ export default () => ({
     url: process.env.APP_URL || 'http://localhost:3000',
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
     dashboardUrl: process.env.DASHBOARD_URL || 'http://localhost:5174',
-    corsOrigins: (process.env.CORS_ORIGINS || '').split(',').filter(Boolean),
+    allowedOrigins: (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean),
   },
   database: {
     url: process.env.DATABASE_URL,
   },
   redis: {
+    enabled: resolveRedisEnabled(),
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
     password: process.env.REDIS_PASSWORD || undefined,

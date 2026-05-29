@@ -47,8 +47,6 @@ describe('Helper Utils', () => {
     });
 
     it('should floor partial points', () => {
-      expect(calculateLoyaltyPoints(199)).toBe(10); // \$1.99 = 19.9 → 19... wait
-      // \$1.99 * 10 = 19.9 → 19
       expect(calculateLoyaltyPoints(199)).toBe(19);
     });
   });

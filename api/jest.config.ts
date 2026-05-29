@@ -1,6 +1,4 @@
-import type { Config } from 'jest';
-
-const config: Config = {
+const config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
   testRegex: '.*\\.spec\\.ts$',

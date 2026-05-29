@@ -7,7 +7,7 @@ export const validationSchema = z.object({
   APP_URL: z.string().url().min(1, "APP_URL is required"),
   FRONTEND_URL: z.string().url().min(1, "FRONTEND_URL is required"),
   DASHBOARD_URL: z.string().url().min(1, "DASHBOARD_URL is required"),
-  CORS_ORIGINS: z.string().min(1, "CORS_ORIGINS is required"),
+  ALLOWED_ORIGINS: z.string().min(1, 'ALLOWED_ORIGINS is required'),
 
   // Database
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),

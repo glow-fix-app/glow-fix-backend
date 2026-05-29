@@ -19,8 +19,6 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import { JwtPayload } from '@glow-fix/types';
-
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { SessionService } from './session.service';
@@ -37,10 +35,11 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthUser } from '../auth/types/auth.types';
 import { RegisterAdminDto } from './dto/registerAdmin.dto';
 import { RegisterManagerDto } from './dto/registerManager.dto';
 import { RegisterClientDto } from './dto/registerClient.dto';
+import { AuthUser } from './types/auth.types';
+import { JwtPayload } from '@glow-fix/types';
 
 @ApiTags('Auth')
 @Controller({ path: 'auth', version: '1' })
@@ -52,6 +51,25 @@ export class AuthController {
   ) {}
 
   // ─── Registration ───
+
+  @Post('register')
+  @Public()
+  @ApiOperation({ summary: 'Register a new client account' })
+  @ApiResponse({ status: 201, description: 'Registration successful, OTP sent' })
+  @ApiResponse({ status: 409, description: 'Email or phone already exists' })
+  async register(
+    @Body() dto: RegisterDto,
+    @Req() req: Request,
+  ): Promise<{ message: string; requiresOtp: boolean }> {
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+    return this.authService.register(
+      dto,
+      req.ip || '',
+      req.get('user-agent') || '',
+    );
+  }
 
   @Post('register/client')
   @Public()
@@ -99,7 +117,7 @@ export class AuthController {
   @ApiResponse({ status: 409, description: 'Email or phone already exists' })
   async registerAdmin(
     @Body() dto: RegisterAdminDto,
-    @CurrentUser() actor: JwtPayload,
+    @CurrentUser() actor: AuthUser | JwtPayload,
     @Req() req: Request,
   ): Promise<{ message: string; requiresOtp: boolean }> {
     if (dto.password !== dto.confirmPassword) {
@@ -107,7 +125,7 @@ export class AuthController {
     }
     return this.authService.registerAdmin(
       dto,
-      actor.sub,
+      this.getUserId(actor),
       req.ip || '',
       req.get('user-agent') || '',
     );
@@ -252,10 +270,10 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Logout current session' })
   async logout(
-    @CurrentUser() user: AuthUser,
+    @CurrentUser() user: AuthUser | JwtPayload,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
-    await this.authService.logout(user.id, user.sessionId);
+    await this.authService.logout(this.getUserId(user), user.sessionId);
     this.clearRefreshTokenCookie(res);
     return { message: 'Logged out successfully' };
   }
@@ -265,10 +283,10 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Logout all sessions' })
   async logoutAll(
-    @CurrentUser() user: AuthUser,
+    @CurrentUser() user: AuthUser | JwtPayload,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string; sessionsRevoked: number }> {
-    const result = await this.authService.logoutAllSessions(user.id);
+    const result = await this.authService.logoutAllSessions(this.getUserId(user));
     this.clearRefreshTokenCookie(res);
     return {
       message: 'All sessions have been revoked',
@@ -306,14 +324,15 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async changePassword(
     @Body() dto: ChangePasswordDto,
-    @CurrentUser() user: AuthUser,
+    @CurrentUser() user: AuthUser | JwtPayload,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
     if (dto.newPassword !== dto.confirmPassword) {
       throw new BadRequestException('Passwords do not match');
     }
 
-    const result = await this.authService.changePassword(user.id, dto);
+    const result = await this.authService.changePassword(this.getUserId(user), dto);
+    this.clearRefreshTokenCookie(res);
     return result;
   }
 
@@ -365,10 +384,9 @@ export class AuthController {
     summary: 'Start MFA setup — returns QR code and backup codes',
   })
   async setupMfa(
-    @CurrentUser() user: AuthUser,
+    @CurrentUser() user: AuthUser | JwtPayload,
   ): Promise<Record<string, unknown>> {
-    console.log('CurrentUser:', user);
-    const result = await this.mfaService.setupMfa(user.id);
+    const result = await this.mfaService.setupMfa(this.getUserId(user));
     return result as unknown as Record<string, unknown>;
   }
 
@@ -377,10 +395,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify MFA code and enable 2FA' })
   async verifyMfa(
-    @CurrentUser() user: AuthUser,
+    @CurrentUser() user: AuthUser | JwtPayload,
     @Body('code') code: string,
   ): Promise<{ enabled: boolean }> {
-    return this.mfaService.verifyAndEnableMfa(user.id, code);
+    return this.mfaService.verifyAndEnableMfa(this.getUserId(user), code);
   }
 
   @Post('mfa/validate')
@@ -424,10 +442,10 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Disable MFA (requires current TOTP code)' })
   async disableMfa(
-    @CurrentUser() user: AuthUser,
+    @CurrentUser() user: AuthUser | JwtPayload,
     @Body('code') code: string,
   ): Promise<{ message: string }> {
-    await this.mfaService.disableMfa(user.id, code);
+    await this.mfaService.disableMfa(this.getUserId(user), code);
     return { message: 'Two-factor authentication has been disabled' };
   }
 
@@ -437,9 +455,9 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'List active sessions' })
   async getSessions(
-    @CurrentUser() user: AuthUser,
+    @CurrentUser() user: AuthUser | JwtPayload,
   ): Promise<Record<string, unknown>[]> {
-    const sessions = await this.sessionService.getActiveSessions(user.id);
+    const sessions = await this.sessionService.getActiveSessions(this.getUserId(user));
     return sessions.map((session) => ({
       ...session,
       isCurrent: session.id === user.sessionId,
@@ -475,6 +493,10 @@ export class AuthController {
       sameSite: 'strict',
       path: '/api/v1/auth',
     });
+  }
+
+  private getUserId(user: AuthUser | JwtPayload): string {
+    return 'id' in user ? user.id : user.sub;
   }
 }
 

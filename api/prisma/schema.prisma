@@ -793,6 +793,8 @@ model Notification {
   // RESTRICT: notification type lookup must not be deleted while referenced
   type      NotificationType @relation(fields: [typeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@index([recipientUserId, readAt, createdAt])
+  @@index([typeId])
   @@map("notifications")
 }
 

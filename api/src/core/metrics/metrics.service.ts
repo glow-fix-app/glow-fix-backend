@@ -1,9 +1,10 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import * as client from 'prom-client';
-import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class MetricsService implements OnModuleInit {
+export class MetricsService {
+  private static defaultMetricsRegistered = false;
+
   // HTTP Metrics
   public httpRequestDuration: client.Histogram;
   public httpRequestTotal: client.Counter;
@@ -23,175 +24,12 @@ export class MetricsService implements OnModuleInit {
   public cacheHitRatio: client.Gauge;
   public jobQueueDepth: client.Gauge;
 
-  constructor(private readonly configService: ConfigService) {
-    // Initialize all metrics in constructor
-    this.httpRequestDuration = new client.Histogram({
-      name: 'glowfix_http_request_duration_seconds',
-      help: 'Duration of HTTP requests in seconds',
-      labelNames: ['method', 'route', 'status_code'],
-      buckets: [0.01, 0.05, 0.1, 0.3, 0.5, 0.7, 1, 3, 5, 10],
-    });
-
-    this.httpRequestTotal = new client.Counter({
-      name: 'glowfix_http_requests_total',
-      help: 'Total number of HTTP requests',
-      labelNames: ['method', 'route', 'status_code'],
-    });
-
-    this.httpErrorTotal = new client.Counter({
-      name: 'glowfix_http_errors_total',
-      help: 'Total number of HTTP errors',
-      labelNames: ['method', 'route', 'status_code', 'error_code'],
-    });
-
-    // Business Metrics
-    this.activeUsers = new client.Gauge({
-      name: 'glowfix_active_users_total',
-      help: 'Number of currently active users',
-    });
-
-    this.bookingsCreated = new client.Counter({
-      name: 'glowfix_bookings_created_total',
-      help: 'Total number of bookings created',
-      labelNames: ['service_type', 'payment_method', 'car_wash'],
-    });
-
-    this.bookingsCompleted = new client.Counter({
-      name: 'glowfix_bookings_completed_total',
-      help: 'Total number of bookings completed',
-      labelNames: ['service_type', 'car_wash'],
-    });
-
-    this.revenueTotal = new client.Counter({
-      name: 'glowfix_revenue_cents_total',
-      help: 'Total revenue in cents',
-      labelNames: ['service_type', 'payment_method'],
-    });
-
-    this.loyaltyPointsIssued = new client.Counter({
-      name: 'glowfix_loyalty_points_issued_total',
-      help: 'Total loyalty points issued',
-      labelNames: ['type'],
-    });
-
-    this.queueLength = new client.Gauge({
-      name: 'glowfix_queue_length',
-      help: 'Current queue length per car wash',
-      labelNames: ['car_wash'],
-    });
-
-    this.websocketConnections = new client.Gauge({
-      name: 'glowfix_websocket_connections_active',
-      help: 'Number of active WebSocket connections',
-    });
-
-    // System Metrics
-    this.dbQueryDuration = new client.Histogram({
-      name: 'glowfix_db_query_duration_seconds',
-      help: 'Duration of database queries in seconds',
-      labelNames: ['operation', 'model'],
-      buckets: [0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5],
-    });
-
-    this.cacheHitRatio = new client.Gauge({
-      name: 'glowfix_cache_hit_ratio',
-      help: 'Cache hit ratio (0-1)',
-      labelNames: ['cache_type'],
-    });
-
-    this.jobQueueDepth = new client.Gauge({
-      name: 'glowfix_job_queue_depth',
-      help: 'Number of jobs in BullMQ queue',
-      labelNames: ['queue_name', 'status'],
-    });
-  }
-
-  onModuleInit(): void {
-    // Collect default metrics (CPU, memory, event loop, etc.)
-    client.collectDefaultMetrics({
-      prefix: 'glowfix_',
-    });
-
-    // ─── HTTP Metrics ───
-    this.httpRequestDuration = new client.Histogram({
-      name: 'glowfix_http_request_duration_seconds',
-      help: 'Duration of HTTP requests in seconds',
-      labelNames: ['method', 'route', 'status_code'],
-      buckets: [0.01, 0.05, 0.1, 0.3, 0.5, 0.7, 1, 3, 5, 10],
-    });
-
-    this.httpRequestTotal = new client.Counter({
-      name: 'glowfix_http_requests_total',
-      help: 'Total number of HTTP requests',
-      labelNames: ['method', 'route', 'status_code'],
-    });
-
-    this.httpErrorTotal = new client.Counter({
-      name: 'glowfix_http_errors_total',
-      help: 'Total number of HTTP errors',
-      labelNames: ['method', 'route', 'status_code', 'error_code'],
-    });
-
-    // ─── Business Metrics ───
-    this.activeUsers = new client.Gauge({
-      name: 'glowfix_active_users_total',
-      help: 'Number of currently active users',
-    });
-
-    this.bookingsCreated = new client.Counter({
-      name: 'glowfix_bookings_created_total',
-      help: 'Total number of bookings created',
-      labelNames: ['service_type', 'payment_method', 'car_wash'],
-    });
-
-    this.bookingsCompleted = new client.Counter({
-      name: 'glowfix_bookings_completed_total',
-      help: 'Total number of bookings completed',
-      labelNames: ['service_type', 'car_wash'],
-    });
-
-    this.revenueTotal = new client.Counter({
-      name: 'glowfix_revenue_cents_total',
-      help: 'Total revenue in cents',
-      labelNames: ['service_type', 'payment_method'],
-    });
-
-    this.loyaltyPointsIssued = new client.Counter({
-      name: 'glowfix_loyalty_points_issued_total',
-      help: 'Total loyalty points issued',
-      labelNames: ['type'],
-    });
-
-    this.queueLength = new client.Gauge({
-      name: 'glowfix_queue_length',
-      help: 'Current queue length per car wash',
-      labelNames: ['car_wash'],
-    });
-
-    this.websocketConnections = new client.Gauge({
-      name: 'glowfix_websocket_connections_active',
-      help: 'Number of active WebSocket connections',
-    });
-
-    // ─── System Metrics ───
-    this.dbQueryDuration = new client.Histogram({
-      name: 'glowfix_db_query_duration_seconds',
-      help: 'Duration of database queries in seconds',
-      labelNames: ['operation', 'model'],
-      buckets: [0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5],
-    });
-
-    this.cacheHitRatio = new client.Gauge({
-      name: 'glowfix_cache_hit_ratio',
-      help: 'Cache hit ratio (0-1)',
-      labelNames: ['cache_type'],
-    });
-
-    this.jobQueueDepth = new client.Gauge({
-      name: 'glowfix_job_queue_depth',
-      help: 'Number of jobs in BullMQ queue',
-      labelNames: ['queue_name', 'status'],
-    });
+  constructor() {
+    this.initializeMetrics();
+    if (!MetricsService.defaultMetricsRegistered) {
+      client.collectDefaultMetrics({ prefix: 'glowfix_' });
+      MetricsService.defaultMetricsRegistered = true;
+    }
   }
 
   async getMetrics(): Promise<string> {
@@ -200,5 +38,122 @@ export class MetricsService implements OnModuleInit {
 
   getContentType(): string {
     return client.register.contentType;
+  }
+
+  private initializeMetrics(): void {
+    this.httpRequestDuration = this.getOrCreateHistogram(
+      'glowfix_http_request_duration_seconds',
+      'Duration of HTTP requests in seconds',
+      ['method', 'route', 'status_code'],
+      [0.01, 0.05, 0.1, 0.3, 0.5, 0.7, 1, 3, 5, 10],
+    );
+
+    this.httpRequestTotal = this.getOrCreateCounter(
+      'glowfix_http_requests_total',
+      'Total number of HTTP requests',
+      ['method', 'route', 'status_code'],
+    );
+
+    this.httpErrorTotal = this.getOrCreateCounter(
+      'glowfix_http_errors_total',
+      'Total number of HTTP errors',
+      ['method', 'route', 'status_code', 'error_code'],
+    );
+
+    this.activeUsers = this.getOrCreateGauge(
+      'glowfix_active_users_total',
+      'Number of currently active users',
+    );
+
+    this.bookingsCreated = this.getOrCreateCounter(
+      'glowfix_bookings_created_total',
+      'Total number of bookings created',
+      ['service_type', 'payment_method', 'car_wash'],
+    );
+
+    this.bookingsCompleted = this.getOrCreateCounter(
+      'glowfix_bookings_completed_total',
+      'Total number of bookings completed',
+      ['service_type', 'car_wash'],
+    );
+
+    this.revenueTotal = this.getOrCreateCounter(
+      'glowfix_revenue_cents_total',
+      'Total revenue in cents',
+      ['service_type', 'payment_method'],
+    );
+
+    this.loyaltyPointsIssued = this.getOrCreateCounter(
+      'glowfix_loyalty_points_issued_total',
+      'Total loyalty points issued',
+      ['type'],
+    );
+
+    this.queueLength = this.getOrCreateGauge(
+      'glowfix_queue_length',
+      'Current queue length per car wash',
+      ['car_wash'],
+    );
+
+    this.websocketConnections = this.getOrCreateGauge(
+      'glowfix_websocket_connections_active',
+      'Number of active WebSocket connections',
+    );
+
+    this.dbQueryDuration = this.getOrCreateHistogram(
+      'glowfix_db_query_duration_seconds',
+      'Duration of database queries in seconds',
+      ['operation', 'model'],
+      [0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5],
+    );
+
+    this.cacheHitRatio = this.getOrCreateGauge(
+      'glowfix_cache_hit_ratio',
+      'Cache hit ratio (0-1)',
+      ['cache_type'],
+    );
+
+    this.jobQueueDepth = this.getOrCreateGauge(
+      'glowfix_job_queue_depth',
+      'Number of jobs in BullMQ queue',
+      ['queue_name', 'status'],
+    );
+  }
+
+  private getOrCreateCounter(
+    name: string,
+    help: string,
+    labelNames: string[] = [],
+  ): client.Counter {
+    const existing = client.register.getSingleMetric(name);
+    if (existing) {
+      return existing as client.Counter;
+    }
+    return new client.Counter({ name, help, labelNames });
+  }
+
+  private getOrCreateGauge(
+    name: string,
+    help: string,
+    labelNames: string[] = [],
+  ): client.Gauge {
+    const existing = client.register.getSingleMetric(name);
+    if (existing) {
+      return existing as client.Gauge;
+    }
+    return new client.Gauge({ name, help, labelNames });
+  }
+
+  private getOrCreateHistogram(
+    name: string,
+    help: string,
+    labelNames: string[],
+    buckets: number[],
+  ): client.Histogram {
+    const existing = client.register.getSingleMetric(name);
+    if (existing) {
+      return existing as client.Histogram;
+    }
+    return new client.Histogram({ name, help, labelNames, buckets });
   }
 }

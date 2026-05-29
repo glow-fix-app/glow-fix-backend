@@ -1,7 +1,7 @@
 // ─── User & Role Enums ───
 export enum UserRole {
-  CUSTOMER = 'CUSTOMER',
-  STAFF = 'STAFF',
+  CLIENT = 'CLIENT',
+  MANAGER = 'MANAGER',
   ADMIN = 'ADMIN',
 }
 
@@ -15,19 +15,19 @@ export enum AdminRole {
 }
 
 export enum Permission {
-  // Customer
+  // Client
   MANAGE_OWN_VEHICLES = 'manage:own:vehicles',
   CREATE_BOOKING = 'create:booking',
   VIEW_OWN_BOOKINGS = 'view:own:bookings',
   CANCEL_OWN_BOOKING = 'cancel:own:booking',
   MANAGE_OWN_PROFILE = 'manage:own:profile',
 
-  // Staff
-  VIEW_ASSIGNED_BOOKINGS = 'view:assigned:bookings',
-  UPDATE_BOOKING_STATUS = 'update:booking:status',
-  CREATE_DIVR = 'create:divr',
-  UPLOAD_PHOTOS = 'upload:photos',
-  MANAGE_OWN_AVAILABILITY = 'manage:own:availability',
+  // Manager
+  MANAGE_OWN_BUSINESS = 'manage:own:business',
+  MANAGE_OWN_BOOKINGS = 'manage:own:bookings',
+  MANAGE_DIAGNOSTICS = 'manage:diagnostics',
+  CHAT_WITH_CLIENTS = 'chat:with:clients',
+  SEND_BOOKING_NOTIFICATIONS = 'send:booking:notifications',
 
   // Admin
   MANAGE_USERS = 'manage:users',

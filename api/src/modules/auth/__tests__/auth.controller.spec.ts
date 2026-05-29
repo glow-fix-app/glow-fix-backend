@@ -67,7 +67,7 @@ describe('AuthController', () => {
   const mockUser: JwtPayload = {
     sub: 'user-id',
     sessionId: 'session-id',
-    role: UserRole.CUSTOMER,
+    role: UserRole.CLIENT,
     permissions: [],
     deviceFingerprint: 'fp123',
     iat: 0,
