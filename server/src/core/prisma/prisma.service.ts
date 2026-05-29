@@ -61,9 +61,9 @@ export class PrismaService
     await this.user.update({
       where: { id: userId },
       data: {
-        deleted_at: new Date(),
-        is_active: false,
-        updated_at: new Date(),
+        deletedAt: new Date(),
+        isActive: false,
+        updatedAt: new Date(),
       },
     });
   }
