@@ -25,7 +25,14 @@ export class ChatController {
 
   @Post('conversations')
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateConversationDto) {
-    return this.service.createConversation(user.id, dto.type, dto.bookingId, user.role);
+    return this.service.createConversation({
+      userId: user.id,
+      userRole: user.role,
+      type: dto.type,
+      bookingId: dto.bookingId,
+      targetUserId: dto.targetUserId,
+      participantUserIds: dto.participantUserIds,
+    });
   }
 
   @Get('conversations/:id/messages')

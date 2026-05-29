@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsArray, IsEnum, IsOptional, IsUUID } from 'class-validator';
 
 export enum ConversationCreateType {
   SUPPORT = 'SUPPORT',
@@ -13,4 +13,13 @@ export class CreateConversationDto {
   @IsOptional()
   @IsUUID()
   bookingId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  targetUserId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  participantUserIds?: string[];
 }
