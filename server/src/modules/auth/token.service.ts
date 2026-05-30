@@ -74,6 +74,41 @@ export class TokenService {
     }
   }
 
+  /**
+   * Generate a short-lived reset token after OTP verification.
+   * This token proves the user verified their OTP and can proceed to set a new password.
+   */
+  async generateResetToken(userId: string, email: string): Promise<string> {
+    return this.jwtService.sign(
+      { sub: userId, email, type: 'password_reset' },
+      {
+        secret: this.configService.get<string>('jwt.accessSecret'),
+        expiresIn: '10m', // 10 minutes to complete password reset
+      },
+    );
+  }
+
+  /**
+   * Verify a reset token and return the payload.
+   * Throws if expired or invalid.
+   */
+  verifyResetToken(token: string): { sub: string; email: string } {
+    try {
+      const payload = this.jwtService.verify<{ sub: string; email: string; type?: string }>(
+        token,
+        { secret: this.configService.get<string>('jwt.accessSecret') },
+      );
+
+      if (payload.type !== 'password_reset') {
+        throw new Error('Not a reset token');
+      }
+
+      return { sub: payload.sub, email: payload.email };
+    } catch {
+      throw new Error('Invalid or expired reset token');
+    }
+  }
+
   async blacklistToken(jti: string, expiresInSeconds: number): Promise<void> {
     await this.redis.set(RedisKeys.tokenBlacklist(jti), '1', expiresInSeconds);
   }
