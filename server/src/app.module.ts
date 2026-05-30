@@ -23,6 +23,7 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
 import mailConfig from './config/mail.config';
 import storageConfig from './config/storage.config';
 import { ClientsModule } from './modules/clients/clients.module';
+import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { ClientsModule } from './modules/clients/clients.module';
     AuthModule,
     UsersModule,
     ClientsModule,
+    VehiclesModule,
   ],
   providers: [
     JwtAuthGuard,

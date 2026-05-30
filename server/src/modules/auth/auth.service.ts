@@ -483,6 +483,31 @@ export class AuthService {
   ): Promise<
     JwtTokenPair & { user: Record<string, unknown>; requiresMfa?: boolean }
   > {
+    // First check if the account exists but is deleted or inactive
+    const anyUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: dto.identifier.toLowerCase() },
+          { phone: dto.identifier },
+        ],
+      },
+    });
+
+    if (anyUser) {
+      if (anyUser.deletedAt !== null) {
+        await this.checkLoginRateLimit(ipAddress);
+        throw new UnauthorizedException(
+          'This account has been deleted. If you believe this is a mistake, please contact support.',
+        );
+      }
+      if (!anyUser.isActive) {
+        await this.checkLoginRateLimit(ipAddress);
+        throw new UnauthorizedException(
+          'This account has been deactivated. Please contact support to restore access.',
+        );
+      }
+    }
+
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
@@ -773,7 +798,7 @@ export class AuthService {
       where: { id: userId, deletedAt: null },
     });
 
-    if (!user || !user.passwordHash) {
+    if (!user) {
       throw new NotFoundException('User not found');
     }
 
@@ -782,26 +807,32 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
-    // verify current password
-    const isCurrentPasswordValid = await this.passwordService.compare(
-      dto.currentPassword,
-      user.passwordHash,
-    );
-
-    if (!isCurrentPasswordValid) {
-      throw new UnauthorizedException('Current password is incorrect');
-    }
-
-    // prevent same password
-    const isSamePassword = await this.passwordService.compare(
-      dto.newPassword,
-      user.passwordHash,
-    );
-
-    if (isSamePassword) {
-      throw new BadRequestException(
-        'New password must be different from your current password',
+    // verify current password if user already has a password
+    if (user.passwordHash) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('Current password is required');
+      }
+      
+      const isCurrentPasswordValid = await this.passwordService.compare(
+        dto.currentPassword,
+        user.passwordHash,
       );
+
+      if (!isCurrentPasswordValid) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+
+      // prevent same password
+      const isSamePassword = await this.passwordService.compare(
+        dto.newPassword,
+        user.passwordHash,
+      );
+
+      if (isSamePassword) {
+        throw new BadRequestException(
+          'New password must be different from your current password',
+        );
+      }
     }
 
     // prevent reuse

@@ -1,12 +1,12 @@
-import { IsString, IsNotEmpty, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, MaxLength, Matches, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PASSWORD } from '@glow-fix/utils';
 
 export class ChangePasswordDto {
-  @ApiProperty({ example: 'OldStr0ng!Pass' })
+  @ApiProperty({ example: 'OldStr0ng!Pass', required: false })
   @IsString()
-  @IsNotEmpty()
-  currentPassword: string;
+  @IsOptional()
+  currentPassword?: string;
 
   @ApiProperty({ example: 'NewStr0ng!Pass' })
   @IsString()
