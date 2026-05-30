@@ -23,6 +23,11 @@ import { CorrelationIdMiddleware } from './common/middleware/correlation-id.midd
 import mailConfig from './config/mail.config';
 import storageConfig from './config/storage.config';
 import { ClientsModule } from './modules/clients/clients.module';
+<<<<<<< Updated upstream
+=======
+import { VehiclesModule } from './modules/vehicles/vehicles.module';
+import { BusinessesModule } from './modules/businesses/businesses.module';
+>>>>>>> Stashed changes
 
 @Module({
   imports: [
@@ -52,6 +57,11 @@ import { ClientsModule } from './modules/clients/clients.module';
     AuthModule,
     UsersModule,
     ClientsModule,
+<<<<<<< Updated upstream
+=======
+    VehiclesModule,
+    BusinessesModule,
+>>>>>>> Stashed changes
   ],
   providers: [
     JwtAuthGuard,
