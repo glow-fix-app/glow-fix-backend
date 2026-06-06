@@ -1,6 +1,7 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { APP_GUARD } from '@nestjs/core';
 
 import configuration from './config/configuration';
@@ -24,6 +25,8 @@ import mailConfig from './config/mail.config';
 import storageConfig from './config/storage.config';
 import { ClientsModule } from './modules/clients/clients.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { ServicesModule } from './modules/services/services.module';
 
 @Module({
   imports: [
@@ -43,6 +46,9 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
       }) as any,
     }),
 
+    // Event Emitter (global)
+    EventEmitterModule.forRoot(),
+
     // Core
     LoggerModule,
     PrismaModule,
@@ -54,6 +60,8 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
     UsersModule,
     ClientsModule,
     VehiclesModule,
+    CategoriesModule,
+    ServicesModule,
   ],
   providers: [
     JwtAuthGuard,

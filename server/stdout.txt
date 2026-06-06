@@ -1,0 +1,6 @@
+2026-06-06 09:26:53.217 [32minfo[39m [EmailService] EmailService initialized — SMTP localhost:1025 {"service":"glow-fix-api"}
+2026-06-06 09:26:53.319 [31merror[39m [RedisService] Redis error:  {"service":"glow-fix-api","trace":"AggregateError [ECONNREFUSED]: \n    at internalConnectMultiple (node:net:1122:18)\n    at afterConnectMultiple (node:net:1689:7)"}
+2026-06-06 09:26:53.570 [31merror[39m [RedisService] Redis error:  {"service":"glow-fix-api","trace":"AggregateError [ECONNREFUSED]: \n    at internalConnectMultiple (node:net:1122:18)\n    at afterConnectMultiple (node:net:1689:7)"}
+2026-06-06 09:26:54.005 [31merror[39m [RedisService] Redis error:  {"service":"glow-fix-api","trace":"AggregateError [ECONNREFUSED]: \n    at internalConnectMultiple (node:net:1122:18)\n    at afterConnectMultiple (node:net:1689:7)"}
+2026-06-06 09:26:54.624 [31merror[39m [RedisService] Redis error:  {"service":"glow-fix-api","trace":"AggregateError [ECONNREFUSED]: \n    at internalConnectMultiple (node:net:1122:18)\n    at afterConnectMultiple (node:net:1689:7)"}
+2026-06-06 09:26:54.626 [31merror[39m [RedisService] Redis connection failed after 3 retries {"service":"glow-fix-api","trace":""}
