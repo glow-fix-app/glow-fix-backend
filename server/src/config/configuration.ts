@@ -5,7 +5,7 @@ export default () => ({
     url: process.env.APP_URL || 'http://localhost:3000',
     frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
     dashboardUrl: process.env.DASHBOARD_URL || 'http://localhost:5174',
-    corsOrigins: (process.env.CORS_ORIGINS || '').split(',').filter(Boolean),
+    allowedOrigins: (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3001').split(',').filter(Boolean),
   },
   database: {
     url: process.env.DATABASE_URL,
@@ -27,12 +27,13 @@ export default () => ({
     key: process.env.ENCRYPTION_KEY,
   },
   s3: {
-    endpoint: process.env.S3_ENDPOINT,
-    region: process.env.S3_REGION || 'us-east-1',
-    accessKey: process.env.S3_ACCESS_KEY,
-    secretKey: process.env.S3_SECRET_KEY,
-    bucket: process.env.S3_BUCKET_NAME || 'glowfix-images',
-    usePathStyle: process.env.S3_USE_PATH_STYLE === 'true',
+    endpoint: process.env.STORAGE_ENDPOINT || process.env.S3_ENDPOINT,
+    region: process.env.STORAGE_REGION || process.env.S3_REGION || 'us-east-1',
+    accessKey: process.env.STORAGE_KEY_ID || process.env.S3_ACCESS_KEY || process.env.AWS_ACCESS_KEY_ID,
+    secretKey: process.env.STORAGE_KEY_SECRET || process.env.S3_SECRET_KEY || process.env.AWS_SECRET_ACCESS_KEY,
+    bucket: process.env.STORAGE_BUCKET || process.env.S3_BUCKET_NAME,
+    usePathStyle: process.env.STORAGE_USE_PATH_STYLE === 'true' || process.env.S3_USE_PATH_STYLE === 'true' || true,
+    cdnBase: process.env.STORAGE_CDN_BASE,
   },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,

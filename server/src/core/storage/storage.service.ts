@@ -3,12 +3,12 @@
 // so storage and delivery are lean regardless of what the client sends.
 //
 // Required env vars:
-//   STORAGE_ENDPOINT   – https://… for R2/MinIO; omit for native AWS S3
+//   STORAGE_ENDPOINT   – https://… for R2; omit for native AWS S3
 //   STORAGE_REGION     – e.g. "auto" (R2) or "us-east-1" (S3)
 //   STORAGE_BUCKET     – bucket name
 //   STORAGE_KEY_ID     – access key id
 //   STORAGE_KEY_SECRET – secret access key
-//   STORAGE_CDN_BASE   – public CDN base URL, e.g. https://cdn.glowfix.io
+//   STORAGE_CDN_BASE   – public CDN base URL, e.g. https://pub-xxx.r2.dev
 //                        (no trailing slash)
 
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
