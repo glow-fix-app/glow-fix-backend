@@ -1,0 +1,184 @@
+(node:29172) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+versions published after the first week of January 2027
+will require node >=22. You are running node v20.20.2.
+
+To continue receiving updates to AWS services, bug fixes,
+and security updates please upgrade to node >=22.
+
+More information can be found at: https://a.co/c895JFp
+(Use `node --trace-warnings ...` to show where the warning was created)
+❌ Redis error: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    }
+  ]
+}
+❌ Redis error: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    }
+  ]
+}
+❌ Redis error: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    }
+  ]
+}
+❌ Redis error: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    }
+  ]
+}
+❌ Redis error: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    }
+  ]
+}
+❌ Redis error: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    }
+  ]
+}
+❌ Redis error: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1122:18)
+    at afterConnectMultiple (node:net:1689:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1652:14)
+        at afterConnectMultiple (node:net:1682:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    }
+  ]
+}

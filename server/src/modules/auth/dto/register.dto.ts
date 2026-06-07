@@ -6,8 +6,6 @@ import {
   MinLength,
   MaxLength,
   IsOptional,
-  IsBoolean,
-  Matches,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -24,7 +22,7 @@ export class RegisterDto {
   @Transform(({ value }: { value: string }) => value?.toLowerCase())
   email: string;
 
-  @ApiPropertyOptional({ example: '+201092887320' })
+  @ApiPropertyOptional({ example: '01092887320' })
   @IsOptional()
   @IsString()
   phone?: string;

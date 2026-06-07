@@ -8,7 +8,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
- 
+
 /**
  * Used by workshop owners to self-register.
  * The MANAGER role is assigned immediately; the Business record and
@@ -20,17 +20,17 @@ export class RegisterManagerDto {
   @MinLength(2)
   @MaxLength(100)
   fullName: string;
- 
+
   @ApiProperty({ example: 'ahmed@glowfix.io' })
   @IsEmail()
   @Transform(({ value }) => value?.toLowerCase().trim())
   email: string;
- 
-  @ApiPropertyOptional({ example: '+201001234567' })
+
+  @ApiPropertyOptional({ example: '01001234567' })
   @IsOptional()
-  @Matches(/^\+?[1-9]\d{7,14}$/, { message: 'Invalid phone number format' })
+  @Matches(/^\d{8,15}$/, { message: 'Invalid phone number format' })
   phone?: string;
- 
+
   @ApiProperty({ minLength: 8 })
   @IsString()
   @MinLength(8)
@@ -40,7 +40,7 @@ export class RegisterManagerDto {
       'Password must contain uppercase, lowercase, a number, and a special character',
   })
   password: string;
- 
+
   @ApiProperty()
   @IsString()
   confirmPassword: string;
