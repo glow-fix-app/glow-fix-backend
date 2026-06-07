@@ -11,6 +11,7 @@ import {
   Delete,
   Param,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -57,7 +58,10 @@ export class AuthController {
   @Post('register/client')
   @Public()
   @ApiOperation({ summary: 'Register a new client account' })
-  @ApiResponse({ status: 201, description: 'Registration successful, OTP sent' })
+  @ApiResponse({
+    status: 201,
+    description: 'Registration successful, OTP sent',
+  })
   @ApiResponse({ status: 409, description: 'Email or phone already exists' })
   async registerClient(
     @Body() dto: RegisterClientDto,
@@ -76,7 +80,10 @@ export class AuthController {
   @Post('register/manager')
   @Public()
   @ApiOperation({ summary: 'Register a new manager (workshop owner) account' })
-  @ApiResponse({ status: 201, description: 'Registration successful, OTP sent' })
+  @ApiResponse({
+    status: 201,
+    description: 'Registration successful, OTP sent',
+  })
   @ApiResponse({ status: 409, description: 'Email or phone already exists' })
   async registerManager(
     @Body() dto: RegisterManagerDto,
@@ -292,8 +299,14 @@ export class AuthController {
   @Post('verify-reset-otp')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify OTP for password reset — returns a short-lived reset token' })
-  @ApiResponse({ status: 200, description: 'OTP verified, reset token returned' })
+  @ApiOperation({
+    summary:
+      'Verify OTP for password reset — returns a short-lived reset token',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP verified, reset token returned',
+  })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   async verifyResetOtp(
     @Body() dto: VerifyResetOtpDto,
