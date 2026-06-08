@@ -14,6 +14,7 @@ import { HealthModule } from './core/health/health.module';
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
 
 // Guards
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -50,6 +51,7 @@ import storageConfig from './config/storage.config';
     // Features
     AuthModule,
     UsersModule,
+    BookingsModule,
   ],
   providers: [
     JwtAuthGuard,
