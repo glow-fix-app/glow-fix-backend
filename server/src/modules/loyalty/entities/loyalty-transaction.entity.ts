@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class LoyaltyTransactionResponseDto {
+export class LoyaltyTransactionEntity {
   @ApiProperty()
   id: string;
 
@@ -17,22 +17,24 @@ export class LoyaltyTransactionResponseDto {
   points: number;
 
   @ApiProperty()
-  balance_after: number;
-
-  @ApiProperty()
   reason: string;
 
+  @ApiProperty()
+  created_at: Date;
+}
+
+export class LoyaltyTransactionWithDetailsEntity extends LoyaltyTransactionEntity {
   @ApiPropertyOptional()
   booking_code?: string;
 
   @ApiPropertyOptional()
   business_name?: string;
 
-  @ApiProperty()
-  created_at: Date;
+  @ApiPropertyOptional()
+  balance_after?: number;
 }
 
-export class LoyaltySummaryResponseDto {
+export class LoyaltySummaryEntity {
   @ApiProperty()
   points_balance: number;
 
@@ -61,7 +63,7 @@ export class LoyaltySummaryResponseDto {
   tier_discount?: number;
 }
 
-export class QuickRedeemOptionDto {
+export class QuickRedeemOptionEntity {
   @ApiProperty()
   points: number;
 
@@ -70,9 +72,4 @@ export class QuickRedeemOptionDto {
 
   @ApiProperty()
   description: string;
-}
-
-export class QuickRedeemResponseDto {
-  @ApiProperty({ type: [QuickRedeemOptionDto] })
-  options: QuickRedeemOptionDto[];
 }

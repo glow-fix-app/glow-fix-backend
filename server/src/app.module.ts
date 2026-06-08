@@ -28,6 +28,8 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ServicesModule } from './modules/services/services.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -64,6 +66,8 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
     CategoriesModule,
     ServicesModule,
     ReviewsModule,
+    LoyaltyModule,
+    NotificationsModule,
   ],
   providers: [
     JwtAuthGuard,

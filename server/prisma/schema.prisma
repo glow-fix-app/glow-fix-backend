@@ -716,7 +716,7 @@ model LoyaltyConfig {
 model LoyaltyTransaction {
   id        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clientId  String                 @map("client_id") @db.Uuid
-  bookingId String                 @map("booking_id") @db.Uuid
+  bookingId String?                @map("booking_id") @db.Uuid
   type      LoyaltyTransactionType
   /// Positive for EARNED, negative for REDEEMED
   points    Int
@@ -724,8 +724,8 @@ model LoyaltyTransaction {
   createdAt DateTime               @default(now()) @map("created_at") @db.Timestamptz
 
   // RESTRICT: financial ledger — do not delete client/booking while transactions exist
-  client  Client  @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  booking Booking? @relation(fields: [bookingId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@map("loyalty_transactions")
 }
