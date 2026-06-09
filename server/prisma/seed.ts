@@ -73,6 +73,8 @@ async function main() {
     { name: 'CONFIRMED', context: 'BOOKING' },
     { name: 'VEHICLE_RECEIVED', context: 'BOOKING' },
     { name: 'IN_PROGRESS', context: 'BOOKING' },
+    { name: 'DIAGNOSIS_SENT', context: 'BOOKING' },
+    { name: 'DIAGNOSIS_ACCEPTED', context: 'BOOKING' },
     { name: 'READY_FOR_PICKUP', context: 'BOOKING' },
     { name: 'COMPLETED', context: 'BOOKING' },
     { name: 'CANCELLED', context: 'BOOKING' },

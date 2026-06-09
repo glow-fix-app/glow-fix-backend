@@ -590,6 +590,9 @@ model DiagnosticReport {
   summary           String
   validUntil        DateTime? @map("valid_until") @db.Timestamptz
   estimatedDuration Int?      @map("estimated_duration")
+  /// 'accepted' | 'declined' — set when the client responds to the report
+  clientAction      String?   @map("client_action")
+  clientActionAt    DateTime? @map("client_action_at") @db.Timestamptz
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -619,6 +622,12 @@ model RecommendedRepair {
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   reportId          String   @map("report_id") @db.Uuid
   businessServiceId String   @map("business_service_id") @db.Uuid
+  title             String?
+  description       String?
+  /// Price in piastres (smallest currency unit)
+  priceCents        BigInt   @default(0) @map("price_cents")
+  durationMinutes   Int?     @map("duration_minutes")
+  isSelected        Boolean  @default(false) @map("is_selected")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
