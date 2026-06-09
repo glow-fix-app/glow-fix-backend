@@ -3,16 +3,10 @@ import { ApiProperty } from '@nestjs/swagger';
 import { PASSWORD } from '@glow-fix/utils';
 
 export class ResetPasswordDto {
-  @ApiProperty({ example: 'user@example.com or +12025551234' })
+  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIs...' })
   @IsString()
   @IsNotEmpty()
-  identifier: string;
-
-  @ApiProperty({ example: '123456' })
-  @IsString()
-  @IsNotEmpty()
-  @Matches(/^\d{6}$/, { message: 'OTP must be a 6-digit number' })
-  otp: string;
+  resetToken: string;
 
   @ApiProperty({ example: 'NewStr0ng!Pass' })
   @IsString()
@@ -32,6 +26,19 @@ export class ResetPasswordDto {
   @IsString()
   @IsNotEmpty()
   confirmPassword: string;
+}
+
+export class VerifyResetOtpDto {
+  @ApiProperty({ example: 'user@example.com' })
+  @IsString()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\d{6}$/, { message: 'OTP must be a 6-digit number' })
+  otp: string;
 }
 
 // export class ResetPasswordDto {

@@ -483,6 +483,31 @@ export class AuthService {
   ): Promise<
     JwtTokenPair & { user: Record<string, unknown>; requiresMfa?: boolean }
   > {
+    // First check if the account exists but is deleted or inactive
+    const anyUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: dto.identifier.toLowerCase() },
+          { phone: dto.identifier },
+        ],
+      },
+    });
+
+    if (anyUser) {
+      if (anyUser.deletedAt !== null) {
+        await this.checkLoginRateLimit(ipAddress);
+        throw new UnauthorizedException(
+          'This account has been deleted. If you believe this is a mistake, please contact support.',
+        );
+      }
+      if (!anyUser.isActive) {
+        await this.checkLoginRateLimit(ipAddress);
+        throw new UnauthorizedException(
+          'This account has been deactivated. Please contact support to restore access.',
+        );
+      }
+    }
+
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
@@ -699,20 +724,60 @@ export class AuthService {
     };
   }
 
-  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-    const isEmail = dto.identifier.includes('@');
+  // ─── Verify Reset OTP (Step 1: OTP → resetToken) ───
 
+  async verifyResetOtp(dto: {
+    email: string;
+    otp: string;
+  }): Promise<{ resetToken: string }> {
     const user = await this.prisma.user.findFirst({
-      where: {
-        ...(isEmail
-          ? { email: dto.identifier.toLowerCase() }
-          : { phone: dto.identifier }),
-        deletedAt: null,
-      },
+      where: { email: dto.email.toLowerCase(), deletedAt: null },
     });
 
     if (!user) {
-      throw new BadRequestException('Invalid OTP or identifier');
+      throw new BadRequestException('Invalid OTP or email');
+    }
+
+    // Verify OTP but DO NOT consume it yet — resetPassword will consume it
+    await this.otpService.verifyOtp(
+      user.id,
+      dto.otp,
+      OtpPurpose.PASSWORD_RESET,
+      false, // don't consume
+    );
+
+    // Generate a short-lived reset token (10 min)
+    const resetToken = await this.tokenService.generateResetToken(
+      user.id,
+      user.email!,
+    );
+
+    this.logger.log('Reset OTP verified, token issued', 'AuthService', {
+      userId: user.id,
+    });
+
+    return { resetToken };
+  }
+
+  // ─── Reset Password (Step 2: resetToken + newPassword) ───
+
+  async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+    // Verify the reset token
+    let tokenPayload: { sub: string; email: string };
+    try {
+      tokenPayload = this.tokenService.verifyResetToken(dto.resetToken);
+    } catch {
+      throw new BadRequestException(
+        'Reset link has expired. Please request a new password reset.',
+      );
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: tokenPayload.sub, deletedAt: null },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
     }
 
     // confirm password check
@@ -720,12 +785,24 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
-    // verify OTP FIRST
-    await this.otpService.verifyOtp(
-      user.id,
-      dto.otp,
-      OtpPurpose.PASSWORD_RESET,
-    );
+    // Consume the OTP now (mark as used)
+    // We search for the latest unused PASSWORD_RESET OTP for this user
+    const otpRecord = await this.prisma.userOtp.findFirst({
+      where: {
+        userId: user.id,
+        purpose: OtpPurpose.PASSWORD_RESET as any,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (otpRecord) {
+      await this.prisma.userOtp.update({
+        where: { id: otpRecord.id },
+        data: { usedAt: new Date() },
+      });
+    }
 
     // prevent same password
     if (user.passwordHash) {
@@ -773,7 +850,7 @@ export class AuthService {
       where: { id: userId, deletedAt: null },
     });
 
-    if (!user || !user.passwordHash) {
+    if (!user) {
       throw new NotFoundException('User not found');
     }
 
@@ -782,26 +859,32 @@ export class AuthService {
       throw new BadRequestException('Passwords do not match');
     }
 
-    // verify current password
-    const isCurrentPasswordValid = await this.passwordService.compare(
-      dto.currentPassword,
-      user.passwordHash,
-    );
-
-    if (!isCurrentPasswordValid) {
-      throw new UnauthorizedException('Current password is incorrect');
-    }
-
-    // prevent same password
-    const isSamePassword = await this.passwordService.compare(
-      dto.newPassword,
-      user.passwordHash,
-    );
-
-    if (isSamePassword) {
-      throw new BadRequestException(
-        'New password must be different from your current password',
+    // verify current password if user already has a password
+    if (user.passwordHash) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('Current password is required');
+      }
+      
+      const isCurrentPasswordValid = await this.passwordService.compare(
+        dto.currentPassword,
+        user.passwordHash,
       );
+
+      if (!isCurrentPasswordValid) {
+        throw new UnauthorizedException('Current password is incorrect');
+      }
+
+      // prevent same password
+      const isSamePassword = await this.passwordService.compare(
+        dto.newPassword,
+        user.passwordHash,
+      );
+
+      if (isSamePassword) {
+        throw new BadRequestException(
+          'New password must be different from your current password',
+        );
+      }
     }
 
     // prevent reuse

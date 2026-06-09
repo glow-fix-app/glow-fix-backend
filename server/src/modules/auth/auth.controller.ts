@@ -35,6 +35,7 @@ import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyResetOtpDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthUser } from '../auth/types/auth.types';
@@ -288,16 +289,25 @@ export class AuthController {
     return this.authService.forgotPassword(dto);
   }
 
+  @Post('verify-reset-otp')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify OTP for password reset — returns a short-lived reset token' })
+  @ApiResponse({ status: 200, description: 'OTP verified, reset token returned' })
+  @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
+  async verifyResetOtp(
+    @Body() dto: VerifyResetOtpDto,
+  ): Promise<{ resetToken: string }> {
+    return this.authService.verifyResetOtp(dto);
+  }
+
   @Post('reset-password')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset password with OTP' })
+  @ApiOperation({ summary: 'Reset password using reset token' })
   async resetPassword(
     @Body() dto: ResetPasswordDto,
   ): Promise<{ message: string }> {
-    if (dto.newPassword !== dto.confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
-    }
     return this.authService.resetPassword(dto);
   }
 

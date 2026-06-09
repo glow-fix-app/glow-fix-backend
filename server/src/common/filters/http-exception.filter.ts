@@ -20,7 +20,7 @@ interface ErrorResponse {
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  constructor(private readonly logger: WinstonLoggerService) {}
+  constructor(private readonly logger: WinstonLoggerService) { }
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -64,6 +64,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
           userAgent: request.get('user-agent'),
         },
       );
+
     } else if (status >= 400) {
       this.logger.warn(
         `${request.method} ${request.url} - ${status} - ${message}`,

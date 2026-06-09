@@ -78,6 +78,7 @@ export class OtpService {
     userId: string,
     otp: string,
     purpose: OtpPurpose,
+    consume: boolean = true,
   ): Promise<boolean> {
     // Fetch the latest unused OTP for this user+purpose
     const record = await this.prisma.userOtp.findFirst({
@@ -120,11 +121,13 @@ export class OtpService {
       );
     }
 
-    // Mark as used
-    await this.prisma.userOtp.update({
-      where: { id: record.id },
-      data: { usedAt: new Date() },
-    });
+    // Mark as used if consume is true
+    if (consume) {
+      await this.prisma.userOtp.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() },
+      });
+    }
 
     return true;
   }

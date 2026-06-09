@@ -73,6 +73,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     // Call GET /v1/users/me to get the full profile.
     return {
       ...user,
+      sub: user.id,
       sessionId: payload.sessionId,
     };
   }
