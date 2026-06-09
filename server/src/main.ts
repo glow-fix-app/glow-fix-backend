@@ -14,6 +14,11 @@ import { WinstonLoggerService } from './common/logger/winston-logger.service';
 //import { CorsOptionsDelegate } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 async function bootstrap() {
+  // Global BigInt serialization fix
+  (BigInt.prototype as any).toJSON = function () {
+    return Number(this);
+  };
+
   const logger = new Logger('Bootstrap');
 
   const app = await NestFactory.create(AppModule, {
@@ -124,7 +129,7 @@ async function bootstrap() {
           bearerFormat: 'JWT',
           description: 'Enter your JWT access token',
         },
-        'JWT-auth',
+        'access-token',
       )
       .addTag('Auth', 'Authentication & authorization')
       .addTag('Customers', 'Customer profile management')

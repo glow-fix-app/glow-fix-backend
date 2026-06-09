@@ -41,10 +41,10 @@ async function main() {
   // =====================================================================
 
   await prisma.setting.upsert({
-    where: { id: '00000000-0000-0000-0000-000000000000' },
+    where: { id: '00000000-0000-4000-a000-000000000000' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0000-000000000000',
+      id: '00000000-0000-4000-a000-000000000000',
       businessFeePct: 10.0,
       maxCancelMinutes: 120,
     },
@@ -187,10 +187,10 @@ async function main() {
   });
 
   const svcExteriorWash = await prisma.service.upsert({
-    where: { id: '00000000-0000-0000-0001-000000000001' },
+    where: { id: '00000000-0000-4000-a001-000000000001' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0001-000000000001',
+      id: '00000000-0000-4000-a001-000000000001',
       categoryId: washCategory.id,
       title: 'Exterior Wash',
       description: 'Full exterior hand wash with foam and rinse.',
@@ -198,10 +198,10 @@ async function main() {
   });
 
   const svcFullDetail = await prisma.service.upsert({
-    where: { id: '00000000-0000-0000-0001-000000000002' },
+    where: { id: '00000000-0000-4000-a001-000000000002' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0001-000000000002',
+      id: '00000000-0000-4000-a001-000000000002',
       categoryId: washCategory.id,
       title: 'Full Detail Package',
       description: 'Interior + exterior deep clean with polish.',
@@ -209,10 +209,10 @@ async function main() {
   });
 
   const svcEngineDiagnosis = await prisma.service.upsert({
-    where: { id: '00000000-0000-0000-0001-000000000003' },
+    where: { id: '00000000-0000-4000-a001-000000000003' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0001-000000000003',
+      id: '00000000-0000-4000-a001-000000000003',
       categoryId: diagnosticsCategory.id,
       title: 'Engine Diagnosis',
       description: 'OBD-II scan + mechanic inspection report.',
@@ -220,10 +220,10 @@ async function main() {
   });
 
   const svcOilChange = await prisma.service.upsert({
-    where: { id: '00000000-0000-0000-0001-000000000004' },
+    where: { id: '00000000-0000-4000-a001-000000000004' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0001-000000000004',
+      id: '00000000-0000-4000-a001-000000000004',
       categoryId: repairCategory.id,
       title: 'Oil Change',
       description: 'Full synthetic oil change + filter replacement.',
@@ -231,10 +231,10 @@ async function main() {
   });
 
   const svcQuickWash = await prisma.service.upsert({
-    where: { id: '00000000-0000-0000-0001-000000000005' },
+    where: { id: '00000000-0000-4000-a001-000000000005' },
     update: {},
     create: {
-      id: '00000000-0000-0000-0001-000000000005',
+      id: '00000000-0000-4000-a001-000000000005',
       categoryId: washCategory.id,
       title: 'Quick Wash',
       description: 'Express exterior wash in under 20 minutes.',
@@ -500,8 +500,8 @@ async function main() {
   // then patch coordinates via $executeRaw.
   // =====================================================================
 
-  const business1Id = '00000000-0000-0000-0000-000000000001';
-  const business2Id = '00000000-0000-0000-0000-000000000002';
+  const business1Id = '00000000-0000-4000-a000-000000000001';
+  const business2Id = '00000000-0000-4000-a000-000000000002';
 
   await prisma.$executeRaw`
     INSERT INTO businesses (

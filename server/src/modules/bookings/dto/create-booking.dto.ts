@@ -1,4 +1,4 @@
-import { IsUUID, IsArray, IsNotEmpty, IsISO8601, IsString, ArrayMinSize } from 'class-validator';
+import { IsUUID, IsArray, IsNotEmpty, IsISO8601, IsString, ArrayMinSize, IsOptional } from 'class-validator';
 
 export class CreateBookingDto {
   @IsUUID()
@@ -19,7 +19,12 @@ export class CreateBookingDto {
   @IsNotEmpty({ each: true })
   businessServiceIds: string[];
 
-  // @IsString()
-  // @IsNotEmpty()
-  // paymentMethod: string;
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  photos?: string[];
 }

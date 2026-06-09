@@ -129,12 +129,48 @@ export class BookingsService {
         },
       });
 
-      return booking;
+      // Create customer notes if provided
+      let notesCreated: any[] = [];
+      if (dto.notes) {
+        const note = await tx.bookingNote.create({
+          data: {
+            bookingId: booking.id,
+            body: dto.notes,
+          },
+        });
+        notesCreated.push(note);
+      }
+
+      // Create booking photos if provided (up to 5)
+      let imagesCreated: any[] = [];
+      if (dto.photos && dto.photos.length > 0) {
+        const photoRecords = dto.photos.slice(0, 5).map((url) => ({
+          url,
+          entityType: 'BOOKING_PROBLEM',
+          entityId: booking.id,
+        }));
+        await tx.image.createMany({
+          data: photoRecords,
+        });
+        // Retrieve them back so we can return actual Database Image rows
+        imagesCreated = await tx.image.findMany({
+          where: {
+            entityType: 'BOOKING_PROBLEM',
+            entityId: booking.id,
+          },
+        });
+      }
+
+      return {
+        ...booking,
+        notes: notesCreated,
+        images: imagesCreated,
+      };
     });
   }
 
   async getBookings(userId: string, userRole: string, query: GetBookingsQueryDto) {
-    const { page = 1, limit = 20 } = query;
+    const { page = 1, limit = 20, status } = query;
     const skip = (page - 1) * limit;
 
     let whereClause: any = {};
@@ -147,6 +183,21 @@ export class BookingsService {
       whereClause.vehicle = { clientId: client.id };
     } else if (userRole === 'MANAGER') {
       whereClause.business = { managerId: userId };
+    }
+
+    if (status) {
+      const normalizedStatus = status.toUpperCase();
+      if (normalizedStatus === 'UPCOMING') {
+        whereClause.scheduledAt = { gt: new Date() };
+        whereClause.cancellation = null;
+      } else if (normalizedStatus === 'PAST') {
+        whereClause.scheduledAt = { lte: new Date() };
+        whereClause.cancellation = null;
+      } else if (normalizedStatus === 'CANCELLED') {
+        whereClause.cancellation = { isNot: null };
+      } else {
+        throw new BadRequestException('Invalid status filter. Choose from UPCOMING, PAST, or CANCELLED.');
+      }
     }
 
     const [data, total] = await Promise.all([
@@ -169,6 +220,7 @@ export class BookingsService {
               status: true,
             },
           },
+          notes: true,
         },
         orderBy: { scheduledAt: 'desc' },
         skip,
@@ -177,8 +229,25 @@ export class BookingsService {
       this.prisma.booking.count({ where: whereClause }),
     ]);
 
+    // Fetch images for these bookings to avoid N+1 queries
+    const bookingIds = data.map((b) => b.id);
+    const images = bookingIds.length > 0
+      ? await this.prisma.image.findMany({
+          where: {
+            entityType: 'BOOKING_PROBLEM',
+            entityId: { in: bookingIds },
+          },
+        })
+      : [];
+
+    // Map images to their bookings
+    const dataWithImages = data.map((booking) => ({
+      ...booking,
+      images: images.filter((img) => img.entityId === booking.id),
+    }));
+
     return {
-      data,
+      data: dataWithImages,
       meta: {
         total,
         page,
@@ -211,6 +280,7 @@ export class BookingsService {
         cancellation: true,
         review: true,
         payoutBookings: true,
+        notes: true,
       },
     });
 
@@ -232,7 +302,18 @@ export class BookingsService {
       throw new ForbiddenException('Invalid role permissions');
     }
 
-    return booking;
+    // Fetch photos/images for this booking
+    const images = await this.prisma.image.findMany({
+      where: {
+        entityType: 'BOOKING_PROBLEM',
+        entityId: booking.id,
+      },
+    });
+
+    return {
+      ...booking,
+      images,
+    };
   }
 
   async cancelBooking(userId: string, userRole: string, bookingId: string, reason?: string) {
