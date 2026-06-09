@@ -50,6 +50,39 @@ async function main() {
   console.log('✅ Settings created');
 
   // =====================================================================
+  // 2. STATUS LOOKUP ROWS
+  // =====================================================================
+
+  const statusDefs = [
+    { name: 'PENDING_REVIEW', context: 'BUSINESS' },
+    { name: 'APPROVED', context: 'BUSINESS' },
+    { name: 'SUSPENDED', context: 'BUSINESS' },
+    { name: 'REJECTED', context: 'BUSINESS' },
+    { name: 'DOC_PENDING', context: 'DOCUMENT' },
+    { name: 'DOC_ACCEPTED', context: 'DOCUMENT' },
+    { name: 'DOC_REJECTED', context: 'DOCUMENT' },
+    { name: 'PENDING', context: 'BOOKING' },
+    { name: 'CONFIRMED', context: 'BOOKING' },
+    { name: 'VEHICLE_RECEIVED', context: 'BOOKING' },
+    { name: 'IN_PROGRESS', context: 'BOOKING' },
+    { name: 'DIAGNOSIS_SENT', context: 'BOOKING' },
+    { name: 'DIAGNOSIS_ACCEPTED', context: 'BOOKING' },
+    { name: 'READY_FOR_PICKUP', context: 'BOOKING' },
+    { name: 'COMPLETED', context: 'BOOKING' },
+    { name: 'CANCELLED', context: 'BOOKING' },
+    { name: 'PAYMENT_PENDING', context: 'PAYMENT' },
+    { name: 'PAID', context: 'PAYMENT' },
+    { name: 'REFUNDED', context: 'PAYMENT' },
+    { name: 'FAILED', context: 'PAYMENT' },
+    { name: 'PAYOUT_PENDING', context: 'PAYMENT' },
+    { name: 'PAYOUT_PROCESSED', context: 'PAYMENT' },
+    { name: 'OPEN', context: 'CONVERSATION' },
+    { name: 'CLOSED', context: 'CONVERSATION' },
+    { name: 'SENT', context: 'MESSAGE' },
+    { name: 'DELIVERED', context: 'MESSAGE' },
+    { name: 'READ', context: 'MESSAGE' },
+  ] as const;
+  
   // 2. STATUSES
   // =====================================================================
   console.log('\n📦 Creating statuses...');
