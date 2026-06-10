@@ -31,6 +31,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DiagnosticReportsModule } from './modules/diagnostic-reports/diagnostic-reports.module';
+import { BusinessesModule } from './modules/businesses/businesses.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { DiagnosticReportsModule } from './modules/diagnostic-reports/diagnostic
     ClientsModule,
     VehiclesModule,
     CategoriesModule,
+    BusinessesModule,
     ServicesModule,
     ReviewsModule,
     LoyaltyModule,
