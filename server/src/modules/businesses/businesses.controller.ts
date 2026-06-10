@@ -7,13 +7,13 @@ import {
   Body,
   Param,
   Query,
+  ParseUUIDPipe,
   UseGuards,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
   HttpCode,
   HttpStatus,
-  Version,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,11 +21,13 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiConsumes,
+  ApiParam,
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtPayload, UserRole } from '@glow-fix/types';
 
-import { BusinessesService, OnboardingStatus, BusinessResponse } from './businesses.service';
+import { BusinessesService } from './businesses.service';
+import { BusinessesPresenter } from './businesses.presenter';
 import {
   CreateBusinessDto,
   UpdateBusinessDto,
@@ -34,6 +36,13 @@ import {
   AdminSetBusinessStatusDto,
   AdminSetDocumentStatusDto,
 } from './dto';
+import {
+  BusinessDocumentEntity,
+  BusinessEntity,
+  OnboardingStatusEntity,
+  OperatingHourEntity,
+  PublicBusinessProfileEntity,
+} from './entities';
 
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
@@ -47,7 +56,10 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 @ApiTags('Businesses')
 @Controller({ path: 'businesses', version: '1' })
 export class BusinessesController {
-  constructor(private readonly businessesService: BusinessesService) {}
+  constructor(
+    private readonly businessesService: BusinessesService,
+    private readonly businessesPresenter: BusinessesPresenter,
+  ) {}
 
   // ─── MANAGER: Business Profile ─────────────────────────────────────────────
 
@@ -61,13 +73,13 @@ export class BusinessesController {
   @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a business profile (MANAGER only)' })
-  @ApiResponse({ status: 201, description: 'Business created successfully' })
+  @ApiResponse({ status: 201, description: 'Business created successfully', type: BusinessEntity })
   @ApiResponse({ status: 409, description: 'Manager already has a business' })
   @ApiResponse({ status: 403, description: 'User is not a manager' })
   async createBusiness(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateBusinessDto,
-  ): Promise<BusinessResponse> {
+  ): Promise<BusinessEntity> {
     return this.businessesService.createBusiness(user.sub ?? (user as any).id, dto);
   }
 
@@ -80,10 +92,10 @@ export class BusinessesController {
   @UseGuards(RolesGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get own business profile (MANAGER only)' })
-  @ApiResponse({ status: 200, description: 'Business profile retrieved' })
+  @ApiResponse({ status: 200, description: 'Business profile retrieved', type: BusinessEntity })
   @ApiResponse({ status: 404, description: 'Manager does not have a business' })
   @ApiResponse({ status: 403, description: 'User is not a manager' })
-  async getMyBusiness(@CurrentUser() user: JwtPayload): Promise<BusinessResponse> {
+  async getMyBusiness(@CurrentUser() user: JwtPayload): Promise<BusinessEntity> {
     return this.businessesService.getMyBusiness(user.sub ?? (user as any).id);
   }
 
@@ -96,13 +108,13 @@ export class BusinessesController {
   @UseGuards(RolesGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Update own business profile (MANAGER only)' })
-  @ApiResponse({ status: 200, description: 'Business profile updated' })
+  @ApiResponse({ status: 200, description: 'Business profile updated', type: BusinessEntity })
   @ApiResponse({ status: 404, description: 'Manager does not have a business' })
   @ApiResponse({ status: 403, description: 'User is not a manager' })
   async updateMyBusiness(
     @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateBusinessDto,
-  ): Promise<BusinessResponse> {
+  ): Promise<BusinessEntity> {
     return this.businessesService.updateMyBusiness(user.sub ?? (user as any).id, dto);
   }
 
@@ -117,14 +129,10 @@ export class BusinessesController {
   @UseGuards(RolesGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get business operating hours (MANAGER only)' })
-  @ApiResponse({ status: 200, description: 'Operating hours retrieved' })
+  @ApiResponse({ status: 200, description: 'Operating hours retrieved', type: [OperatingHourEntity] })
   @ApiResponse({ status: 404, description: 'Manager does not have a business' })
   @ApiResponse({ status: 403, description: 'User is not a manager' })
-  async getOperatingHours(@CurrentUser() user: JwtPayload): Promise<Array<{
-    dayOfWeek: number;
-    openTime: string | null;
-    closeTime: string | null;
-  }>> {
+  async getOperatingHours(@CurrentUser() user: JwtPayload): Promise<OperatingHourEntity[]> {
     return this.businessesService.getOperatingHours(user.sub ?? (user as any).id);
   }
 
@@ -137,13 +145,13 @@ export class BusinessesController {
   @UseGuards(RolesGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Update business operating hours (MANAGER only)' })
-  @ApiResponse({ status: 200, description: 'Operating hours updated' })
+  @ApiResponse({ status: 200, description: 'Operating hours updated', type: [OperatingHourEntity] })
   @ApiResponse({ status: 404, description: 'Manager does not have a business' })
   @ApiResponse({ status: 403, description: 'User is not a manager' })
   async updateOperatingHours(
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateOperatingHoursDto,
-  ): Promise<Array<{ dayOfWeek: number; openTime: string | null; closeTime: string | null }>> {
+  ): Promise<OperatingHourEntity[]> {
     return this.businessesService.updateOperatingHours(user.sub ?? (user as any).id, dto);
   }
 
@@ -158,16 +166,10 @@ export class BusinessesController {
   @UseGuards(RolesGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get business documents (MANAGER only)' })
-  @ApiResponse({ status: 200, description: 'Documents retrieved' })
+  @ApiResponse({ status: 200, description: 'Documents retrieved', type: [BusinessDocumentEntity] })
   @ApiResponse({ status: 404, description: 'Manager does not have a business' })
   @ApiResponse({ status: 403, description: 'User is not a manager' })
-  async getMyDocuments(@CurrentUser() user: JwtPayload): Promise<Array<{
-    id: string;
-    type: string;
-    url: string;
-    status: string;
-    createdAt: Date;
-  }>> {
+  async getMyDocuments(@CurrentUser() user: JwtPayload): Promise<BusinessDocumentEntity[]> {
     return this.businessesService.getMyDocuments(user.sub ?? (user as any).id);
   }
 
@@ -181,8 +183,9 @@ export class BusinessesController {
   @UseInterceptors(FileInterceptor('file'))
   @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
+  @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Upload a business document (MANAGER only)' })
-  @ApiResponse({ status: 201, description: 'Document uploaded successfully' })
+  @ApiResponse({ status: 201, description: 'Document uploaded successfully', type: BusinessDocumentEntity })
   @ApiResponse({ status: 400, description: 'Invalid file or document type' })
   @ApiResponse({ status: 404, description: 'Manager does not have a business' })
   @ApiResponse({ status: 409, description: 'Document already exists' })
@@ -191,7 +194,7 @@ export class BusinessesController {
     @CurrentUser() user: JwtPayload,
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadDocumentDto,
-  ): Promise<{ id: string; type: string; url: string; status: string }> {
+  ): Promise<BusinessDocumentEntity> {
     if (!file) {
       throw new BadRequestException('File is required');
     }
@@ -229,9 +232,9 @@ export class BusinessesController {
   @UseGuards(RolesGuard)
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Get onboarding status (MANAGER only)' })
-  @ApiResponse({ status: 200, description: 'Onboarding status retrieved' })
+  @ApiResponse({ status: 200, description: 'Onboarding status retrieved', type: OnboardingStatusEntity })
   @ApiResponse({ status: 403, description: 'User is not a manager' })
-  async getOnboardingStatus(@CurrentUser() user: JwtPayload): Promise<OnboardingStatus> {
+  async getOnboardingStatus(@CurrentUser() user: JwtPayload): Promise<OnboardingStatusEntity> {
     return this.businessesService.getOnboardingStatus(user.sub ?? (user as any).id);
   }
 
@@ -251,7 +254,7 @@ export class BusinessesController {
   async getAllBusinessesForAdmin(
     @CurrentUser() _user: JwtPayload,
     @Query('status') status?: string,
-  ): Promise<Array<BusinessResponse>> {
+  ): Promise<BusinessEntity[]> {
     return this.businessesService.getAllBusinessesForAdmin(status);
   }
 
@@ -272,7 +275,7 @@ export class BusinessesController {
     @CurrentUser() _user: JwtPayload,
     @Param('businessId') businessId: string,
     @Body() dto: AdminSetBusinessStatusDto,
-  ): Promise<BusinessResponse> {
+  ): Promise<BusinessEntity> {
     return this.businessesService.setBusinessStatus(businessId, dto);
   }
 
@@ -293,7 +296,7 @@ export class BusinessesController {
     @CurrentUser() _user: JwtPayload,
     @Param('documentId') documentId: string,
     @Body() dto: AdminSetDocumentStatusDto,
-  ): Promise<{ id: string; type: string; url: string; status: string }> {
+  ): Promise<BusinessDocumentEntity> {
     return this.businessesService.setDocumentStatus(documentId, dto);
   }
 
@@ -307,8 +310,25 @@ export class BusinessesController {
   @Public()
   @ApiOperation({ summary: 'List approved businesses (public)' })
   @ApiResponse({ status: 200, description: 'Businesses retrieved' })
-  async listApprovedBusinesses(): Promise<Array<BusinessResponse>> {
+  async listApprovedBusinesses(): Promise<BusinessEntity[]> {
     return this.businessesService.listApprovedBusinesses();
+  }
+
+  /**
+   * GET /api/v1/businesses/:businessId/public-profile
+   * PUBLIC: Get public business profile with services and about data.
+   */
+  @Get(':businessId/public-profile')
+  @Public()
+  @ApiOperation({ summary: 'Get public business profile with services and operating hours' })
+  @ApiParam({ name: 'businessId', type: String })
+  @ApiResponse({ status: 200, type: PublicBusinessProfileEntity })
+  @ApiResponse({ status: 404, description: 'Business not found' })
+  async getPublicBusinessProfile(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+  ): Promise<PublicBusinessProfileEntity> {
+    const business = await this.businessesService.getPublicBusinessProfile(businessId);
+    return this.businessesPresenter.toPublicBusinessProfileEntity(business);
   }
 
   /**
@@ -322,7 +342,7 @@ export class BusinessesController {
   @ApiResponse({ status: 404, description: 'Business not found or not approved' })
   async getApprovedBusiness(
     @Param('id') id: string,
-  ): Promise<BusinessResponse> {
+  ): Promise<BusinessEntity> {
     return this.businessesService.getApprovedBusiness(id);
   }
 }

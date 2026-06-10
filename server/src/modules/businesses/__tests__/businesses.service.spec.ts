@@ -42,6 +42,7 @@ const createMockBusiness = (overrides?: Partial<any>) => ({
     },
   ],
   operatingHours: [],
+  businessServices: [],
   documents: [],
   ...overrides,
 });
@@ -107,6 +108,9 @@ describe('BusinessesService', () => {
             },
             rejectionReason: {
               create: jest.fn(),
+            },
+            review: {
+              findMany: jest.fn(),
             },
             $queryRaw: jest.fn(),
             $transaction: jest.fn((callback) => {
@@ -726,8 +730,8 @@ describe('BusinessesService', () => {
       expect(storage.uploadFile).toHaveBeenCalledWith(
         file.buffer,
         'documents',
-        file.originalname,
         file.mimetype,
+        undefined,
       );
     });
 
@@ -807,8 +811,8 @@ describe('BusinessesService', () => {
       expect(uploadSpy).toHaveBeenCalledWith(
         file.buffer,
         'documents',
-        file.originalname,
         file.mimetype,
+        undefined,
       );
       expect(result.url).not.toContain('storage.glowfix.com');
       expect(result.url).toMatch(/https:\/\/cdn\.(glowfix|example)\.io?/);
@@ -1280,6 +1284,82 @@ describe('BusinessesService', () => {
       expect(queryRawSpy).toHaveBeenCalled();
       expect(result.latitude).toBe(29.5);
       expect(result.longitude).toBe(30.5);
+    });
+  });
+
+  describe('getPublicBusinessProfile', () => {
+    it('returns public profile for approved business', async () => {
+      const approvedBusiness = createMockBusiness({
+        statusHistory: [{ status: { name: 'APPROVED' } }],
+        operatingHours: [{ dayOfWeek: 1, openTime: '09:00', closeTime: '17:00' }],
+        businessServices: [
+          {
+            id: 'bs-1',
+            businessId: MOCK_BUSINESS_ID,
+            serviceId: 'service-1',
+            price: 15000n,
+            averageDuration: 30,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            service: {
+              id: 'service-1',
+              title: 'Exterior Wash',
+              description: 'Wash',
+              category: { id: 'cat-1', name: 'Car Wash' },
+            },
+          },
+          {
+            id: 'bs-2',
+            businessId: MOCK_BUSINESS_ID,
+            serviceId: 'service-2',
+            price: 20000n,
+            averageDuration: 45,
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            service: {
+              id: 'service-2',
+              title: 'Interior Wash',
+              description: 'Wash',
+              category: { id: 'cat-1', name: 'Car Wash' },
+            },
+          },
+        ],
+      });
+
+      jest.spyOn(prisma.business, 'findUnique').mockResolvedValue(approvedBusiness as any);
+      jest.spyOn(prisma, '$queryRaw').mockResolvedValue([{ latitude: 30.0444, longitude: 31.2357 }] as any);
+      jest.spyOn(prisma.review, 'findMany').mockResolvedValue([{ rating: 4 }, { rating: 5 }] as any);
+
+      const result = await service.getPublicBusinessProfile(MOCK_BUSINESS_ID);
+
+      expect(result.id).toBe(MOCK_BUSINESS_ID);
+      expect(result.businessServices).toHaveLength(2);
+      expect(result.operatingHours).toHaveLength(1);
+      expect(result.rating).toBe(4.5);
+      expect(result.reviews_count).toBe(2);
+      expect(result.businessServices[0].price).toBe(15000n);
+    });
+
+    it('throws NotFoundException if business does not exist', async () => {
+      jest.spyOn(prisma.business, 'findUnique').mockResolvedValue(null);
+
+      await expect(service.getPublicBusinessProfile(MOCK_BUSINESS_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('throws NotFoundException if latest status is not approved', async () => {
+      const pendingBusiness = createMockBusiness({
+        statusHistory: [{ status: { name: 'PENDING_REVIEW' } }],
+      });
+
+      jest.spyOn(prisma.business, 'findUnique').mockResolvedValue(pendingBusiness as any);
+
+      await expect(service.getPublicBusinessProfile(MOCK_BUSINESS_ID)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

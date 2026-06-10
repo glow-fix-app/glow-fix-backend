@@ -1,6 +1,6 @@
 // (Manager assigns price & duration)
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsUUID, IsInt, Min, IsOptional, IsBoolean, IsPositive, IsArray, ValidateNested } from 'class-validator';
+import { IsUUID, IsInt, Min, IsOptional, IsBoolean, IsPositive, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AssignServiceToBusinessDto {
@@ -10,7 +10,7 @@ export class AssignServiceToBusinessDto {
 
   @ApiProperty({ description: 'Price in EGP (e.g., 120 for 120 EGP)', example: 120 })
   @IsInt()
-  @Min(0)
+  @Min(1)
   @Type(() => Number)
   price: number;
 
@@ -29,6 +29,7 @@ export class AssignServiceToBusinessDto {
 export class BulkAssignServicesDto {
   @ApiProperty({ type: [AssignServiceToBusinessDto] })
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => AssignServiceToBusinessDto)
   services: AssignServiceToBusinessDto[];

@@ -32,6 +32,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { BusinessesModule } from './modules/businesses/businesses.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
 
 @Module({
   imports: [
@@ -75,6 +76,7 @@ import { BusinessesModule } from './modules/businesses/businesses.module';
     LoyaltyModule,
     NotificationsModule,
     BusinessesModule,
+    BookingsModule,
   ],
   providers: [
     JwtAuthGuard,

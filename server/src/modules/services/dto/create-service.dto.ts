@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsUUID, IsOptional, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsUUID, IsOptional, MinLength, MaxLength, IsNotEmpty } from 'class-validator';
 
 export class CreateServiceDto {
   @ApiProperty({ description: 'Category ID (WASH, REPAIR, etc.)' })
@@ -8,6 +8,7 @@ export class CreateServiceDto {
 
   @ApiProperty({ example: 'Express Hand Wash' })
   @IsString()
+  @IsNotEmpty()
   @MinLength(3)
   @MaxLength(100)
   title: string;

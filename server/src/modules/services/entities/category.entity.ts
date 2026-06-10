@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class CategoryEntity {
+export class CategorySummaryEntity {
   @ApiProperty()
   id: string;
 

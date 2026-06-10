@@ -26,7 +26,7 @@ export class BusinessServiceEntity {
   updated_at: Date;
 }
 
-export class BusinessServiceWithDetailsEntity extends BusinessServiceEntity {
+export class AssignedBusinessServiceEntity extends BusinessServiceEntity {
   @ApiProperty()
   service_title: string;
 

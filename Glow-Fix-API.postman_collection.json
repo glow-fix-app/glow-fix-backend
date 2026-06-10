@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Glow Fix API",
-    "description": "Complete API collection for Glow Fix Backend - Manager Onboarding & Business Management",
+    "name": "Glow Fix API - Complete Collection",
+    "description": "Complete API collection for Glow Fix Backend - Includes all endpoints: Authentication, User Management, Businesses (Manager/Admin/Public), Bookings, Clients, Vehicles, Services, Categories, Loyalty, Reviews, Notifications, and Avatar management",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -672,6 +672,1254 @@
           }
         }
       ]
+    },
+    {
+      "name": "Bookings - Manager",
+      "description": "Booking management for managers",
+      "item": [
+        {
+          "name": "List All Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "CONFIRMED",
+                  "disabled": true,
+                  "description": "Filter by status: CONFIRMED, VEHICLE_RECEIVED, INSPECTION_IN_PROGRESS, WAITING_CLIENT_APPROVAL, REPAIR_IN_PROGRESS, READY_FOR_PICKUP, COMPLETED, CANCELLED"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-06-01T00:00:00Z",
+                  "disabled": true,
+                  "description": "Filter bookings starting from (ISO date)"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-06-30T23:59:59Z",
+                  "disabled": true,
+                  "description": "Filter bookings up to (ISO date)"
+                },
+                {
+                  "key": "search",
+                  "value": "Ahmed",
+                  "disabled": true,
+                  "description": "Search by client name, email, phone, license plate, or vehicle model"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Items per page (default: 10, max: 100)"
+                }
+              ]
+            },
+            "description": "Get all bookings for manager's business (paginated) - Optional filters: status, from, to, search"
+          }
+        },
+        {
+          "name": "Get Booking Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings", "{{bookingId}}"]
+            },
+            "description": "Get full details of a specific booking"
+          }
+        },
+        {
+          "name": "Update Booking Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"VEHICLE_RECEIVED\",\n  \"reason\": \"Vehicle received and ready for inspection\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings/{{bookingId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings", "{{bookingId}}", "status"]
+            },
+            "description": "Update booking status - Status options: CONFIRMED, VEHICLE_RECEIVED, INSPECTION_IN_PROGRESS, WAITING_CLIENT_APPROVAL, REPAIR_IN_PROGRESS, READY_FOR_PICKUP, COMPLETED, CANCELLED - Required: status - Optional: reason"
+          }
+        },
+        {
+          "name": "Update Expected Delivery Date",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expectedDeliveryAt\": \"2026-06-15T14:00:00Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings/{{bookingId}}/expected-delivery",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings", "{{bookingId}}", "expected-delivery"]
+            },
+            "description": "Update expected delivery date for a booking - Required: expectedDeliveryAt (ISO format)"
+          }
+        },
+        {
+          "name": "Get Booking Notes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings/{{bookingId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings", "{{bookingId}}", "notes"]
+            },
+            "description": "Retrieve all internal notes associated with a booking"
+          }
+        },
+        {
+          "name": "Add Booking Note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Customer called to confirm appointment. Vehicle color is silver with minor scratches.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings/{{bookingId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings", "{{bookingId}}", "notes"]
+            },
+            "description": "Add an internal note to a booking - Required: body (note text)"
+          }
+        },
+        {
+          "name": "Create Diagnostic Report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"summary\": \"Vehicle condition assessment completed. Multiple scratches found on hood and left side. Paint protection recommended.\",\n  \"validUntil\": \"2026-07-10T00:00:00Z\",\n  \"estimatedDuration\": 240,\n  \"findings\": [\n    {\n      \"title\": \"Deep scratches on hood\",\n      \"description\": \"Multiple deep scratches on the front hood, approximately 15cm in length\",\n      \"priority\": \"CRITICAL\"\n    },\n    {\n      \"title\": \"Paint fade on roof\",\n      \"description\": \"Significant paint fade on the roof due to sun exposure\",\n      \"priority\": \"WARNING\"\n    }\n  ],\n  \"recommendedRepairs\": [\n    {\n      \"businessServiceId\": \"{{serviceId}}\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings/{{bookingId}}/diagnostic-report",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings", "{{bookingId}}", "diagnostic-report"]
+            },
+            "description": "Create a diagnostic report with findings and recommended repairs - Required: summary - Optional: validUntil (ISO date), estimatedDuration (minutes), findings[], recommendedRepairs[]"
+          }
+        },
+        {
+          "name": "Get Diagnostic Report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings/{{bookingId}}/diagnostic-report",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings", "{{bookingId}}", "diagnostic-report"]
+            },
+            "description": "Get diagnostic report details for a booking"
+          }
+        },
+        {
+          "name": "Add Report Finding",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Broken window seal\",\n  \"description\": \"Right passenger window seal is broken, causing air leaks\",\n  \"priority\": \"WARNING\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings/{{bookingId}}/diagnostic-report/findings",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings", "{{bookingId}}", "diagnostic-report", "findings"]
+            },
+            "description": "Add an individual finding to the diagnostic report - Required: title, priority (CRITICAL|WARNING|INFO) - Optional: description"
+          }
+        },
+        {
+          "name": "Add Recommended Repair",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessServiceId\": \"{{serviceId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings/{{bookingId}}/diagnostic-report/recommended-repairs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings", "{{bookingId}}", "diagnostic-report", "recommended-repairs"]
+            },
+            "description": "Recommend a catalog service repair for the diagnostic report - Required: businessServiceId (service UUID)"
+          }
+        },
+        {
+          "name": "Delete Recommended Repair",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/manager/bookings/{{bookingId}}/diagnostic-report/recommended-repairs/{{repairId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "manager", "bookings", "{{bookingId}}", "diagnostic-report", "recommended-repairs", "{{repairId}}"]
+            },
+            "description": "Delete a recommended repair from the diagnostic report"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Clients",
+      "description": "Client profile and location management",
+      "item": [
+        {
+          "name": "Get My Client Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "clients", "me"]
+            },
+            "description": "Get client profile with stats"
+          }
+        },
+        {
+          "name": "Get My Location",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/me/location",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "clients", "me", "location"]
+            },
+            "description": "Get current location"
+          }
+        },
+        {
+          "name": "Update My Location",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 30.0444,\n  \"longitude\": 31.2357\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/me/location",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "clients", "me", "location"]
+            },
+            "description": "Update current location - Required: latitude, longitude"
+          }
+        },
+        {
+          "name": "Get My Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/me/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "clients", "me", "stats"]
+            },
+            "description": "Get client statistics (total bookings, vehicles, reviews, etc.)"
+          }
+        },
+        {
+          "name": "Get My Loyalty Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/me/loyalty",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "clients", "me", "loyalty"]
+            },
+            "description": "Get loyalty points summary"
+          }
+        },
+        {
+          "name": "Find Nearby Businesses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/clients/me/nearby?radius=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "clients", "me", "nearby"],
+              "query": [
+                {
+                  "key": "radius",
+                  "value": "10",
+                  "description": "Radius in km (default: 10)"
+                }
+              ]
+            },
+            "description": "Find nearby businesses within specified radius"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vehicles",
+      "description": "Vehicle management for clients",
+      "item": [
+        {
+          "name": "Create Vehicle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"licensePlate\": \"ABC123\",\n  \"vin\": \"1234567890ABCDEF\",\n  \"make\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"year\": 2022,\n  \"color\": \"Silver\",\n  \"fuelType\": \"PETROL\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vehicles"]
+            },
+            "description": "Add a new vehicle - Required: licensePlate, make, model, year, color"
+          }
+        },
+        {
+          "name": "Get All My Vehicles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vehicles"]
+            },
+            "description": "Get all vehicles for authenticated user"
+          }
+        },
+        {
+          "name": "Get Vehicle Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/{{vehicleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vehicles", "{{vehicleId}}"]
+            },
+            "description": "Get vehicle details with statistics"
+          }
+        },
+        {
+          "name": "Update Vehicle",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"color\": \"Black\",\n  \"fuelType\": \"DIESEL\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/{{vehicleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vehicles", "{{vehicleId}}"]
+            },
+            "description": "Update vehicle details - All fields optional"
+          }
+        },
+        {
+          "name": "Delete Vehicle",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/vehicles/{{vehicleId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "vehicles", "{{vehicleId}}"]
+            },
+            "description": "Delete a vehicle"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Services",
+      "description": "Service categories and discovery",
+      "item": [
+        {
+          "name": "Get All Categories",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/services/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "services", "categories"]
+            },
+            "description": "Get all service categories (Public)"
+          }
+        },
+        {
+          "name": "Get Category by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/services/categories/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "services", "categories", "{{categoryId}}"]
+            },
+            "description": "Get category details (Public)"
+          }
+        },
+        {
+          "name": "Search Services by Category",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/services/search?categoryId={{categoryId}}&businessId={{businessId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "services", "search"],
+              "query": [
+                {
+                  "key": "categoryId",
+                  "value": "{{categoryId}}"
+                },
+                {
+                  "key": "businessId",
+                  "value": "{{businessId}}"
+                }
+              ]
+            },
+            "description": "Search services with filters (Public)"
+          }
+        },
+        {
+          "name": "Get Service Discovery",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/services/discover?sortBy=POPULAR&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "services", "discover"],
+              "query": [
+                {
+                  "key": "sortBy",
+                  "value": "POPULAR",
+                  "description": "Sort by: POPULAR, NEW, RATING, PRICE_ASC, PRICE_DESC"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get service discovery with sorting (Public)"
+          }
+        },
+        {
+          "name": "Assign Service to Business (Manager)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"serviceId\": \"{{serviceId}}\",\n  \"price\": 500,\n  \"duration\": 60\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/services/assign",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "services", "assign"]
+            },
+            "description": "Assign a service to manager's business - Required: serviceId, price, duration (minutes)"
+          }
+        },
+        {
+          "name": "Bulk Assign Services (Manager)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"services\": [\n    {\n      \"serviceId\": \"{{serviceId1}}\",\n      \"price\": 500,\n      \"duration\": 60\n    },\n    {\n      \"serviceId\": \"{{serviceId2}}\",\n      \"price\": 800,\n      \"duration\": 120\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/services/assign-bulk",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "services", "assign-bulk"]
+            },
+            "description": "Bulk assign multiple services to business - Required: services array with serviceId, price, duration"
+          }
+        },
+        {
+          "name": "Update Business Service",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"price\": 600,\n  \"duration\": 90\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/services/{{businessServiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "services", "{{businessServiceId}}"]
+            },
+            "description": "Update service pricing and duration for business - Optional: price, duration"
+          }
+        },
+        {
+          "name": "Toggle Service Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/services/{{businessServiceId}}/toggle",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "services", "{{businessServiceId}}", "toggle"]
+            },
+            "description": "Enable/disable a service for business - Required: isActive (boolean)"
+          }
+        },
+        {
+          "name": "Delete Business Service",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/services/{{businessServiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "services", "{{businessServiceId}}"]
+            },
+            "description": "Remove a service from business"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "description": "Service categories browse",
+      "item": [
+        {
+          "name": "Get All Categories",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories"]
+            },
+            "description": "Get all available service categories (Public)"
+          }
+        },
+        {
+          "name": "Get Business Categories",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/business/{{businessId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", "business", "{{businessId}}"]
+            },
+            "description": "Get all service categories for a specific business (Public)"
+          }
+        },
+        {
+          "name": "Get Services by Category",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/business/{{businessId}}/category/WASH",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", "business", "{{businessId}}", "category", "WASH"]
+            },
+            "description": "Get services by category for a specific business (Public) - categoryName examples: WASH, REPAIR, DETAILING, etc."
+          }
+        },
+        {
+          "name": "Get Service Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/categories/service/{{businessServiceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "categories", "service", "{{businessServiceId}}"]
+            },
+            "description": "Get service details by business_service_id (Public)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Loyalty",
+      "description": "Loyalty points and rewards",
+      "item": [
+        {
+          "name": "Get Loyalty Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/loyalty/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "loyalty", "summary"]
+            },
+            "description": "Get loyalty points summary (points balance, tier, etc.)"
+          }
+        },
+        {
+          "name": "Get Loyalty Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/loyalty/transactions?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "loyalty", "transactions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "type",
+                  "value": "EARNED",
+                  "disabled": true,
+                  "description": "Filter by type: EARNED, REDEEMED"
+                }
+              ]
+            },
+            "description": "Get loyalty transaction history with pagination"
+          }
+        },
+        {
+          "name": "Get Quick Redeem Options",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/loyalty/quick-redeem",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "loyalty", "quick-redeem"]
+            },
+            "description": "Get quick redeem options (e.g., 100 pts → EGP 10)"
+          }
+        },
+        {
+          "name": "Calculate Redemption",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"pointsToRedeem\": 500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/loyalty/calculate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "loyalty", "calculate"]
+            },
+            "description": "Calculate potential redemption for a booking - Optional: bookingId, pointsToRedeem"
+          }
+        },
+        {
+          "name": "Redeem Points",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"pointsToRedeem\": 500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/loyalty/redeem",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "loyalty", "redeem"]
+            },
+            "description": "Redeem loyalty points - Optional: bookingId, pointsToRedeem"
+          }
+        },
+        {
+          "name": "Update Loyalty Config (Manager)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"earningRate\": 10,\n  \"redemptionValue\": 100,\n  \"minRedeemPoints\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/loyalty/config",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "loyalty", "config"]
+            },
+            "description": "Update loyalty program configuration for business - Optional: earningRate, redemptionValue, minRedeemPoints"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "description": "Customer reviews and ratings",
+      "item": [
+        {
+          "name": "Create Review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{bookingId}}\",\n  \"rating\": 5,\n  \"title\": \"Excellent service\",\n  \"body\": \"The team was very professional and finished the job on time. Highly recommended!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews"]
+            },
+            "description": "Create a review for a completed booking - Required: bookingId, rating, title, body"
+          }
+        },
+        {
+          "name": "Check if Can Review",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews/check/{{bookingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews", "check", "{{bookingId}}"]
+            },
+            "description": "Check if user can review a booking"
+          }
+        },
+        {
+          "name": "Get My Reviews",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews/my-reviews?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews", "my-reviews"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get reviews written by authenticated user"
+          }
+        },
+        {
+          "name": "Get Business Reviews",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews/business/{{businessId}}?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews", "business", "{{businessId}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get all reviews for a business (Public)"
+          }
+        },
+        {
+          "name": "Get Rating Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews/business/{{businessId}}/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews", "business", "{{businessId}}", "summary"]
+            },
+            "description": "Get rating summary for a business (Public)"
+          }
+        },
+        {
+          "name": "Update Review",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4,\n  \"title\": \"Good service\",\n  \"body\": \"Service was good but could be faster.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews/{{reviewId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews", "{{reviewId}}"]
+            },
+            "description": "Update your own review - Optional: rating, title, body"
+          }
+        },
+        {
+          "name": "Delete Review",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reviews/{{reviewId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reviews", "{{reviewId}}"]
+            },
+            "description": "Delete your own review"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "User notifications and alerts",
+      "item": [
+        {
+          "name": "List Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "description": "Get user notifications with pagination"
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/unread-count",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "unread-count"]
+            },
+            "description": "Get count of unread notifications"
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notificationId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "{{notificationId}}", "read"]
+            },
+            "description": "Mark a notification as read"
+          }
+        },
+        {
+          "name": "Mark All as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "read-all"]
+            },
+            "description": "Mark all notifications as read"
+          }
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/notifications/{{notificationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "notifications", "{{notificationId}}"]
+            },
+            "description": "Delete a notification"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Avatar",
+      "description": "Avatar management",
+      "item": [
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "avatar",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/avatar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me", "avatar"]
+            },
+            "description": "Upload or replace profile avatar - JPEG, PNG, WebP, or GIF — max 5 MB"
+          }
+        },
+        {
+          "name": "Delete Avatar",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/avatar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me", "avatar"]
+            },
+            "description": "Remove profile avatar"
+          }
+        }
+      ]
     }
   ],
   "variable": [
@@ -704,6 +1952,66 @@
       "value": "",
       "type": "string",
       "description": "User ID for dynamic requests"
+    },
+    {
+      "key": "bookingId",
+      "value": "",
+      "type": "string",
+      "description": "Booking ID for booking requests"
+    },
+    {
+      "key": "repairId",
+      "value": "",
+      "type": "string",
+      "description": "Recommended repair ID for delete requests"
+    },
+    {
+      "key": "serviceId",
+      "value": "",
+      "type": "string",
+      "description": "Service ID"
+    },
+    {
+      "key": "vehicleId",
+      "value": "",
+      "type": "string",
+      "description": "Vehicle ID"
+    },
+    {
+      "key": "categoryId",
+      "value": "",
+      "type": "string",
+      "description": "Category ID"
+    },
+    {
+      "key": "businessServiceId",
+      "value": "",
+      "type": "string",
+      "description": "Business Service ID"
+    },
+    {
+      "key": "reviewId",
+      "value": "",
+      "type": "string",
+      "description": "Review ID"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string",
+      "description": "Notification ID"
+    },
+    {
+      "key": "serviceId1",
+      "value": "",
+      "type": "string",
+      "description": "First service ID for bulk assign"
+    },
+    {
+      "key": "serviceId2",
+      "value": "",
+      "type": "string",
+      "description": "Second service ID for bulk assign"
     }
   ],
   "auth": {

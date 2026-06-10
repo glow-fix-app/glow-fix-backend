@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BusinessesController } from '../businesses.controller';
+import { BusinessesPresenter } from '../businesses.presenter';
 import { BusinessesService } from '../businesses.service';
 import { JwtPayload, UserRole } from '@glow-fix/types';
 import { IS_PUBLIC_KEY } from '../../../common/decorators/public.decorator';
@@ -10,8 +11,10 @@ import { IS_PUBLIC_KEY } from '../../../common/decorators/public.decorator';
 
 const MOCK_USER: JwtPayload = {
   sub: 'user-uuid-1',
-  email: 'manager@example.com',
   role: UserRole.MANAGER,
+  permissions: [],
+  sessionId: 'session-1',
+  deviceFingerprint: 'device-1',
   iat: Math.floor(Date.now() / 1000),
   exp: Math.floor(Date.now() / 1000) + 3600,
 };
@@ -30,6 +33,25 @@ const MOCK_BUSINESS_RESPONSE = {
   documents: [],
   createdAt: new Date(),
   updatedAt: new Date(),
+};
+
+const MOCK_PUBLIC_PROFILE = {
+  id: 'business-uuid-1',
+  business_name: 'Test Business',
+  address: '123 Main St',
+  contact_phone: '+20123456789',
+  contact_email: 'test@example.com',
+  latitude: 30.0444,
+  longitude: 31.2357,
+  latest_status: 'APPROVED',
+  rating: 4.5,
+  reviews_count: 2,
+  is_open: true,
+  today_hours: null,
+  categories: [],
+  about: { operating_hours: [] },
+  created_at: new Date(),
+  updated_at: new Date(),
 };
 
 // =====================================================================
@@ -61,6 +83,13 @@ describe('BusinessesController', () => {
             setDocumentStatus: jest.fn(),
             listApprovedBusinesses: jest.fn(),
             getApprovedBusiness: jest.fn(),
+            getPublicBusinessProfile: jest.fn(),
+          },
+        },
+        {
+          provide: BusinessesPresenter,
+          useValue: {
+            toPublicBusinessProfileEntity: jest.fn((value) => value),
           },
         },
       ],
@@ -130,14 +159,17 @@ describe('BusinessesController', () => {
       expect(names.indexOf('getMyBusiness')).toBeLessThan(names.indexOf('getApprovedBusiness'));
       expect(names.indexOf('getOperatingHours')).toBeLessThan(names.indexOf('getApprovedBusiness'));
       expect(names.indexOf('getAllBusinessesForAdmin')).toBeLessThan(names.indexOf('getApprovedBusiness'));
+      expect(names.indexOf('getPublicBusinessProfile')).toBeLessThan(names.indexOf('getApprovedBusiness'));
     });
 
     it('should mark public business routes as public', () => {
       const listPublic = Reflect.getMetadata(IS_PUBLIC_KEY, BusinessesController.prototype.listApprovedBusinesses);
       const detailPublic = Reflect.getMetadata(IS_PUBLIC_KEY, BusinessesController.prototype.getApprovedBusiness);
+      const profilePublic = Reflect.getMetadata(IS_PUBLIC_KEY, BusinessesController.prototype.getPublicBusinessProfile);
 
       expect(listPublic).toBe(true);
       expect(detailPublic).toBe(true);
+      expect(profilePublic).toBe(true);
     });
   });
 
@@ -200,10 +232,7 @@ describe('BusinessesController', () => {
         status: 'PENDING',
       });
 
-      const result = await controller.uploadDocument(MOCK_USER, null as any, dto);
-
-      // Should throw BadRequestException in the controller
-      expect(result).toBeDefined();
+      await expect(controller.uploadDocument(MOCK_USER, null as any, dto)).rejects.toThrow();
     });
 
     it('should call service with currentUser.id and file', async () => {
@@ -347,6 +376,17 @@ describe('BusinessesController', () => {
         .mockRejectedValue(new Error('Business not found or not approved'));
 
       await expect(controller.getApprovedBusiness('invalid-id')).rejects.toThrow();
+    });
+  });
+
+  describe('getPublicBusinessProfile', () => {
+    it('should call service with businessId and return public profile', async () => {
+      jest.spyOn(service, 'getPublicBusinessProfile').mockResolvedValue(MOCK_PUBLIC_PROFILE as any);
+
+      const result = await controller.getPublicBusinessProfile('business-uuid-1');
+
+      expect(service.getPublicBusinessProfile).toHaveBeenCalledWith('business-uuid-1');
+      expect(result).toEqual(MOCK_PUBLIC_PROFILE);
     });
   });
 });

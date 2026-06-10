@@ -7,6 +7,9 @@ export class ServiceEntity {
   @ApiProperty()
   category_id: string;
 
+  @ApiProperty()
+  category_name: string;
+
   @ApiProperty({ example: 'Express Hand Wash' })
   title: string;
 
@@ -18,9 +21,4 @@ export class ServiceEntity {
 
   @ApiProperty()
   updated_at: Date;
-}
-
-export class ServiceWithCategoryEntity extends ServiceEntity {
-  @ApiProperty()
-  category_name: string;
 }

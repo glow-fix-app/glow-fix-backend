@@ -6,21 +6,26 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { PrismaService } from '../../core/prisma/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { validate as isUUID } from 'uuid';
+import { PrismaService } from '../../core/prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
-import { AssignServiceToBusinessDto, BulkAssignServicesDto } from './dto/assign-service-to-business.dto';
-import { UpdateBusinessServiceDto } from './dto/update-business-service.dto';
 import {
-  ServiceCatalogResponseDto,
-  AssignedBusinessServiceResponseDto,
-  CategoryResponseDto,
-  BulkAssignResponseDto,
-  AvailableServiceDto,
-} from './dto/service-response.dto';
-import { validate as isUUID } from 'uuid';
+  AssignServiceToBusinessDto,
+  BulkAssignServicesDto,
+} from './dto/assign-service-to-business.dto';
+import { UpdateBusinessServiceDto } from './dto/update-business-service.dto';
+
+const businessServiceInclude = {
+  business: true,
+  service: {
+    include: {
+      category: true,
+    },
+  },
+} as const;
 
 @Injectable()
 export class ServicesService {
@@ -31,9 +36,7 @@ export class ServicesService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  // ==================== CATEGORY MANAGEMENT (Admin) ====================
-
-  async createCategory(adminId: string, dto: CreateCategoryDto): Promise<CategoryResponseDto> {
+  async createCategory(adminId: string, dto: CreateCategoryDto) {
     const existingCategory = await this.prisma.category.findUnique({
       where: { name: dto.name.toUpperCase() },
     });
@@ -49,27 +52,16 @@ export class ServicesService {
     });
 
     this.logger.log(`Category created: ${category.name} by admin ${adminId}`);
-
-    return {
-      id: category.id,
-      name: category.name,
-      created_at: category.createdAt,
-    };
+    return category;
   }
 
-  async getAllCategories(): Promise<CategoryResponseDto[]> {
-    const categories = await this.prisma.category.findMany({
+  async getAllCategories() {
+    return this.prisma.category.findMany({
       orderBy: { name: 'asc' },
     });
-
-    return categories.map(c => ({
-      id: c.id,
-      name: c.name,
-      created_at: c.createdAt,
-    }));
   }
 
-  async getCategoryById(categoryId: string): Promise<CategoryResponseDto> {
+  async getCategoryById(categoryId: string) {
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
     });
@@ -78,22 +70,14 @@ export class ServicesService {
       throw new NotFoundException('Category not found');
     }
 
-    return {
-      id: category.id,
-      name: category.name,
-      created_at: category.createdAt,
-    };
+    return category;
   }
 
   async deleteCategory(adminId: string, categoryId: string): Promise<{ message: string }> {
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
       include: {
-        services: {
-          include: {
-            businessServices: true,
-          },
-        },
+        services: true,
       },
     });
 
@@ -103,7 +87,7 @@ export class ServicesService {
 
     if (category.services.length > 0) {
       throw new BadRequestException(
-        `Cannot delete category with ${category.services.length} service(s). Delete or reassign services first.`
+        `Cannot delete category with ${category.services.length} service(s). Delete or reassign services first.`,
       );
     }
 
@@ -112,13 +96,10 @@ export class ServicesService {
     });
 
     this.logger.log(`Category deleted: ${category.name} by admin ${adminId}`);
-
     return { message: 'Category deleted successfully' };
   }
 
-  // ==================== SERVICE CATALOG MANAGEMENT (Admin only - NO price) ====================
-
-  async createService(adminId: string, dto: CreateServiceDto): Promise<ServiceCatalogResponseDto> {
+  async createService(adminId: string, dto: CreateServiceDto) {
     const category = await this.prisma.category.findUnique({
       where: { id: dto.category_id },
     });
@@ -137,49 +118,30 @@ export class ServicesService {
     });
 
     this.logger.log(`Service created in catalog: ${service.title} by admin ${adminId}`);
-
-    return {
-      id: service.id,
-      category_id: service.categoryId,
-      category_name: service.category.name,
-      title: service.title,
-      description: service.description || undefined,
-      created_at: service.createdAt,
-      updated_at: service.updatedAt,
-    };
+    return service;
   }
 
-  async getAllServices(categoryId?: string): Promise<ServiceCatalogResponseDto[]> {
-  const where: any = {};
+  async getAllServices(categoryId?: string) {
+    const where: Record<string, unknown> = {};
 
-  if (categoryId) {
-    if (!isUUID(categoryId)) {
-      throw new BadRequestException('Invalid categoryId format');
+    if (categoryId) {
+      if (!isUUID(categoryId)) {
+        throw new BadRequestException('Invalid categoryId format');
+      }
+
+      where.categoryId = categoryId;
     }
 
-    where.categoryId = categoryId;
+    return this.prisma.service.findMany({
+      where,
+      include: {
+        category: true,
+      },
+      orderBy: { title: 'asc' },
+    });
   }
 
-  const services = await this.prisma.service.findMany({
-    where,
-    include: {
-      category: true,
-    },
-    orderBy: { title: 'asc' },
-  });
-
-  return services.map(s => ({
-    id: s.id,
-    category_id: s.categoryId,
-    category_name: s.category.name,
-    title: s.title,
-    description: s.description || undefined,
-    created_at: s.createdAt,
-    updated_at: s.updatedAt,
-  }));
-}
-
-  async getServiceById(serviceId: string): Promise<ServiceCatalogResponseDto> {
+  async getServiceById(serviceId: string) {
     const service = await this.prisma.service.findUnique({
       where: { id: serviceId },
       include: { category: true },
@@ -189,25 +151,12 @@ export class ServicesService {
       throw new NotFoundException('Service not found');
     }
 
-    return {
-      id: service.id,
-      category_id: service.categoryId,
-      category_name: service.category.name,
-      title: service.title,
-      description: service.description || undefined,
-      created_at: service.createdAt,
-      updated_at: service.updatedAt,
-    };
+    return service;
   }
 
-  async updateService(
-    adminId: string,
-    serviceId: string,
-    dto: UpdateServiceDto,
-  ): Promise<ServiceCatalogResponseDto> {
+  async updateService(adminId: string, serviceId: string, dto: UpdateServiceDto) {
     const service = await this.prisma.service.findUnique({
       where: { id: serviceId },
-      include: { category: true },
     });
 
     if (!service) {
@@ -218,6 +167,7 @@ export class ServicesService {
       const category = await this.prisma.category.findUnique({
         where: { id: dto.category_id },
       });
+
       if (!category) {
         throw new NotFoundException('Target category not found');
       }
@@ -234,16 +184,7 @@ export class ServicesService {
     });
 
     this.logger.log(`Service updated in catalog: ${updatedService.title} by admin ${adminId}`);
-
-    return {
-      id: updatedService.id,
-      category_id: updatedService.categoryId,
-      category_name: updatedService.category.name,
-      title: updatedService.title,
-      description: updatedService.description || undefined,
-      created_at: updatedService.createdAt,
-      updated_at: updatedService.updatedAt,
-    };
+    return updatedService;
   }
 
   async deleteService(adminId: string, serviceId: string): Promise<{ message: string }> {
@@ -260,7 +201,7 @@ export class ServicesService {
 
     if (service.businessServices.length > 0) {
       throw new BadRequestException(
-        `Cannot delete service assigned to ${service.businessServices.length} business(es). Remove assignments first.`
+        `Cannot delete service assigned to ${service.businessServices.length} business(es). Remove assignments first.`,
       );
     }
 
@@ -269,57 +210,65 @@ export class ServicesService {
     });
 
     this.logger.log(`Service deleted from catalog: ${service.title} by admin ${adminId}`);
-
     return { message: 'Service deleted successfully' };
   }
 
-  // ==================== BUSINESS SERVICE ASSIGNMENT (Manager assigns price & duration) ====================
+  async getAssignedBusinessServices(managerId: string, businessId: string) {
+    await this.verifyBusinessOwnership(managerId, businessId);
+
+    return this.prisma.businessService.findMany({
+      where: {
+        businessId,
+      },
+      include: businessServiceInclude,
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getUnassignedBusinessServices(managerId: string, businessId: string) {
+    await this.verifyBusinessOwnership(managerId, businessId);
+
+    const assignedServices = await this.prisma.businessService.findMany({
+      where: { businessId },
+      select: { serviceId: true },
+    });
+
+    const assignedServiceIds = assignedServices.map((service) => service.serviceId);
+
+    return this.prisma.service.findMany({
+      where: {
+        id: { notIn: assignedServiceIds },
+      },
+      include: {
+        category: true,
+      },
+      orderBy: { title: 'asc' },
+    });
+  }
 
   async assignServiceToBusiness(
     managerId: string,
     businessId: string,
     dto: AssignServiceToBusinessDto,
-  ): Promise<AssignedBusinessServiceResponseDto> {
+  ) {
     await this.verifyBusinessOwnership(managerId, businessId);
+    await this.assertNoDuplicateBusinessService(businessId, dto.service_id);
 
-    // Verify service exists in catalog
-    const service = await this.prisma.service.findUnique({
-      where: { id: dto.service_id },
-      include: { category: true },
-    });
-
-    if (!service) {
-      throw new NotFoundException('Service not found in catalog');
-    }
-
-    // Check if service already assigned to this business
-    const existing = await this.prisma.businessService.findFirst({
-      where: {
-        businessId: businessId,
-        serviceId: dto.service_id,
-      },
-    });
-
-    if (existing) {
-      throw new ConflictException('Service already assigned to this business');
-    }
-
-    const business = await this.prisma.business.findUnique({
-      where: { id: businessId },
-    });
+    const service = await this.assertServiceExists(dto.service_id);
 
     const businessService = await this.prisma.businessService.create({
       data: {
-        businessId: businessId,
+        businessId,
         serviceId: dto.service_id,
-        price: dto.price * 100, // Store in cents (e.g., 120 EGP = 12000 cents)
+        price: BigInt(dto.price * 100),
         averageDuration: dto.average_duration,
         isActive: dto.is_active ?? true,
       },
+      include: businessServiceInclude,
     });
 
     this.logger.log(
-      `Service "${service.title}" assigned to business ${businessId} by manager ${managerId} with price ${dto.price} EGP`
+      `Service "${service.title}" assigned to business ${businessId} by manager ${managerId} with price ${dto.price} EGP`,
     );
 
     this.eventEmitter.emit('business.service_assigned', {
@@ -330,173 +279,117 @@ export class ServicesService {
       duration: dto.average_duration,
     });
 
-    return {
-      id: businessService.id,
-      business_id: businessId,
-      business_name: business?.businessName || '',
-      service_id: service.id,
-      service_title: service.title,
-      service_description: service.description || undefined,
-      category_id: service.categoryId,
-      category_name: service.category.name,
-      price: dto.price,
-      average_duration: businessService.averageDuration,
-      is_active: businessService.isActive,
-      created_at: businessService.createdAt,
-      updated_at: businessService.updatedAt,
-    };
+    return businessService;
   }
 
   async bulkAssignServicesToBusiness(
     managerId: string,
     businessId: string,
     dto: BulkAssignServicesDto,
-  ): Promise<BulkAssignResponseDto> {
+  ) {
     await this.verifyBusinessOwnership(managerId, businessId);
 
-    const assignedServices: AssignedBusinessServiceResponseDto[] = [];
-    const skippedServices: string[] = [];
+    const serviceIds = dto.services.map((serviceDto) => serviceDto.service_id);
+    const uniqueServiceIds = new Set(serviceIds);
 
-    for (const serviceDto of dto.services) {
-      try {
-        const result = await this.assignServiceToBusiness(managerId, businessId, serviceDto);
-        assignedServices.push(result);
-      } catch (error: any) {
-        skippedServices.push(serviceDto.service_id);
-        this.logger.warn(`Failed to assign service ${serviceDto.service_id}: ${error.message}`);
-      }
+    if (uniqueServiceIds.size !== serviceIds.length) {
+      throw new ConflictException('Duplicate service IDs found in request payload');
     }
 
-    return {
-      success: true,
-      assigned_count: assignedServices.length,
-      skipped_count: skippedServices.length,
-      assigned_services: assignedServices,
-      skipped_services: skippedServices,
-    };
-  }
-
-  // ==================== BUSINESS SERVICE MANAGEMENT ====================
-
-  async getBusinessServices(
-    businessId: string,
-    includeInactive: boolean = false,
-    categoryId?: string,
-  ): Promise<AssignedBusinessServiceResponseDto[]> {
-    const business = await this.prisma.business.findUnique({
-      where: { id: businessId },
-    });
-
-    if (!business) {
-      throw new NotFoundException('Business not found');
-    }
-
-    const where: any = {
-      businessId: businessId,
-    };
-
-    if (!includeInactive) {
-      where.isActive = true;
-    }
-
-    if (categoryId) {
-      where.service = { categoryId: categoryId };
-    }
-
-    const businessServices = await this.prisma.businessService.findMany({
-      where,
-      include: {
-        service: {
-          include: {
-            category: true,
-          },
-        },
+    const services = await this.prisma.service.findMany({
+      where: {
+        id: { in: serviceIds },
       },
-      orderBy: { createdAt: 'asc' },
+      include: {
+        category: true,
+      },
     });
 
-    return businessServices.map(bs => ({
-      id: bs.id,
-      business_id: businessId,
-      business_name: business.businessName,
-      service_id: bs.service.id,
-      service_title: bs.service.title,
-      service_description: bs.service.description || undefined,
-      category_id: bs.service.category.id,
-      category_name: bs.service.category.name,
-      price: Number(bs.price) / 100, // Convert from cents to EGP
-      average_duration: bs.averageDuration,
-      is_active: bs.isActive,
-      created_at: bs.createdAt,
-      updated_at: bs.updatedAt,
-    }));
+    if (services.length !== serviceIds.length) {
+      const foundIds = new Set(services.map((service) => service.id));
+      const missingServiceId = serviceIds.find((serviceId) => !foundIds.has(serviceId));
+      throw new NotFoundException(
+        `Service not found in catalog: ${missingServiceId}`,
+      );
+    }
+
+    const existingAssignments = await this.prisma.businessService.findMany({
+      where: {
+        businessId,
+        serviceId: { in: serviceIds },
+      },
+      select: {
+        serviceId: true,
+      },
+    });
+
+    if (existingAssignments.length > 0) {
+      throw new ConflictException('One or more services are already assigned to this business');
+    }
+
+    const dtoByServiceId = new Map(
+      dto.services.map((serviceDto) => [serviceDto.service_id, serviceDto]),
+    );
+
+    const createdBusinessServices = await this.prisma.$transaction(
+      dto.services.map((serviceDto) =>
+        this.prisma.businessService.create({
+          data: {
+            businessId,
+            serviceId: serviceDto.service_id,
+            price: BigInt(serviceDto.price * 100),
+            averageDuration: serviceDto.average_duration,
+            isActive: serviceDto.is_active ?? true,
+          },
+          include: businessServiceInclude,
+        }),
+      ),
+    );
+
+    for (const createdBusinessService of createdBusinessServices) {
+      const assignedDto = dtoByServiceId.get(createdBusinessService.serviceId);
+      this.eventEmitter.emit('business.service_assigned', {
+        businessId,
+        serviceId: createdBusinessService.serviceId,
+        serviceTitle: createdBusinessService.service.title,
+        price: assignedDto?.price,
+        duration: assignedDto?.average_duration,
+      });
+    }
+
+    this.logger.log(
+      `Bulk assigned ${createdBusinessServices.length} services to business ${businessId} by manager ${managerId}`,
+    );
+
+    return createdBusinessServices;
   }
 
-  async getBusinessServiceById(businessServiceId: string): Promise<AssignedBusinessServiceResponseDto> {
+  async getBusinessServiceById(businessServiceId: string) {
     const businessService = await this.prisma.businessService.findUnique({
       where: { id: businessServiceId },
-      include: {
-        business: true,
-        service: {
-          include: {
-            category: true,
-          },
-        },
-      },
+      include: businessServiceInclude,
     });
 
     if (!businessService) {
       throw new NotFoundException('Business service not found');
     }
 
-    return {
-      id: businessService.id,
-      business_id: businessService.businessId,
-      business_name: businessService.business.businessName,
-      service_id: businessService.service.id,
-      service_title: businessService.service.title,
-      service_description: businessService.service.description || undefined,
-      category_id: businessService.service.category.id,
-      category_name: businessService.service.category.name,
-      price: Number(businessService.price) / 100,
-      average_duration: businessService.averageDuration,
-      is_active: businessService.isActive,
-      created_at: businessService.createdAt,
-      updated_at: businessService.updatedAt,
-    };
+    return businessService;
   }
 
-  async updateBusinessService(
+  async updateAssignedBusinessService(
     managerId: string,
     businessId: string,
     businessServiceId: string,
     dto: UpdateBusinessServiceDto,
-  ): Promise<AssignedBusinessServiceResponseDto> {
+  ) {
     await this.verifyBusinessOwnership(managerId, businessId);
+    await this.getBusinessServiceOrThrow(businessServiceId, businessId);
 
-    const businessService = await this.prisma.businessService.findFirst({
-      where: {
-        id: businessServiceId,
-        businessId: businessId,
-      },
-      include: {
-        business: true,
-        service: {
-          include: {
-            category: true,
-          },
-        },
-      },
-    });
-
-    if (!businessService) {
-      throw new NotFoundException('Business service not found');
-    }
-
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     if (dto.price !== undefined) {
-      updateData.price = dto.price * 100; // Convert to cents
+      updateData.price = BigInt(dto.price * 100);
     }
 
     if (dto.average_duration !== undefined) {
@@ -510,14 +403,7 @@ export class ServicesService {
     const updated = await this.prisma.businessService.update({
       where: { id: businessServiceId },
       data: updateData,
-      include: {
-        business: true,
-        service: {
-          include: {
-            category: true,
-          },
-        },
-      },
+      include: businessServiceInclude,
     });
 
     this.logger.log(`Business service ${businessServiceId} updated by manager ${managerId}`);
@@ -528,24 +414,35 @@ export class ServicesService {
       updates: Object.keys(dto),
     });
 
-    return {
-      id: updated.id,
-      business_id: updated.businessId,
-      business_name: updated.business.businessName,
-      service_id: updated.service.id,
-      service_title: updated.service.title,
-      service_description: updated.service.description || undefined,
-      category_id: updated.service.category.id,
-      category_name: updated.service.category.name,
-      price: Number(updated.price) / 100,
-      average_duration: updated.averageDuration,
-      is_active: updated.isActive,
-      created_at: updated.createdAt,
-      updated_at: updated.updatedAt,
-    };
+    return updated;
   }
 
-  async removeServiceFromBusiness(
+  async toggleAssignedBusinessService(
+    managerId: string,
+    businessId: string,
+    businessServiceId: string,
+  ) {
+    await this.verifyBusinessOwnership(managerId, businessId);
+
+    const businessService = await this.getBusinessServiceOrThrow(
+      businessServiceId,
+      businessId,
+    );
+
+    const updated = await this.prisma.businessService.update({
+      where: { id: businessServiceId },
+      data: {
+        isActive: !businessService.isActive,
+      },
+    });
+
+    const status = updated.isActive ? 'activated' : 'deactivated';
+    this.logger.log(`Business service ${businessServiceId} ${status} by manager ${managerId}`);
+
+    return updated;
+  }
+
+  async removeAssignedBusinessService(
     managerId: string,
     businessId: string,
     businessServiceId: string,
@@ -555,7 +452,7 @@ export class ServicesService {
     const businessService = await this.prisma.businessService.findFirst({
       where: {
         id: businessServiceId,
-        businessId: businessId,
+        businessId,
       },
       include: {
         service: true,
@@ -566,10 +463,9 @@ export class ServicesService {
       throw new NotFoundException('Business service not found');
     }
 
-    // Check if there are active bookings using this service
     const activeBookings = await this.prisma.bookingItem.findFirst({
       where: {
-        businessServiceId: businessServiceId,
+        businessServiceId,
         booking: {
           statusHistory: {
             none: {
@@ -581,17 +477,16 @@ export class ServicesService {
     });
 
     if (activeBookings) {
-      // Soft delete - just deactivate
       await this.prisma.businessService.update({
         where: { id: businessServiceId },
         data: { isActive: false },
       });
+
       return {
         message: 'Service deactivated due to existing bookings',
       };
     }
 
-    // Hard delete if no bookings
     await this.prisma.businessService.delete({
       where: { id: businessServiceId },
     });
@@ -607,43 +502,7 @@ export class ServicesService {
     return { message: 'Service removed from business' };
   }
 
-  async toggleServiceStatus(
-    managerId: string,
-    businessId: string,
-    businessServiceId: string,
-  ): Promise<{ is_active: boolean; message: string }> {
-    await this.verifyBusinessOwnership(managerId, businessId);
-
-    const businessService = await this.prisma.businessService.findFirst({
-      where: {
-        id: businessServiceId,
-        businessId: businessId,
-      },
-    });
-
-    if (!businessService) {
-      throw new NotFoundException('Business service not found');
-    }
-
-    const updated = await this.prisma.businessService.update({
-      where: { id: businessServiceId },
-      data: {
-        isActive: !businessService.isActive,
-      },
-    });
-
-    const status = updated.isActive ? 'activated' : 'deactivated';
-    this.logger.log(`Business service ${businessServiceId} ${status} by manager ${managerId}`);
-
-    return {
-      is_active: updated.isActive,
-      message: `Service ${status} successfully`,
-    };
-  }
-
-  // ==================== PUBLIC DISCOVERY (For Clients) ====================
-
-  async getAvailableServicesForBusiness(businessId: string): Promise<AvailableServiceDto[]> {
+  async getAvailableServicesForBusiness(businessId: string) {
     const business = await this.prisma.business.findUnique({
       where: { id: businessId },
     });
@@ -652,9 +511,9 @@ export class ServicesService {
       throw new NotFoundException('Business not found');
     }
 
-    const businessServices = await this.prisma.businessService.findMany({
+    return this.prisma.businessService.findMany({
       where: {
-        businessId: businessId,
+        businessId,
         isActive: true,
       },
       include: {
@@ -666,22 +525,9 @@ export class ServicesService {
       },
       orderBy: { price: 'asc' },
     });
-
-    return businessServices.map(bs => ({
-      business_service_id: bs.id,
-      service_id: bs.service.id,
-      title: bs.service.title,
-      description: bs.service.description || undefined,
-      category_name: bs.service.category.name,
-      price: Number(bs.price) / 100,
-      duration_minutes: bs.averageDuration,
-    }));
   }
 
-  async getAvailableServicesByCategory(
-    businessId: string,
-    categoryName: string,
-  ): Promise<AvailableServiceDto[]> {
+  async getAvailableServicesByCategory(businessId: string, categoryName: string) {
     const category = await this.prisma.category.findFirst({
       where: {
         name: {
@@ -695,9 +541,9 @@ export class ServicesService {
       throw new NotFoundException(`Category '${categoryName}' not found`);
     }
 
-    const businessServices = await this.prisma.businessService.findMany({
+    return this.prisma.businessService.findMany({
       where: {
-        businessId: businessId,
+        businessId,
         isActive: true,
         service: {
           categoryId: category.id,
@@ -712,66 +558,82 @@ export class ServicesService {
       },
       orderBy: { price: 'asc' },
     });
-
-    return businessServices.map(bs => ({
-      business_service_id: bs.id,
-      service_id: bs.service.id,
-      title: bs.service.title,
-      description: bs.service.description || undefined,
-      category_name: bs.service.category.name,
-      price: Number(bs.price) / 100,
-      duration_minutes: bs.averageDuration,
-    }));
   }
-
-  async getUnassignedServicesForBusiness(
-    managerId: string,
-    businessId: string,
-  ): Promise<ServiceCatalogResponseDto[]> {
-    await this.verifyBusinessOwnership(managerId, businessId);
-
-    // Get all service IDs already assigned to this business
-    const assignedServices = await this.prisma.businessService.findMany({
-      where: { businessId: businessId },
-      select: { serviceId: true },
-    });
-
-    const assignedServiceIds = assignedServices.map(s => s.serviceId);
-
-    // Get unassigned services from catalog
-    const unassignedServices = await this.prisma.service.findMany({
-      where: {
-        id: { notIn: assignedServiceIds },
-      },
-      include: {
-        category: true,
-      },
-      orderBy: { title: 'asc' },
-    });
-
-    return unassignedServices.map(s => ({
-      id: s.id,
-      category_id: s.categoryId,
-      category_name: s.category.name,
-      title: s.title,
-      description: s.description || undefined,
-      created_at: s.createdAt,
-      updated_at: s.updatedAt,
-    }));
-  }
-
-  // ==================== PRIVATE HELPERS ====================
 
   async verifyBusinessOwnership(managerId: string, businessId: string): Promise<void> {
     const business = await this.prisma.business.findFirst({
       where: {
         id: businessId,
-        managerId: managerId,
+        managerId,
       },
     });
 
     if (!business) {
       throw new ForbiddenException('You do not own this business');
     }
+  }
+
+  async assertServiceExists(serviceId: string) {
+    const service = await this.prisma.service.findUnique({
+      where: { id: serviceId },
+      include: {
+        category: true,
+      },
+    });
+
+    if (!service) {
+      throw new NotFoundException('Service not found in catalog');
+    }
+
+    return service;
+  }
+
+  async assertBusinessServiceBelongsToBusiness(
+    businessServiceId: string,
+    businessId: string,
+  ): Promise<void> {
+    const businessService = await this.prisma.businessService.findFirst({
+      where: {
+        id: businessServiceId,
+        businessId,
+      },
+      select: { id: true },
+    });
+
+    if (!businessService) {
+      throw new NotFoundException('Business service not found');
+    }
+  }
+
+  async assertNoDuplicateBusinessService(
+    businessId: string,
+    serviceId: string,
+  ): Promise<void> {
+    const existing = await this.prisma.businessService.findFirst({
+      where: {
+        businessId,
+        serviceId,
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException('Service already assigned to this business');
+    }
+  }
+
+  async getBusinessServiceOrThrow(businessServiceId: string, businessId: string) {
+    const businessService = await this.prisma.businessService.findFirst({
+      where: {
+        id: businessServiceId,
+        businessId,
+      },
+      include: businessServiceInclude,
+    });
+
+    if (!businessService) {
+      throw new NotFoundException('Business service not found');
+    }
+
+    return businessService;
   }
 }

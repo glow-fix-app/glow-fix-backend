@@ -7,7 +7,7 @@ export class UpdateBusinessServiceDto {
   @ApiPropertyOptional({ description: 'Price in EGP', example: 150 })
   @IsOptional()
   @IsInt()
-  @Min(0)
+  @Min(1)
   @Type(() => Number)
   price?: number;
 

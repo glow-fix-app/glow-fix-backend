@@ -19,6 +19,12 @@ import {
   AdminSetBusinessStatusDto,
   AdminSetDocumentStatusDto,
 } from './dto';
+import {
+  BusinessDocumentEntity,
+  BusinessEntity,
+  OnboardingStatusEntity,
+  OperatingHourEntity,
+} from './entities';
 
 // =====================================================================
 // Constants
@@ -38,49 +44,6 @@ const VALID_MIME_TYPES = [
 ];
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-
-// =====================================================================
-// Interfaces
-// =====================================================================
-
-export interface OnboardingStatus {
-  hasBusiness: boolean;
-  businessStatus: string | null;
-  requiredDocuments: string[];
-  uploadedDocuments: string[];
-  missingDocuments: string[];
-  rejectedDocuments: string[];
-  allRequiredDocumentsUploaded: boolean;
-  allRequiredDocumentsApproved: boolean;
-  hasOperatingHours: boolean;
-  isReadyForReview: boolean;
-  canGoLive: boolean;
-}
-
-export interface BusinessResponse {
-  id: string;
-  businessName: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  contactPhone: string | null;
-  contactEmail: string | null;
-  latestStatus: string | null;
-  latestRejectionReason: string | null;
-  operatingHours: Array<{
-    dayOfWeek: number;
-    openTime: string | null;
-    closeTime: string | null;
-  }>;
-  documents: Array<{
-    id: string;
-    type: string;
-    url: string;
-    status: string;
-  }>;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 // =====================================================================
 // Service
@@ -222,7 +185,7 @@ export class BusinessesService {
   async createBusiness(
     managerId: string,
     dto: CreateBusinessDto,
-  ): Promise<BusinessResponse> {
+  ): Promise<BusinessEntity> {
     // Check if manager already has a business
     const existingBusiness = await this.prisma.business.findFirst({
       where: { managerId },
@@ -330,7 +293,7 @@ export class BusinessesService {
   /**
    * Get the current manager's business profile.
    */
-  async getMyBusiness(managerId: string): Promise<BusinessResponse> {
+  async getMyBusiness(managerId: string): Promise<BusinessEntity> {
     const business = await this.prisma.business.findFirst({
       where: { managerId },
       include: {
@@ -364,7 +327,7 @@ export class BusinessesService {
   async updateMyBusiness(
     managerId: string,
     dto: UpdateBusinessDto,
-  ): Promise<BusinessResponse> {
+  ): Promise<BusinessEntity> {
     const business = await this.prisma.business.findFirst({
       where: { managerId },
     });
@@ -485,7 +448,7 @@ export class BusinessesService {
   async updateOperatingHours(
     managerId: string,
     dto: CreateOperatingHoursDto,
-  ): Promise<Array<{ dayOfWeek: number; openTime: string | null; closeTime: string | null }>> {
+  ): Promise<OperatingHourEntity[]> {
     const business = await this.prisma.business.findFirst({
       where: { managerId },
     });
@@ -532,11 +495,7 @@ export class BusinessesService {
   /**
    * Get manager's business operating hours.
    */
-  async getOperatingHours(managerId: string): Promise<Array<{
-    dayOfWeek: number;
-    openTime: string | null;
-    closeTime: string | null;
-  }>> {
+  async getOperatingHours(managerId: string): Promise<OperatingHourEntity[]> {
     const business = await this.prisma.business.findFirst({
       where: { managerId },
       include: {
@@ -563,7 +522,7 @@ export class BusinessesService {
     managerId: string,
     file: Express.Multer.File,
     dto: UploadDocumentDto,
-  ): Promise<{ id: string; type: string; url: string; status: string }> {
+  ): Promise<BusinessDocumentEntity> {
     if (!file) {
       throw new BadRequestException('File is required');
     }
@@ -642,13 +601,7 @@ export class BusinessesService {
   /**
    * Get documents for manager's business.
    */
-  async getMyDocuments(managerId: string): Promise<Array<{
-    id: string;
-    type: string;
-    url: string;
-    status: string;
-    createdAt: Date;
-  }>> {
+  async getMyDocuments(managerId: string): Promise<BusinessDocumentEntity[]> {
     const business = await this.prisma.business.findFirst({
       where: { managerId },
     });
@@ -675,7 +628,10 @@ export class BusinessesService {
   /**
    * Delete a document (manager can only delete their own documents).
    */
-  async deleteDocument(managerId: string, documentId: string): Promise<void> {
+  async deleteDocument(
+    managerId: string,
+    documentId: string,
+  ): Promise<void> {
     const document = await this.prisma.businessDocument.findUnique({
       where: { id: documentId },
       include: { business: true },
@@ -714,7 +670,7 @@ export class BusinessesService {
   /**
    * Get comprehensive onboarding status for a manager.
    */
-  async getOnboardingStatus(managerId: string): Promise<OnboardingStatus> {
+  async getOnboardingStatus(managerId: string): Promise<OnboardingStatusEntity> {
     const business = await this.prisma.business.findFirst({
       where: { managerId },
       include: {
@@ -804,7 +760,7 @@ export class BusinessesService {
    */
   async getAllBusinessesForAdmin(
     statusFilter?: string,
-  ): Promise<Array<BusinessResponse>> {
+  ): Promise<BusinessEntity[]> {
     // If statusFilter is provided, get businesses with that latest status
     if (statusFilter) {
       const targetStatus = await this.prisma.status.findFirst({
@@ -877,7 +833,7 @@ export class BusinessesService {
   /**
    * List all approved businesses (public endpoint).
    */
-  async listApprovedBusinesses(): Promise<Array<BusinessResponse>> {
+  async listApprovedBusinesses(): Promise<BusinessEntity[]> {
     const approvedStatus = await this.prisma.status.findFirst({
       where: {
         context: 'BUSINESS',
@@ -919,7 +875,7 @@ export class BusinessesService {
   /**
    * Get a specific approved business by ID (public endpoint).
    */
-  async getApprovedBusiness(businessId: string): Promise<BusinessResponse> {
+  async getApprovedBusiness(businessId: string): Promise<BusinessEntity> {
     const business = await this.prisma.business.findUnique({
       where: { id: businessId },
       include: {
@@ -950,12 +906,65 @@ export class BusinessesService {
   }
 
   /**
+   * Get a public business profile by ID for the client-facing business page.
+   * Returns only approved businesses with active services.
+   */
+  async getPublicBusinessProfile(businessId: string): Promise<Record<string, any>> {
+    const business = await this.prisma.business.findUnique({
+      where: { id: businessId },
+      include: {
+        statusHistory: {
+          orderBy: { createdAt: 'desc' },
+          include: { status: true },
+          take: 1,
+        },
+        operatingHours: {
+          orderBy: { dayOfWeek: 'asc' },
+        },
+        businessServices: {
+          where: {
+            isActive: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+          include: {
+            service: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    const latestStatus = business.statusHistory[0]?.status?.name ?? null;
+    if (latestStatus !== 'APPROVED') {
+      throw new NotFoundException('Business not found');
+    }
+
+    const businessWithCoordinates = await this.attachCoordinatesToBusiness(business);
+    const reviewSummary = await this.getBusinessReviewSummary(businessId);
+
+    return {
+      ...businessWithCoordinates,
+      rating: reviewSummary.rating,
+      reviews_count: reviewSummary.reviews_count,
+    };
+  }
+
+  /**
    * Set business status (admin only).
    */
   async setBusinessStatus(
     businessId: string,
     dto: AdminSetBusinessStatusDto,
-  ): Promise<BusinessResponse> {
+  ): Promise<BusinessEntity> {
     const business = await this.prisma.business.findUnique({
       where: { id: businessId },
     });
@@ -1029,7 +1038,7 @@ export class BusinessesService {
   async setDocumentStatus(
     documentId: string,
     dto: AdminSetDocumentStatusDto,
-  ): Promise<{ id: string; type: string; url: string; status: string }> {
+  ): Promise<BusinessDocumentEntity> {
     const document = await this.prisma.businessDocument.findUnique({
       where: { id: documentId },
     });
@@ -1160,6 +1169,35 @@ export class BusinessesService {
     };
   }
 
+  private async getBusinessReviewSummary(
+    businessId: string,
+  ): Promise<{ rating: number | null; reviews_count: number }> {
+    const reviews = await this.prisma.review.findMany({
+      where: {
+        booking: {
+          businessId,
+        },
+      },
+      select: {
+        rating: true,
+      },
+    });
+
+    if (reviews.length === 0) {
+      return {
+        rating: 0,
+        reviews_count: 0,
+      };
+    }
+
+    const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+
+    return {
+      rating: Math.round((totalRating / reviews.length) * 10) / 10,
+      reviews_count: reviews.length,
+    };
+  }
+
   // ─── Private Helpers ──────────────────────────────────────────────────────
 
   /**
@@ -1280,7 +1318,7 @@ export class BusinessesService {
   /**
    * Format a business response object.
    */
-  private async formatBusinessResponseWithReason(business: Record<string, any>): Promise<BusinessResponse> {
+  private async formatBusinessResponseWithReason(business: Record<string, any>): Promise<BusinessEntity> {
     const latestStatus = business.statusHistory?.[0]?.status?.name ?? null;
     const rejectionReason =
       latestStatus === 'REJECTED' || latestStatus === 'SUSPENDED'
@@ -1314,7 +1352,7 @@ export class BusinessesService {
   /**
    * Format a business response object (sync version without rejection reason).
    */
-  private formatBusinessResponse(business: Record<string, any>): BusinessResponse {
+  private formatBusinessResponse(business: Record<string, any>): BusinessEntity {
     return {
       id: business.id,
       businessName: business.businessName,

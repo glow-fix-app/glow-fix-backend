@@ -162,16 +162,22 @@ async function main() {
   // 5. CATEGORIES & SERVICES
   // =====================================================================
 
-  const washCategory = await prisma.category.upsert({
-    where: { name: 'Wash' },
+  const carWashCategory = await prisma.category.upsert({
+    where: { name: 'Car Wash' },
     update: {},
-    create: { name: 'Wash' },
+    create: { name: 'Car Wash' },
   });
 
-  const repairCategory = await prisma.category.upsert({
-    where: { name: 'Repair' },
+  const oilChangeCategory = await prisma.category.upsert({
+    where: { name: 'Oil Change' },
     update: {},
-    create: { name: 'Repair' },
+    create: { name: 'Oil Change' },
+  });
+
+  const tiresCategory = await prisma.category.upsert({
+    where: { name: 'Tires' },
+    update: {},
+    create: { name: 'Tires' },
   });
 
   const diagnosticsCategory = await prisma.category.upsert({
@@ -180,60 +186,240 @@ async function main() {
     create: { name: 'Diagnostics' },
   });
 
+  const detailingCategory = await prisma.category.upsert({
+    where: { name: 'Detailing' },
+    update: {},
+    create: { name: 'Detailing' },
+  });
+
   const svcExteriorWash = await prisma.service.upsert({
     where: { id: '00000000-0000-0000-0001-000000000001' },
-    update: {},
+    update: {
+      categoryId: carWashCategory.id,
+      title: 'Exterior Wash',
+      description: 'Full exterior hand wash with foam and rinse.',
+    },
     create: {
       id: '00000000-0000-0000-0001-000000000001',
-      categoryId: washCategory.id,
+      categoryId: carWashCategory.id,
       title: 'Exterior Wash',
       description: 'Full exterior hand wash with foam and rinse.',
     },
   });
 
-  const svcFullDetail = await prisma.service.upsert({
+  const svcInteriorWash = await prisma.service.upsert({
     where: { id: '00000000-0000-0000-0001-000000000002' },
-    update: {},
+    update: {
+      categoryId: carWashCategory.id,
+      title: 'Interior Wash',
+      description: 'Vacuum, wipe-down, and interior refresh for passenger areas.',
+    },
     create: {
       id: '00000000-0000-0000-0001-000000000002',
-      categoryId: washCategory.id,
-      title: 'Full Detail Package',
-      description: 'Interior + exterior deep clean with polish.',
+      categoryId: carWashCategory.id,
+      title: 'Interior Wash',
+      description: 'Vacuum, wipe-down, and interior refresh for passenger areas.',
     },
   });
 
-  const svcEngineDiagnosis = await prisma.service.upsert({
+  const svcFullWash = await prisma.service.upsert({
     where: { id: '00000000-0000-0000-0001-000000000003' },
-    update: {},
+    update: {
+      categoryId: carWashCategory.id,
+      title: 'Full Wash',
+      description: 'Complete interior and exterior wash package.',
+    },
     create: {
       id: '00000000-0000-0000-0001-000000000003',
-      categoryId: diagnosticsCategory.id,
-      title: 'Engine Diagnosis',
-      description: 'OBD-II scan + mechanic inspection report.',
+      categoryId: carWashCategory.id,
+      title: 'Full Wash',
+      description: 'Complete interior and exterior wash package.',
     },
   });
 
-  const svcOilChange = await prisma.service.upsert({
+  const svcEngineWash = await prisma.service.upsert({
     where: { id: '00000000-0000-0000-0001-000000000004' },
-    update: {},
+    update: {
+      categoryId: carWashCategory.id,
+      title: 'Engine Wash',
+      description: 'Careful engine bay cleaning and degreasing service.',
+    },
     create: {
       id: '00000000-0000-0000-0001-000000000004',
-      categoryId: repairCategory.id,
-      title: 'Oil Change',
-      description: 'Full synthetic oil change + filter replacement.',
+      categoryId: carWashCategory.id,
+      title: 'Engine Wash',
+      description: 'Careful engine bay cleaning and degreasing service.',
     },
   });
 
-  const svcQuickWash = await prisma.service.upsert({
+  const svcStandardOilChange = await prisma.service.upsert({
     where: { id: '00000000-0000-0000-0001-000000000005' },
-    update: {},
+    update: {
+      categoryId: oilChangeCategory.id,
+      title: 'Standard Oil Change',
+      description: 'Conventional oil replacement with standard inspection.',
+    },
     create: {
       id: '00000000-0000-0000-0001-000000000005',
-      categoryId: washCategory.id,
-      title: 'Quick Wash',
-      description: 'Express exterior wash in under 20 minutes.',
+      categoryId: oilChangeCategory.id,
+      title: 'Standard Oil Change',
+      description: 'Conventional oil replacement with standard inspection.',
     },
   });
+
+  const svcSyntheticOilChange = await prisma.service.upsert({
+    where: { id: '00000000-0000-0000-0001-000000000006' },
+    update: {
+      categoryId: oilChangeCategory.id,
+      title: 'Synthetic Oil Change',
+      description: 'Premium synthetic oil replacement with filter check.',
+    },
+    create: {
+      id: '00000000-0000-0000-0001-000000000006',
+      categoryId: oilChangeCategory.id,
+      title: 'Synthetic Oil Change',
+      description: 'Premium synthetic oil replacement with filter check.',
+    },
+  });
+
+  const svcOilFilterReplacement = await prisma.service.upsert({
+    where: { id: '00000000-0000-0000-0001-000000000007' },
+    update: {
+      categoryId: oilChangeCategory.id,
+      title: 'Oil Filter Replacement',
+      description: 'Standalone oil filter replacement service.',
+    },
+    create: {
+      id: '00000000-0000-0000-0001-000000000007',
+      categoryId: oilChangeCategory.id,
+      title: 'Oil Filter Replacement',
+      description: 'Standalone oil filter replacement service.',
+    },
+  });
+
+  const svcTireChange = await prisma.service.upsert({
+    where: { id: '00000000-0000-0000-0001-000000000008' },
+    update: {
+      categoryId: tiresCategory.id,
+      title: 'Tire Change',
+      description: 'Removal and installation of replacement tires.',
+    },
+    create: {
+      id: '00000000-0000-0000-0001-000000000008',
+      categoryId: tiresCategory.id,
+      title: 'Tire Change',
+      description: 'Removal and installation of replacement tires.',
+    },
+  });
+
+  const svcTireRotation = await prisma.service.upsert({
+    where: { id: '00000000-0000-0000-0001-000000000009' },
+    update: {
+      categoryId: tiresCategory.id,
+      title: 'Tire Rotation',
+      description: 'Rotate tires to improve tread wear and lifespan.',
+    },
+    create: {
+      id: '00000000-0000-0000-0001-000000000009',
+      categoryId: tiresCategory.id,
+      title: 'Tire Rotation',
+      description: 'Rotate tires to improve tread wear and lifespan.',
+    },
+  });
+
+  const svcWheelBalancing = await prisma.service.upsert({
+    where: { id: '00000000-0000-0000-0001-000000000010' },
+    update: {
+      categoryId: tiresCategory.id,
+      title: 'Wheel Balancing',
+      description: 'Wheel balancing service for smoother driving.',
+    },
+    create: {
+      id: '00000000-0000-0000-0001-000000000010',
+      categoryId: tiresCategory.id,
+      title: 'Wheel Balancing',
+      description: 'Wheel balancing service for smoother driving.',
+    },
+  });
+
+  const svcComputerDiagnostics = await prisma.service.upsert({
+    where: { id: '00000000-0000-0000-0001-000000000011' },
+    update: {
+      categoryId: diagnosticsCategory.id,
+      title: 'Computer Diagnostics',
+      description: 'OBD-II scan with fault code analysis and report.',
+    },
+    create: {
+      id: '00000000-0000-0000-0001-000000000011',
+      categoryId: diagnosticsCategory.id,
+      title: 'Computer Diagnostics',
+      description: 'OBD-II scan with fault code analysis and report.',
+    },
+  });
+
+  const svcBatteryCheck = await prisma.service.upsert({
+    where: { id: '00000000-0000-0000-0001-000000000012' },
+    update: {
+      categoryId: diagnosticsCategory.id,
+      title: 'Battery Check',
+      description: 'Battery voltage and charging system inspection.',
+    },
+    create: {
+      id: '00000000-0000-0000-0001-000000000012',
+      categoryId: diagnosticsCategory.id,
+      title: 'Battery Check',
+      description: 'Battery voltage and charging system inspection.',
+    },
+  });
+
+  const svcBrakeInspection = await prisma.service.upsert({
+    where: { id: '00000000-0000-0000-0001-000000000013' },
+    update: {
+      categoryId: diagnosticsCategory.id,
+      title: 'Brake Inspection',
+      description: 'Brake pad, rotor, and fluid safety inspection.',
+    },
+    create: {
+      id: '00000000-0000-0000-0001-000000000013',
+      categoryId: diagnosticsCategory.id,
+      title: 'Brake Inspection',
+      description: 'Brake pad, rotor, and fluid safety inspection.',
+    },
+  });
+
+  const svcInteriorDetailing = await prisma.service.upsert({
+    where: { id: '00000000-0000-0000-0001-000000000014' },
+    update: {
+      categoryId: detailingCategory.id,
+      title: 'Interior Detailing',
+      description: 'Deep-clean interior detailing with fabric and surface care.',
+    },
+    create: {
+      id: '00000000-0000-0000-0001-000000000014',
+      categoryId: detailingCategory.id,
+      title: 'Interior Detailing',
+      description: 'Deep-clean interior detailing with fabric and surface care.',
+    },
+  });
+
+  const svcExteriorPolishing = await prisma.service.upsert({
+    where: { id: '00000000-0000-0000-0001-000000000015' },
+    update: {
+      categoryId: detailingCategory.id,
+      title: 'Exterior Polishing',
+      description: 'Paint polishing for gloss enhancement and swirl reduction.',
+    },
+    create: {
+      id: '00000000-0000-0000-0001-000000000015',
+      categoryId: detailingCategory.id,
+      title: 'Exterior Polishing',
+      description: 'Paint polishing for gloss enhancement and swirl reduction.',
+    },
+  });
+
+  const svcFullDetail = svcInteriorDetailing;
+  const svcEngineDiagnosis = svcComputerDiagnostics;
+  const svcOilChange = svcSyntheticOilChange;
 
   console.log('✅ Categories and services created');
 
@@ -643,91 +829,238 @@ async function main() {
   // 15. BUSINESS SERVICES (catalog matrix)
   // =====================================================================
 
-  await prisma.businessService.upsert({
-    where: {
-      businessId_serviceId: {
-        businessId: business1.id,
-        serviceId: svcExteriorWash.id,
-      },
-    },
-    update: {
-      price: 15000n,
-      averageDuration: 30,
-      isActive: true,
-    },
-    create: {
-      businessId: business1.id,
-      serviceId: svcExteriorWash.id,
-      price: 15000n, // 150.00 EGP in piastres
-      averageDuration: 30,
-      isActive: true,
-    },
-  });
+  const seededBusinessServices = [
+    { serviceId: svcExteriorWash.id, price: 15000n, averageDuration: 30, isActive: true },
+    { serviceId: svcInteriorWash.id, price: 18000n, averageDuration: 40, isActive: true },
+    { serviceId: svcFullWash.id, price: 26000n, averageDuration: 55, isActive: true },
+    { serviceId: svcEngineWash.id, price: 22000n, averageDuration: 45, isActive: false },
+    { serviceId: svcComputerDiagnostics.id, price: 20000n, averageDuration: 60, isActive: true },
+    { serviceId: svcSyntheticOilChange.id, price: 25000n, averageDuration: 45, isActive: true },
+    { serviceId: svcTireRotation.id, price: 16000n, averageDuration: 35, isActive: true },
+    { serviceId: svcInteriorDetailing.id, price: 45000n, averageDuration: 120, isActive: true },
+  ];
 
-  await prisma.businessService.upsert({
-    where: {
-      businessId_serviceId: {
-        businessId: business1.id,
-        serviceId: svcFullDetail.id,
+  for (const seededBusinessService of seededBusinessServices) {
+    await prisma.businessService.upsert({
+      where: {
+        businessId_serviceId: {
+          businessId: business1.id,
+          serviceId: seededBusinessService.serviceId,
+        },
       },
-    },
-    update: {
-      price: 45000n,
-      averageDuration: 120,
-      isActive: true,
-    },
-    create: {
-      businessId: business1.id,
-      serviceId: svcFullDetail.id,
-      price: 45000n,
-      averageDuration: 120,
-      isActive: true,
-    },
-  });
-
-  await prisma.businessService.upsert({
-    where: {
-      businessId_serviceId: {
-        businessId: business1.id,
-        serviceId: svcEngineDiagnosis.id,
+      update: {
+        price: seededBusinessService.price,
+        averageDuration: seededBusinessService.averageDuration,
+        isActive: seededBusinessService.isActive,
       },
-    },
-    update: {
-      price: 20000n,
-      averageDuration: 60,
-      isActive: true,
-    },
-    create: {
-      businessId: business1.id,
-      serviceId: svcEngineDiagnosis.id,
-      price: 20000n,
-      averageDuration: 60,
-      isActive: true,
-    },
-  });
-
-  await prisma.businessService.upsert({
-    where: {
-      businessId_serviceId: {
+      create: {
         businessId: business1.id,
-        serviceId: svcOilChange.id,
+        serviceId: seededBusinessService.serviceId,
+        price: seededBusinessService.price,
+        averageDuration: seededBusinessService.averageDuration,
+        isActive: seededBusinessService.isActive,
       },
-    },
-    update: {
-      price: 25000n,
-      averageDuration: 45,
-      isActive: true,
-    },
-    create: {
-      businessId: business1.id,
-      serviceId: svcOilChange.id,
-      price: 25000n,
-      averageDuration: 45,
-      isActive: true,
-    },
-  });
+    });
+  }
 
   console.log('✅ Business services assigned');
+
+  // =====================================================================
+  // 16. DEMO BOOKINGS & DIAGNOSTIC REPORTS
+  // =====================================================================
+
+  const bsExteriorWash = await prisma.businessService.findFirstOrThrow({
+    where: {
+      businessId: business1.id,
+      serviceId: svcExteriorWash.id,
+    },
+  });
+
+  const bsFullDetail = await prisma.businessService.findFirstOrThrow({
+    where: {
+      businessId: business1.id,
+      serviceId: svcFullDetail.id,
+    },
+  });
+
+  const bsEngineDiagnosis = await prisma.businessService.findFirstOrThrow({
+    where: {
+      businessId: business1.id,
+      serviceId: svcEngineDiagnosis.id,
+    },
+  });
+
+  const bsOilChange = await prisma.businessService.findFirstOrThrow({
+    where: {
+      businessId: business1.id,
+      serviceId: svcOilChange.id,
+    },
+  });
+
+  // Seed Booking 1: PENDING
+  const existingB1 = await prisma.booking.findUnique({
+    where: { id: '00000000-0000-0000-0002-000000000001' },
+  });
+  if (!existingB1) {
+    const booking1 = await prisma.booking.create({
+      data: {
+        id: '00000000-0000-0000-0002-000000000001',
+        vehicleId: vehicle1.id,
+        businessId: business1.id,
+        scheduledAt: futureDate(1),
+        subTotal: 15000n,
+        totalPrice: 15000n,
+        commission: 1500n,
+      },
+    });
+
+    await prisma.bookingItem.create({
+      data: {
+        bookingId: booking1.id,
+        businessServiceId: bsExteriorWash.id,
+        price: 15000n,
+      },
+    });
+
+    await prisma.bookingStatus.create({
+      data: {
+        bookingId: booking1.id,
+        statusId: statusMap['BOOKING:PENDING'],
+      },
+    });
+  }
+
+  // Seed Booking 2: WAITING_CLIENT_APPROVAL + diagnostics
+  const existingB2 = await prisma.booking.findUnique({
+    where: { id: '00000000-0000-0000-0002-000000000002' },
+  });
+  if (!existingB2) {
+    const booking2 = await prisma.booking.create({
+      data: {
+        id: '00000000-0000-0000-0002-000000000002',
+        vehicleId: vehicle2.id,
+        businessId: business1.id,
+        scheduledAt: futureDate(2),
+        subTotal: 65000n,
+        totalPrice: 65000n,
+        commission: 6500n,
+      },
+    });
+
+    await prisma.bookingItem.createMany({
+      data: [
+        {
+          bookingId: booking2.id,
+          businessServiceId: bsEngineDiagnosis.id,
+          price: 20000n,
+        },
+        {
+          bookingId: booking2.id,
+          businessServiceId: bsFullDetail.id,
+          price: 45000n,
+        },
+      ],
+    });
+
+    const timeline = [
+      'BOOKING:PENDING',
+      'BOOKING:CONFIRMED',
+      'BOOKING:VEHICLE_RECEIVED',
+      'BOOKING:INSPECTION_IN_PROGRESS',
+      'BOOKING:WAITING_CLIENT_APPROVAL',
+    ];
+    for (let i = 0; i < timeline.length; i++) {
+      await prisma.bookingStatus.create({
+        data: {
+          bookingId: booking2.id,
+          statusId: statusMap[timeline[i]],
+          createdAt: pastDate(timeline.length - i),
+        },
+      });
+    }
+
+    const report = await prisma.diagnosticReport.create({
+      data: {
+        bookingId: booking2.id,
+        summary: 'Engine warning light is on. Recommend cleaning fuel injector and spark plug replacements.',
+        validUntil: futureDate(10),
+        estimatedDuration: 180,
+      },
+    });
+
+    await prisma.reportFinding.createMany({
+      data: [
+        {
+          reportId: report.id,
+          title: 'Misfiring in Cylinder 2',
+          description: 'Spark plug shows heavy carbon deposits.',
+          priority: 'CRITICAL',
+        },
+        {
+          reportId: report.id,
+          title: 'Low windshield washer fluid',
+          description: 'Just needs topping up.',
+          priority: 'INFO',
+        },
+      ],
+    });
+
+    await prisma.recommendedRepair.create({
+      data: {
+        reportId: report.id,
+        businessServiceId: bsOilChange.id,
+      },
+    });
+  }
+
+  // Seed Booking 3: COMPLETED
+  const existingB3 = await prisma.booking.findUnique({
+    where: { id: '00000000-0000-0000-0002-000000000003' },
+  });
+  if (!existingB3) {
+    const booking3 = await prisma.booking.create({
+      data: {
+        id: '00000000-0000-0000-0002-000000000003',
+        vehicleId: vehicle3.id,
+        businessId: business1.id,
+        scheduledAt: pastDate(3),
+        expectedDeliveryAt: pastDate(3),
+        subTotal: 25000n,
+        totalPrice: 25000n,
+        commission: 2500n,
+      },
+    });
+
+    await prisma.bookingItem.create({
+      data: {
+        bookingId: booking3.id,
+        businessServiceId: bsOilChange.id,
+        price: 25000n,
+      },
+    });
+
+    const timeline = [
+      'BOOKING:PENDING',
+      'BOOKING:CONFIRMED',
+      'BOOKING:VEHICLE_RECEIVED',
+      'BOOKING:INSPECTION_IN_PROGRESS',
+      'BOOKING:WAITING_CLIENT_APPROVAL',
+      'BOOKING:REPAIR_IN_PROGRESS',
+      'BOOKING:READY_FOR_PICKUP',
+      'BOOKING:COMPLETED',
+    ];
+    for (let i = 0; i < timeline.length; i++) {
+      await prisma.bookingStatus.create({
+        data: {
+          bookingId: booking3.id,
+          statusId: statusMap[timeline[i]],
+          createdAt: pastDate(timeline.length - i),
+        },
+      });
+    }
+  }
+
+  console.log('✅ Demo bookings and diagnostic reports seeded');
 
   console.log('\n🎉 Glowfix seed completed successfully!');
 }
