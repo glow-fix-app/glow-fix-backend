@@ -66,22 +66,25 @@ async function main() {
     { name: 'APPROVED', context: 'BUSINESS' },
     { name: 'SUSPENDED', context: 'BUSINESS' },
     { name: 'REJECTED', context: 'BUSINESS' },
-    { name: 'DOC_PENDING', context: 'DOCUMENT' },
-    { name: 'DOC_ACCEPTED', context: 'DOCUMENT' },
-    { name: 'DOC_REJECTED', context: 'DOCUMENT' },
+    { name: 'PENDING', context: 'DOCUMENT' },
+    { name: 'APPROVED', context: 'DOCUMENT' },
+    { name: 'REJECTED', context: 'DOCUMENT' },
     { name: 'PENDING', context: 'BOOKING' },
     { name: 'CONFIRMED', context: 'BOOKING' },
     { name: 'VEHICLE_RECEIVED', context: 'BOOKING' },
-    { name: 'IN_PROGRESS', context: 'BOOKING' },
+    { name: 'INSPECTION_IN_PROGRESS', context: 'BOOKING' },
+    { name: 'WAITING_CLIENT_APPROVAL', context: 'BOOKING' },
+    { name: 'REPAIR_IN_PROGRESS', context: 'BOOKING' },
     { name: 'READY_FOR_PICKUP', context: 'BOOKING' },
     { name: 'COMPLETED', context: 'BOOKING' },
     { name: 'CANCELLED', context: 'BOOKING' },
-    { name: 'PAYMENT_PENDING', context: 'PAYMENT' },
+    { name: 'PENDING', context: 'PAYMENT' },
     { name: 'PAID', context: 'PAYMENT' },
     { name: 'REFUNDED', context: 'PAYMENT' },
     { name: 'FAILED', context: 'PAYMENT' },
-    { name: 'PAYOUT_PENDING', context: 'PAYMENT' },
-    { name: 'PAYOUT_PROCESSED', context: 'PAYMENT' },
+    { name: 'PENDING', context: 'PAYOUT' },
+    { name: 'PROCESSED', context: 'PAYOUT' },
+    { name: 'FAILED', context: 'PAYOUT' },
     { name: 'OPEN', context: 'CONVERSATION' },
     { name: 'CLOSED', context: 'CONVERSATION' },
     { name: 'SENT', context: 'MESSAGE' },
@@ -92,18 +95,18 @@ async function main() {
   const statusMap: Record<string, string> = {};
   for (const s of statusDefs) {
     const existing = await prisma.status.findFirst({
-      where: { context: s.context },
+      where: { context: s.context, name: s.name },
     });
 
     let row;
     if (!existing) {
       row = await prisma.status.create({
-        data: { context: s.context },
+        data: { context: s.context, name: s.name },
       });
     } else {
       row = existing;
     }
-    statusMap[s.name] = row.id;
+    statusMap[`${s.context}:${s.name}`] = row.id;
   }
 
   console.log('✅ Status lookup rows created');
@@ -328,12 +331,403 @@ async function main() {
   console.log(`   Client: client@glowfix.io / Client@1234!`);
 
   // =====================================================================
-  // Continue with the rest of your seed file...
-  // (Keep all your existing code for auth providers, sessions, clients,
-  //  businesses, bookings, etc. - they don't need bcrypt changes)
+  // 7. AUTH PROVIDERS
   // =====================================================================
 
-  // ... (rest of your seed file remains the same)
+  await prisma.userAuthProvider.upsert({
+    where: { userId_provider: { userId: adminUser.id, provider: 'EMAIL' } },
+    update: {},
+    create: { userId: adminUser.id, provider: 'EMAIL', email: adminUser.email },
+  });
+
+  await prisma.userAuthProvider.upsert({
+    where: { userId_provider: { userId: managerUser.id, provider: 'EMAIL' } },
+    update: {},
+    create: {
+      userId: managerUser.id,
+      provider: 'EMAIL',
+      email: managerUser.email,
+    },
+  });
+
+  await prisma.userAuthProvider.upsert({
+    where: { userId_provider: { userId: manager2User.id, provider: 'EMAIL' } },
+    update: {},
+    create: {
+      userId: manager2User.id,
+      provider: 'EMAIL',
+      email: manager2User.email,
+    },
+  });
+
+  await prisma.userAuthProvider.upsert({
+    where: { userId_provider: { userId: clientUser.id, provider: 'EMAIL' } },
+    update: {},
+    create: {
+      userId: clientUser.id,
+      provider: 'EMAIL',
+      email: clientUser.email,
+    },
+  });
+
+  await prisma.userAuthProvider.upsert({
+    where: { userId_provider: { userId: client2User.id, provider: 'GOOGLE' } },
+    update: {},
+    create: {
+      userId: client2User.id,
+      provider: 'GOOGLE',
+      providerUserId: 'google-sub-layla-001',
+      email: client2User.email,
+    },
+  });
+
+  console.log('✅ Auth providers created');
+
+  // =====================================================================
+  // 8. USER SESSIONS
+  // =====================================================================
+
+  const rawToken = generateRawToken();
+
+  await prisma.userSession.create({
+    data: {
+      userId: adminUser.id,
+      tokenHash: hashSha256(rawToken),
+      deviceInfo: 'Chrome on macOS',
+      ipAddress: '197.60.1.1',
+      userAgent: 'Mozilla/5.0',
+      expiresAt: futureDate(30),
+      lastUsedAt: new Date(),
+    },
+  });
+
+  console.log('✅ Sessions created');
+
+  // =====================================================================
+  // 9. CLIENTS
+  // =====================================================================
+
+  const client1 = await prisma.client.upsert({
+    where: { userId: clientUser.id },
+    update: {},
+    create: { userId: clientUser.id },
+  });
+
+  const client2 = await prisma.client.upsert({
+    where: { userId: client2User.id },
+    update: {},
+    create: { userId: client2User.id },
+  });
+
+  // Patch Omar's location to Maadi
+  await prisma.$executeRaw`
+    UPDATE clients
+    SET    location = ST_MakePoint(31.2581, 29.9602)::geography
+    WHERE  id = ${client1.id}::uuid
+  `;
+
+  // Patch Layla's location to Heliopolis
+  await prisma.$executeRaw`
+    UPDATE clients
+    SET    location = ST_MakePoint(31.3228, 30.0892)::geography
+    WHERE  id = ${client2.id}::uuid
+  `;
+
+  console.log('✅ Clients created + locations set');
+
+  // =====================================================================
+  // 10. CLIENT VEHICLES
+  // =====================================================================
+
+  const vehicle1 = await prisma.clientVehicle.upsert({
+    where: {
+      clientId_licensePlate: { clientId: client1.id, licensePlate: 'ABC-1234' },
+    },
+    update: {},
+    create: {
+      clientId: client1.id,
+      licensePlate: 'ABC-1234',
+      model: 'Toyota Corolla',
+      year: 2020,
+      color: 'White',
+    },
+  });
+
+  const vehicle2 = await prisma.clientVehicle.upsert({
+    where: {
+      clientId_licensePlate: { clientId: client1.id, licensePlate: 'XYZ-5678' },
+    },
+    update: {},
+    create: {
+      clientId: client1.id,
+      licensePlate: 'XYZ-5678',
+      model: 'Honda Civic',
+      year: 2022,
+      color: 'Black',
+    },
+  });
+
+  const vehicle3 = await prisma.clientVehicle.upsert({
+    where: {
+      clientId_licensePlate: { clientId: client2.id, licensePlate: 'GHI-9999' },
+    },
+    update: {},
+    create: {
+      clientId: client2.id,
+      licensePlate: 'GHI-9999',
+      model: 'Kia Sportage',
+      year: 2021,
+      color: 'Silver',
+    },
+  });
+
+  console.log('✅ Vehicles created');
+
+  // =====================================================================
+  // 11. BUSINESSES
+  // =====================================================================
+
+  const business1Id = '00000000-0000-0000-0000-000000000001';
+  const business2Id = '00000000-0000-0000-0000-000000000002';
+
+  await prisma.$executeRaw`
+    INSERT INTO businesses (
+      id, manager_id, business_name, address, location,
+      contact_phone, contact_email, created_at, updated_at
+    ) VALUES (
+      ${business1Id}::uuid,
+      ${managerUser.id}::uuid,
+      'GlowFix Maadi',
+      '15 Road 9, Maadi, Cairo',
+      ST_MakePoint(31.2581, 29.9602)::geography,
+      '+20225000001',
+      'maadi@glowfix.io',
+      now(), now()
+    ) ON CONFLICT (id) DO NOTHING
+  `;
+
+  await prisma.$executeRaw`
+    INSERT INTO businesses (
+      id, manager_id, business_name, address, location,
+      contact_phone, contact_email, created_at, updated_at
+    ) VALUES (
+      ${business2Id}::uuid,
+      ${manager2User.id}::uuid,
+      'GlowFix Heliopolis',
+      '7 El Merghany St, Heliopolis, Cairo',
+      ST_MakePoint(31.3228, 30.0892)::geography,
+      '+20225000002',
+      'heliopolis@glowfix.io',
+      now(), now()
+    ) ON CONFLICT (id) DO NOTHING
+  `;
+
+  const business1 = await prisma.business.findUniqueOrThrow({
+    where: { id: business1Id },
+  });
+  const business2 = await prisma.business.findUniqueOrThrow({
+    where: { id: business2Id },
+  });
+
+  console.log('✅ Businesses created + locations set');
+
+  // =====================================================================
+  // 12. BUSINESS STATUS HISTORY
+  // =====================================================================
+
+  const b1StatusCount = await prisma.businessStatus.count({
+    where: { businessId: business1.id }
+  });
+  if (b1StatusCount === 0) {
+    await prisma.businessStatus.createMany({
+      data: [
+        {
+          businessId: business1.id,
+          statusId: statusMap['BUSINESS:PENDING_REVIEW'],
+          createdAt: pastDate(15),
+        },
+        {
+          businessId: business1.id,
+          statusId: statusMap['BUSINESS:APPROVED'],
+          createdAt: pastDate(10),
+        },
+      ],
+    });
+  }
+
+  const b2StatusCount = await prisma.businessStatus.count({
+    where: { businessId: business2.id }
+  });
+  if (b2StatusCount === 0) {
+    await prisma.businessStatus.createMany({
+      data: [
+        {
+          businessId: business2.id,
+          statusId: statusMap['BUSINESS:PENDING_REVIEW'],
+          createdAt: pastDate(10),
+        },
+        {
+          businessId: business2.id,
+          statusId: statusMap['BUSINESS:APPROVED'],
+          createdAt: pastDate(5),
+        },
+      ],
+    });
+  }
+
+  console.log('✅ Business status history created');
+
+  // =====================================================================
+  // 13. BUSINESS DOCUMENTS
+  // =====================================================================
+
+  const docTypes = [
+    'BUSINESS_REGISTRATION',
+    'INSURANCE_CERTIFICATE',
+    'TAX_CARD',
+  ] as const;
+
+  for (const type of docTypes) {
+    const existingDoc = await prisma.businessDocument.findFirst({
+      where: { businessId: business1.id, type }
+    });
+    if (!existingDoc) {
+      await prisma.businessDocument.create({
+        data: {
+          businessId: business1.id,
+          type,
+          url: `https://cdn.glowfix.io/docs/business1/${type.toLowerCase()}.pdf`,
+          statusId: statusMap['DOCUMENT:APPROVED'],
+        },
+      });
+    }
+  }
+
+  console.log('✅ Business documents created');
+
+  // =====================================================================
+  // 14. OPERATING HOURS  (business1 — Sun–Thu open, Fri–Sat closed)
+  // =====================================================================
+
+  const schedule = [
+    { day: 0, open: '09:00', close: '18:00' },
+    { day: 1, open: '09:00', close: '18:00' },
+    { day: 2, open: '09:00', close: '18:00' },
+    { day: 3, open: '09:00', close: '18:00' },
+    { day: 4, open: '09:00', close: '18:00' },
+    { day: 5, open: null, close: null },
+    { day: 6, open: null, close: null },
+  ];
+
+  for (const s of schedule) {
+    await prisma.operatingHour.upsert({
+      where: {
+        businessId_dayOfWeek: { businessId: business1.id, dayOfWeek: s.day },
+      },
+      update: {
+        openTime: s.open ?? null,
+        closeTime: s.close ?? null,
+      },
+      create: {
+        businessId: business1.id,
+        dayOfWeek: s.day,
+        openTime: s.open ?? null,
+        closeTime: s.close ?? null,
+      },
+    });
+  }
+
+  console.log('✅ Operating hours created');
+
+  // =====================================================================
+  // 15. BUSINESS SERVICES (catalog matrix)
+  // =====================================================================
+
+  await prisma.businessService.upsert({
+    where: {
+      businessId_serviceId: {
+        businessId: business1.id,
+        serviceId: svcExteriorWash.id,
+      },
+    },
+    update: {
+      price: 15000n,
+      averageDuration: 30,
+      isActive: true,
+    },
+    create: {
+      businessId: business1.id,
+      serviceId: svcExteriorWash.id,
+      price: 15000n, // 150.00 EGP in piastres
+      averageDuration: 30,
+      isActive: true,
+    },
+  });
+
+  await prisma.businessService.upsert({
+    where: {
+      businessId_serviceId: {
+        businessId: business1.id,
+        serviceId: svcFullDetail.id,
+      },
+    },
+    update: {
+      price: 45000n,
+      averageDuration: 120,
+      isActive: true,
+    },
+    create: {
+      businessId: business1.id,
+      serviceId: svcFullDetail.id,
+      price: 45000n,
+      averageDuration: 120,
+      isActive: true,
+    },
+  });
+
+  await prisma.businessService.upsert({
+    where: {
+      businessId_serviceId: {
+        businessId: business1.id,
+        serviceId: svcEngineDiagnosis.id,
+      },
+    },
+    update: {
+      price: 20000n,
+      averageDuration: 60,
+      isActive: true,
+    },
+    create: {
+      businessId: business1.id,
+      serviceId: svcEngineDiagnosis.id,
+      price: 20000n,
+      averageDuration: 60,
+      isActive: true,
+    },
+  });
+
+  await prisma.businessService.upsert({
+    where: {
+      businessId_serviceId: {
+        businessId: business1.id,
+        serviceId: svcOilChange.id,
+      },
+    },
+    update: {
+      price: 25000n,
+      averageDuration: 45,
+      isActive: true,
+    },
+    create: {
+      businessId: business1.id,
+      serviceId: svcOilChange.id,
+      price: 25000n,
+      averageDuration: 45,
+      isActive: true,
+    },
+  });
+
+  console.log('✅ Business services assigned');
 
   console.log('\n🎉 Glowfix seed completed successfully!');
 }

@@ -573,7 +573,7 @@ export class ServicesService {
         booking: {
           statusHistory: {
             none: {
-              status: { context: { in: ['COMPLETED', 'CANCELLED'] } },
+              status: { name: { in: ['COMPLETED', 'CANCELLED'] } },
             },
           },
         },

@@ -7,280 +7,322 @@ import {
   Body,
   Param,
   Query,
+  UseGuards,
   UseInterceptors,
   UploadedFile,
-  ParseUUIDPipe,
+  BadRequestException,
   HttpCode,
   HttpStatus,
-  BadRequestException,
+  Version,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiConsumes,
-  ApiBody,
-  ApiParam,
-  ApiQuery,
 } from '@nestjs/swagger';
-import { memoryStorage } from 'multer';
-import { BusinessesService } from './businesses.service';
-import { CreateBusinessDto } from './dto/create-business.dto';
-import { UpdateBusinessDto } from './dto/update-business.dto';
-import { UpdateBusinessStatusDto } from './dto/business-status.dto';
-import { UpdateOperatingHoursDto } from './dto/operating-hours.dto';
-import { UploadBusinessDocumentDto, UpdateDocumentStatusDto } from './dto/business-document.dto';
-import { BusinessResponseDto, BusinessStatsDto, NearbyBusinessDto } from './dto/business-response.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { JwtPayload, UserRole } from '@glow-fix/types';
+
+import { BusinessesService, OnboardingStatus, BusinessResponse } from './businesses.service';
+import {
+  CreateBusinessDto,
+  UpdateBusinessDto,
+  CreateOperatingHoursDto,
+  UploadDocumentDto,
+  AdminSetBusinessStatusDto,
+  AdminSetDocumentStatusDto,
+} from './dto';
+
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+
+// =====================================================================
+// Controller
+// =====================================================================
 
 @ApiTags('Businesses')
 @Controller({ path: 'businesses', version: '1' })
 export class BusinessesController {
   constructor(private readonly businessesService: BusinessesService) {}
 
-  // ==================== MANAGER ENDPOINTS ====================
+  // ─── MANAGER: Business Profile ─────────────────────────────────────────────
 
+  /**
+   * POST /api/v1/businesses
+   * MANAGER: Create a business profile.
+   */
   @Post()
-  @Roles('MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Register a new business (manager only)' })
-  @ApiResponse({ status: 201, description: 'Business created', type: BusinessResponseDto })
+  @Roles(UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a business profile (MANAGER only)' })
+  @ApiResponse({ status: 201, description: 'Business created successfully' })
+  @ApiResponse({ status: 409, description: 'Manager already has a business' })
+  @ApiResponse({ status: 403, description: 'User is not a manager' })
   async createBusiness(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateBusinessDto,
-  ): Promise<BusinessResponseDto> {
-    return this.businessesService.createBusiness(user.id, dto);
+  ): Promise<BusinessResponse> {
+    return this.businessesService.createBusiness(user.sub ?? (user as any).id, dto);
   }
 
+  /**
+   * GET /api/v1/businesses/me
+   * MANAGER: Get own business profile.
+   */
   @Get('me')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get my business' })
-  @ApiResponse({ status: 200, description: 'Business details', type: BusinessResponseDto })
-  async getMyBusiness(@CurrentUser() user: any): Promise<BusinessResponseDto> {
-    return this.businessesService.getMyBusiness(user.id);
+  @Roles(UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get own business profile (MANAGER only)' })
+  @ApiResponse({ status: 200, description: 'Business profile retrieved' })
+  @ApiResponse({ status: 404, description: 'Manager does not have a business' })
+  @ApiResponse({ status: 403, description: 'User is not a manager' })
+  async getMyBusiness(@CurrentUser() user: JwtPayload): Promise<BusinessResponse> {
+    return this.businessesService.getMyBusiness(user.sub ?? (user as any).id);
   }
 
+  /**
+   * PUT /api/v1/businesses/me
+   * MANAGER: Update own business profile.
+   */
   @Put('me')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update my business' })
-  @ApiResponse({ status: 200, description: 'Business updated', type: BusinessResponseDto })
+  @Roles(UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update own business profile (MANAGER only)' })
+  @ApiResponse({ status: 200, description: 'Business profile updated' })
+  @ApiResponse({ status: 404, description: 'Manager does not have a business' })
+  @ApiResponse({ status: 403, description: 'User is not a manager' })
   async updateMyBusiness(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: UpdateBusinessDto,
-  ): Promise<BusinessResponseDto> {
-    const business = await this.businessesService.getMyBusiness(user.id);
-    return this.businessesService.updateBusiness(user.id, business.id, dto);
+  ): Promise<BusinessResponse> {
+    return this.businessesService.updateMyBusiness(user.sub ?? (user as any).id, dto);
   }
 
-  @Delete('me')
-  @Roles('MANAGER')
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Close my business' })
-  @ApiResponse({ status: 200, description: 'Business closed' })
-  async deleteMyBusiness(@CurrentUser() user: any): Promise<{ success: boolean; message: string }> {
-    const business = await this.businessesService.getMyBusiness(user.id);
-    return this.businessesService.deleteBusiness(user.id, business.id);
-  }
+  // ─── MANAGER: Operating Hours ─────────────────────────────────────────────
 
-  // ==================== OPERATING HOURS ====================
-
+  /**
+   * GET /api/v1/businesses/me/hours
+   * MANAGER: Get business operating hours.
+   */
   @Get('me/hours')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get my business operating hours' })
-  async getMyHours(@CurrentUser() user: any): Promise<any[]> {
-    const business = await this.businessesService.getMyBusiness(user.id);
-    return this.businessesService.getOperatingHours(business.id);
+  @Roles(UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get business operating hours (MANAGER only)' })
+  @ApiResponse({ status: 200, description: 'Operating hours retrieved' })
+  @ApiResponse({ status: 404, description: 'Manager does not have a business' })
+  @ApiResponse({ status: 403, description: 'User is not a manager' })
+  async getOperatingHours(@CurrentUser() user: JwtPayload): Promise<Array<{
+    dayOfWeek: number;
+    openTime: string | null;
+    closeTime: string | null;
+  }>> {
+    return this.businessesService.getOperatingHours(user.sub ?? (user as any).id);
   }
 
+  /**
+   * PUT /api/v1/businesses/me/hours
+   * MANAGER: Update business operating hours.
+   */
   @Put('me/hours')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update my business operating hours' })
-  async updateMyHours(
-    @CurrentUser() user: any,
-    @Body() dto: UpdateOperatingHoursDto,
-  ): Promise<{ success: boolean; message: string }> {
-    const business = await this.businessesService.getMyBusiness(user.id);
-    return this.businessesService.updateOperatingHours(business.id, dto.hours);
+  @Roles(UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update business operating hours (MANAGER only)' })
+  @ApiResponse({ status: 200, description: 'Operating hours updated' })
+  @ApiResponse({ status: 404, description: 'Manager does not have a business' })
+  @ApiResponse({ status: 403, description: 'User is not a manager' })
+  async updateOperatingHours(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateOperatingHoursDto,
+  ): Promise<Array<{ dayOfWeek: number; openTime: string | null; closeTime: string | null }>> {
+    return this.businessesService.updateOperatingHours(user.sub ?? (user as any).id, dto);
   }
 
-  // ==================== BUSINESS DOCUMENTS ====================
+  // ─── MANAGER: Documents ───────────────────────────────────────────────────
 
+  /**
+   * GET /api/v1/businesses/me/documents
+   * MANAGER: Get business documents.
+   */
+  @Get('me/documents')
+  @Roles(UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get business documents (MANAGER only)' })
+  @ApiResponse({ status: 200, description: 'Documents retrieved' })
+  @ApiResponse({ status: 404, description: 'Manager does not have a business' })
+  @ApiResponse({ status: 403, description: 'User is not a manager' })
+  async getMyDocuments(@CurrentUser() user: JwtPayload): Promise<Array<{
+    id: string;
+    type: string;
+    url: string;
+    status: string;
+    createdAt: Date;
+  }>> {
+    return this.businessesService.getMyDocuments(user.sub ?? (user as any).id);
+  }
+
+  /**
+   * POST /api/v1/businesses/me/documents
+   * MANAGER: Upload a business document.
+   */
   @Post('me/documents')
-  @Roles('MANAGER')
-  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
-  @ApiBearerAuth()
+  @Roles(UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBearerAuth('access-token')
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload business document' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['file', 'type'],
-      properties: {
-        file: { type: 'string', format: 'binary' },
-        type: { type: 'string', enum: ['BUSINESS_REGISTRATION', 'OWNER_ID', 'INSURANCE_CERTIFICATE', 'SERVICE_LICENSE'] },
-      },
-    },
-  })
+  @ApiOperation({ summary: 'Upload a business document (MANAGER only)' })
+  @ApiResponse({ status: 201, description: 'Document uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file or document type' })
+  @ApiResponse({ status: 404, description: 'Manager does not have a business' })
+  @ApiResponse({ status: 409, description: 'Document already exists' })
+  @ApiResponse({ status: 403, description: 'User is not a manager' })
   async uploadDocument(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @UploadedFile() file: Express.Multer.File,
-    @Body() dto: UploadBusinessDocumentDto,
-  ): Promise<any> {
+    @Body() dto: UploadDocumentDto,
+  ): Promise<{ id: string; type: string; url: string; status: string }> {
     if (!file) {
       throw new BadRequestException('File is required');
     }
-    const business = await this.businessesService.getMyBusiness(user.id);
-    return this.businessesService.uploadDocument(user.id, business.id, file, dto);
+    return this.businessesService.uploadDocument(user.sub ?? (user as any).id, file, dto);
   }
 
-  @Get('me/documents')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get my business documents' })
-  async getMyDocuments(@CurrentUser() user: any): Promise<any[]> {
-    const business = await this.businessesService.getMyBusiness(user.id);
-    const fullBusiness = await this.businessesService.getBusinessWithDetails(business.id);
-    return fullBusiness.documents;
-  }
-
+  /**
+   * DELETE /api/v1/businesses/me/documents/:documentId
+   * MANAGER: Delete a document.
+   */
   @Delete('me/documents/:documentId')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete business document' })
+  @Roles(UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a document (MANAGER only)' })
+  @ApiResponse({ status: 204, description: 'Document deleted' })
+  @ApiResponse({ status: 404, description: 'Document not found' })
+  @ApiResponse({ status: 403, description: 'Document belongs to another manager' })
   async deleteDocument(
-    @CurrentUser() user: any,
-    @Param('documentId', ParseUUIDPipe) documentId: string,
-  ): Promise<{ success: boolean; message: string }> {
-    const business = await this.businessesService.getMyBusiness(user.id);
-    return this.businessesService.deleteDocument(user.id, business.id, documentId);
+    @CurrentUser() user: JwtPayload,
+    @Param('documentId') documentId: string,
+  ): Promise<void> {
+    await this.businessesService.deleteDocument(user.sub ?? (user as any).id, documentId);
   }
 
-  // ==================== BUSINESS STATISTICS ====================
+  // ─── MANAGER: Onboarding Status ────────────────────────────────────────────
 
-  @Get('me/stats')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get my business statistics' })
-  @ApiResponse({ status: 200, description: 'Business statistics', type: BusinessStatsDto })
-  async getMyStats(@CurrentUser() user: any): Promise<BusinessStatsDto> {
-    const business = await this.businessesService.getMyBusiness(user.id);
-    return this.businessesService.getBusinessStats(business.id);
+  /**
+   * GET /api/v1/businesses/me/onboarding-status
+   * MANAGER: Get onboarding progress.
+   */
+  @Get('me/onboarding-status')
+  @Roles(UserRole.MANAGER)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get onboarding status (MANAGER only)' })
+  @ApiResponse({ status: 200, description: 'Onboarding status retrieved' })
+  @ApiResponse({ status: 403, description: 'User is not a manager' })
+  async getOnboardingStatus(@CurrentUser() user: JwtPayload): Promise<OnboardingStatus> {
+    return this.businessesService.getOnboardingStatus(user.sub ?? (user as any).id);
   }
 
-  // ==================== PUBLIC ENDPOINTS ====================
+  // ─── ADMIN: Business Management ────────────────────────────────────────────
 
+  /**
+   * GET /api/v1/businesses/admin/all
+   * ADMIN: Get all businesses with optional status filter.
+   */
+  @Get('admin/all')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get all businesses (ADMIN only)' })
+  @ApiResponse({ status: 200, description: 'Businesses retrieved' })
+  @ApiResponse({ status: 403, description: 'User is not an admin' })
+  async getAllBusinessesForAdmin(
+    @CurrentUser() _user: JwtPayload,
+    @Query('status') status?: string,
+  ): Promise<Array<BusinessResponse>> {
+    return this.businessesService.getAllBusinessesForAdmin(status);
+  }
+
+  /**
+   * PUT /api/v1/businesses/admin/:businessId/status
+   * ADMIN: Set business status (approve/reject/suspend).
+   */
+  @Put('admin/:businessId/status')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Set business status (ADMIN only)' })
+  @ApiResponse({ status: 200, description: 'Status updated' })
+  @ApiResponse({ status: 404, description: 'Business not found' })
+  @ApiResponse({ status: 400, description: 'Missing required fields' })
+  @ApiResponse({ status: 403, description: 'User is not an admin' })
+  async setBusinessStatus(
+    @CurrentUser() _user: JwtPayload,
+    @Param('businessId') businessId: string,
+    @Body() dto: AdminSetBusinessStatusDto,
+  ): Promise<BusinessResponse> {
+    return this.businessesService.setBusinessStatus(businessId, dto);
+  }
+
+  /**
+   * PUT /api/v1/businesses/admin/documents/:documentId/status
+   * ADMIN: Set document status (approve/reject).
+   */
+  @Put('admin/documents/:documentId/status')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Set document status (ADMIN only)' })
+  @ApiResponse({ status: 200, description: 'Status updated' })
+  @ApiResponse({ status: 404, description: 'Document not found' })
+  @ApiResponse({ status: 400, description: 'Missing required fields' })
+  @ApiResponse({ status: 403, description: 'User is not an admin' })
+  async setDocumentStatus(
+    @CurrentUser() _user: JwtPayload,
+    @Param('documentId') documentId: string,
+    @Body() dto: AdminSetDocumentStatusDto,
+  ): Promise<{ id: string; type: string; url: string; status: string }> {
+    return this.businessesService.setDocumentStatus(documentId, dto);
+  }
+
+  // ─── PUBLIC: Approved Businesses ──────────────────────────────────────────
+
+  /**
+   * GET /api/v1/businesses
+   * PUBLIC: List all approved businesses.
+   */
   @Get()
   @Public()
-  @ApiOperation({ summary: 'Get all approved businesses (public)' })
-  @ApiQuery({ name: 'page', required: false, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, example: 20 })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by business name' })
-  async getAllBusinesses(
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
-    @Query('search') search?: string,
-  ): Promise<{ data: any[]; meta: any }> {
-    return this.businessesService.getApprovedBusinesses(page, limit, search);
+  @ApiOperation({ summary: 'List approved businesses (public)' })
+  @ApiResponse({ status: 200, description: 'Businesses retrieved' })
+  async listApprovedBusinesses(): Promise<Array<BusinessResponse>> {
+    return this.businessesService.listApprovedBusinesses();
   }
 
-  @Get('nearby')
+  /**
+   * GET /api/v1/businesses/:id
+   * PUBLIC: Get a specific approved business by ID.
+   */
+  @Get(':id')
   @Public()
-  @ApiOperation({ summary: 'Find nearby businesses (public)' })
-  @ApiQuery({ name: 'lat', required: true, type: Number })
-  @ApiQuery({ name: 'lng', required: true, type: Number })
-  @ApiQuery({ name: 'radius', required: false, type: Number, description: 'Radius in km', example: 10 })
-  @ApiQuery({ name: 'page', required: false, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, example: 20 })
-  async getNearbyBusinesses(
-    @Query('lat') lat: string,
-    @Query('lng') lng: string,
-    @Query('radius') radius: string = '10',
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
-  ): Promise<{ data: NearbyBusinessDto[]; meta: any }> {
-    return this.businessesService.getNearbyBusinesses(
-      parseFloat(lat),
-      parseFloat(lng),
-      parseFloat(radius),
-      page,
-      limit,
-    );
-  }
-
-  @Get(':businessId')
-  @Public()
-  @ApiOperation({ summary: 'Get business by ID (public)' })
-  @ApiParam({ name: 'businessId', description: 'Business UUID' })
-  @ApiResponse({ status: 200, description: 'Business details', type: BusinessResponseDto })
-  @ApiResponse({ status: 404, description: 'Business not found' })
-  async getBusinessById(
-    @Param('businessId', ParseUUIDPipe) businessId: string,
-  ): Promise<BusinessResponseDto> {
-    return this.businessesService.getBusinessWithDetails(businessId);
-  }
-
-  @Get(':businessId/hours')
-  @Public()
-  @ApiOperation({ summary: 'Get business operating hours' })
-  async getBusinessHours(@Param('businessId', ParseUUIDPipe) businessId: string): Promise<any[]> {
-    return this.businessesService.getOperatingHours(businessId);
-  }
-
-  // ==================== ADMIN ENDPOINTS ====================
-
-  @Get('admin/all')
-  @Roles('ADMIN')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all businesses with filters (admin only)' })
-  @ApiQuery({ name: 'status', required: false, enum: ['PENDING_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED'] })
-  @ApiQuery({ name: 'page', required: false, example: 1 })
-  @ApiQuery({ name: 'limit', required: false, example: 20 })
-  async getAllBusinessesAdmin(
-    @Query('status') status?: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
-  ): Promise<{ data: any[]; meta: any }> {
-    return this.businessesService.getAllBusinesses(status, page, limit);
-  }
-
-  @Put('admin/:businessId/status')
-  @Roles('ADMIN')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update business status (admin only)' })
-  async updateBusinessStatus(
-    @Param('businessId', ParseUUIDPipe) businessId: string,
-    @Body() dto: UpdateBusinessStatusDto,
-  ): Promise<{ success: boolean; message: string }> {
-    return this.businessesService.updateBusinessStatus(businessId, dto);
-  }
-
-  @Put('admin/documents/:documentId/status')
-  @Roles('ADMIN')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update document status (admin only)' })
-  async updateDocumentStatus(
-    @Param('documentId', ParseUUIDPipe) documentId: string,
-    @Body() dto: UpdateDocumentStatusDto,
-  ): Promise<{ success: boolean; message: string }> {
-    return this.businessesService.updateDocumentStatus(documentId, dto);
-  }
-
-  @Get('admin/:businessId/stats')
-  @Roles('ADMIN', 'MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get business statistics (admin/manager)' })
-  async getBusinessStats(
-    @Param('businessId', ParseUUIDPipe) businessId: string,
-  ): Promise<BusinessStatsDto> {
-    return this.businessesService.getBusinessStats(businessId);
+  @ApiOperation({ summary: 'Get approved business by ID (public)' })
+  @ApiResponse({ status: 200, description: 'Business retrieved' })
+  @ApiResponse({ status: 404, description: 'Business not found or not approved' })
+  async getApprovedBusiness(
+    @Param('id') id: string,
+  ): Promise<BusinessResponse> {
+    return this.businessesService.getApprovedBusiness(id);
   }
 }

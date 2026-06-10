@@ -1173,7 +1173,7 @@ export class AuthService {
 
   private getPermissionsForRole(role: UserRole): Permission[] {
     switch (role) {
-      case UserRole.CUSTOMER:
+      case UserRole.CLIENT:
         return [
           Permission.MANAGE_OWN_VEHICLES,
           Permission.CREATE_BOOKING,
@@ -1181,7 +1181,7 @@ export class AuthService {
           Permission.CANCEL_OWN_BOOKING,
           Permission.MANAGE_OWN_PROFILE,
         ];
-      case UserRole.STAFF:
+      case UserRole.MANAGER:
         return [
           Permission.VIEW_ASSIGNED_BOOKINGS,
           Permission.UPDATE_BOOKING_STATUS,

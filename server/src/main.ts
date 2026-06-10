@@ -156,8 +156,8 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   // ─── Start Server ───
-  // Register global JWT guard
-  app.useGlobalGuards(app.get(JwtAuthGuard));
+  // Register global JWT guard (now registered via app.module.ts APP_GUARD)
+  // app.useGlobalGuards(app.get(JwtAuthGuard));
 
   await app.listen(port,()=>{
     logger.log(`🚀 Glow Fix API running in [${nodeEnv}] mode`);

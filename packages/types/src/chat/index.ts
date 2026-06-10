@@ -14,7 +14,7 @@ export interface ChatConversation extends BaseEntity {
 export interface ChatMessage extends BaseEntity {
   conversationId: string;
   senderId: string;
-  senderRole: 'CUSTOMER' | 'STAFF';
+  senderRole: 'CLIENT' | 'MANAGER';
   type: ChatMessageType;
   content: string;
   mediaUrls: string[];

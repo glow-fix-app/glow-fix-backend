@@ -246,11 +246,11 @@ export class VehiclesService {
     const now = new Date();
 
     for (const booking of bookings) {
-      const latestStatus = booking.statusHistory[0]?.status?.context || 'PENDING';
+      const latestStatus = booking.statusHistory[0]?.status?.name || 'PENDING';
 
       if (latestStatus === 'COMPLETED') {
         completedBookings++;
-        if (booking.payment?.status?.context === 'PAID') {
+        if (booking.payment?.status?.name === 'PAID') {
           totalSpent += Number(booking.totalPrice);
         }
       } else if (latestStatus === 'CANCELLED') {
@@ -306,7 +306,7 @@ export class VehiclesService {
     if (status) {
       where.statusHistory = {
         some: {
-          status: { context: status },
+          status: { name: status },
         },
       };
     }
@@ -348,8 +348,8 @@ export class VehiclesService {
         business_name: booking.business.businessName,
         scheduled_at: booking.scheduledAt,
         total_price: Number(booking.totalPrice),
-        status: latestStatus?.status?.context || 'PENDING',
-        payment_status: payment?.status?.context || 'PENDING',
+        status: latestStatus?.status?.name || 'PENDING',
+        payment_status: payment?.status?.name || 'PENDING',
         rating: review?.rating,
         created_at: booking.createdAt,
       };
@@ -423,8 +423,8 @@ export class VehiclesService {
         business_name: booking.business.businessName,
         scheduled_at: booking.scheduledAt,
         total_price: Number(booking.totalPrice),
-        status: latestStatus?.status?.context || 'PENDING',
-        payment_status: payment?.status?.context || 'PENDING',
+        status: latestStatus?.status?.name || 'PENDING',
+        payment_status: payment?.status?.name || 'PENDING',
         created_at: booking.createdAt,
       };
     });
@@ -627,7 +627,7 @@ export class VehiclesService {
         scheduledAt: { gt: new Date() },
         statusHistory: {
           none: {
-            status: { context: 'CANCELLED' },
+            status: { name: 'CANCELLED' },
           },
         },
       },

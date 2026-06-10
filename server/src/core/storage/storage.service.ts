@@ -103,6 +103,47 @@ export class StorageService {
     };
   }
 
+  /**
+   * Upload a raw file buffer without processing (preserves original bytes).
+   * Used for document uploads (PDF, images, etc.).
+   *
+   * @param buffer       Raw file bytes from multer / multipart
+   * @param folder       Logical folder prefix, e.g. "documents"
+   * @param contentType  MIME type for the file, e.g. "application/pdf"
+   * @param extension    Optional file extension (default: derived from contentType)
+   */
+  async uploadFile(
+    buffer: Buffer,
+    folder: string,
+    contentType: string,
+    extension?: string,
+  ): Promise<UploadResult> {
+    // Infer extension from contentType if not provided
+    const ext = extension || this.getExtensionFromContentType(contentType);
+    const storageKey = `${folder}/${this.generateKey()}${ext}`;
+
+    try {
+      await this.s3.send(
+        new PutObjectCommand({
+          Bucket:      this.bucket,
+          Key:         storageKey,
+          Body:        buffer,
+          ContentType: contentType,
+          // Public read — documents are not sensitive. Adjust ACL if needed.
+          ACL:         'public-read',
+          CacheControl: 'public, max-age=31536000, immutable',
+        }),
+      );
+    } catch (err) {
+      throw new InternalServerErrorException('File upload failed');
+    }
+
+    return {
+      storageKey,
+      url: `${this.cdnBase}/${storageKey}`,
+    };
+  }
+
   // ── Delete ──────────────────────────────────────────────────────────────────
 
   /**
@@ -139,5 +180,20 @@ export class StorageService {
   private generateKey(): string {
     // 16 random bytes → 32 hex chars — collision probability negligible
     return randomBytes(16).toString('hex');
+  }
+
+  private getExtensionFromContentType(contentType: string): string {
+    const typeMap: Record<string, string> = {
+      'application/pdf': '.pdf',
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+      'application/msword': '.doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+      'application/vnd.ms-excel': '.xls',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+    };
+    return typeMap[contentType] || '.bin';
   }
 }

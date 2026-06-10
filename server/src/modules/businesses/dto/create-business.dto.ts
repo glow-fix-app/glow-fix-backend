@@ -1,7 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
+  IsNotEmpty,
   IsOptional,
+  MinLength,
+  MaxLength,
   IsEmail,
   IsPhoneNumber,
   IsNumber,
@@ -9,79 +12,80 @@ import {
   Max,
   IsArray,
   ValidateNested,
-  IsLatitude,
-  IsLongitude,
-  MinLength,
-  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-
-export class BusinessLocationDto {
-  @ApiProperty({ example: 30.0444 })
-  @IsNumber()
-  @IsLatitude()
-  @Type(() => Number)
-  latitude: number;
-
-  @ApiProperty({ example: 31.2357 })
-  @IsNumber()
-  @IsLongitude()
-  @Type(() => Number)
-  longitude: number;
-}
-
-export class OperatingHoursInputDto {
-  @ApiProperty({ enum: [0, 1, 2, 3, 4, 5, 6], description: '0=Sunday, 6=Saturday' })
-  @IsNumber()
-  @Min(0)
-  @Max(6)
-  day_of_week: number;
-
-  @ApiPropertyOptional({ example: '09:00' })
-  @IsOptional()
-  @IsString()
-  open_time?: string;
-
-  @ApiPropertyOptional({ example: '18:00' })
-  @IsOptional()
-  @IsString()
-  close_time?: string;
-
-  @ApiPropertyOptional({ default: false })
-  @IsOptional()
-  is_closed?: boolean;
-}
+import { OperatingHourDto } from './operating-hours.dto';
 
 export class CreateBusinessDto {
-  @ApiProperty({ example: 'Shine & Co. Detailing' })
+  @ApiProperty({
+    description: 'Business name (3-100 characters)',
+    example: 'Bright Auto Wash',
+  })
   @IsString()
+  @IsNotEmpty()
   @MinLength(3)
   @MaxLength(100)
-  business_name: string;
+  businessName: string;
 
-  @ApiProperty({ example: '123 Zamalek Street, Cairo, Egypt' })
+  @ApiProperty({
+    description: 'Business physical address',
+    example: '123 Main St, Cairo, Egypt',
+  })
   @IsString()
+  @IsNotEmpty()
   address: string;
 
-  @ApiProperty({ type: BusinessLocationDto })
-  @ValidateNested()
-  @Type(() => BusinessLocationDto)
-  location: BusinessLocationDto;
+  @ApiProperty({
+    description: 'Latitude coordinate',
+    example: 30.0444,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  @Min(-90)
+  @Max(90)
+  latitude: number;
 
-  @ApiPropertyOptional({ example: '+20123456789' })
+  @ApiProperty({
+    description: 'Longitude coordinate',
+    example: 31.2357,
+  })
+  @IsNumber()
+  @IsNotEmpty()
+  @Min(-180)
+  @Max(180)
+  longitude: number;
+
+  @ApiPropertyOptional({
+    description: 'Business contact phone number',
+    example: '+20123456789',
+  })
   @IsOptional()
-  @IsPhoneNumber()
-  contact_phone?: string;
+  @IsString()
+  contactPhone?: string;
 
-  @ApiPropertyOptional({ example: 'contact@shineco.com' })
+  @ApiPropertyOptional({
+    description: 'Business contact email address',
+    example: 'info@business.com',
+  })
   @IsOptional()
   @IsEmail()
-  contact_email?: string;
+  contactEmail?: string;
 
-  @ApiPropertyOptional({ type: [OperatingHoursInputDto], description: 'Operating hours for each day' })
+  @ApiPropertyOptional({
+    description:
+      'Operating hours (optional, can be added/updated later). Array of operating hour objects.',
+    type: [OperatingHourDto],
+    example: [
+      {
+        dayOfWeek: 0,
+        openTime: '09:00',
+        closeTime: '17:00',
+      },
+    ],
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => OperatingHoursInputDto)
-  operating_hours?: OperatingHoursInputDto[];
+  @Type(() => OperatingHourDto)
+  operatingHours?: OperatingHourDto[];
 }

@@ -1,33 +1,52 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, ValidateNested, IsNumber, Min, Max, IsString } from 'class-validator';
+import { IsNumber, IsNotEmpty, IsOptional, IsString, Min, Max, Matches, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class SingleOperatingHourDto {
-  @ApiProperty({ enum: [0, 1, 2, 3, 4, 5, 6] })
+export class OperatingHourDto {
+  @ApiProperty({
+    description: 'Day of week (0=Sunday, 1=Monday, ..., 6=Saturday)',
+    example: 0,
+  })
   @IsNumber()
+  @IsNotEmpty()
   @Min(0)
   @Max(6)
-  day_of_week: number;
+  @Type(() => Number)
+  dayOfWeek: number;
 
-  @ApiPropertyOptional({ example: '09:00' })
+  @ApiPropertyOptional({
+    description: 'Opening time in HH:mm format (null means closed)',
+    example: '09:00',
+    pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$',
+  })
   @IsOptional()
   @IsString()
-  open_time?: string;
+  @Matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, {
+    message: 'openTime must be in HH:mm format',
+  })
+  openTime?: string | null;
 
-  @ApiPropertyOptional({ example: '18:00' })
+  @ApiPropertyOptional({
+    description: 'Closing time in HH:mm format (null means closed)',
+    example: '17:00',
+    pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$',
+  })
   @IsOptional()
   @IsString()
-  close_time?: string;
-
-  @ApiPropertyOptional({ default: false })
-  @IsOptional()
-  is_closed?: boolean;
+  @Matches(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, {
+    message: 'closeTime must be in HH:mm format',
+  })
+  closeTime?: string | null;
 }
 
-export class UpdateOperatingHoursDto {
-  @ApiProperty({ type: [SingleOperatingHourDto] })
+export class CreateOperatingHoursDto {
+  @ApiProperty({
+    description: 'Weekly operating hours (7 days, one per day)',
+    type: [OperatingHourDto],
+  })
+  @IsNotEmpty()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => SingleOperatingHourDto)
-  hours: SingleOperatingHourDto[];
+  @Type(() => OperatingHourDto)
+  hours: OperatingHourDto[];
 }

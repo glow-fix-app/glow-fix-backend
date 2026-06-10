@@ -37,8 +37,9 @@ import {
   AvailableServiceDto,
 } from './dto/service-response.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { UserRole } from '@glow-fix/types';
 import {
   FilterCategoriesResponseDto,
   PopularServiceDto,
@@ -76,26 +77,26 @@ export class ServicesController {
   }
 
   @Post('categories')
-  @Roles('ADMIN')
-  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Create a new category (admin only)' })
   async createCategory(
     @CurrentUser() user: any,
     @Body() dto: CreateCategoryDto,
   ): Promise<CategoryResponseDto> {
-    return this.servicesService.createCategory(user.id, dto);
+    return this.servicesService.createCategory(user.sub ?? user.id, dto);
   }
 
   @Delete('categories/:categoryId')
-  @Roles('ADMIN')
-  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete category (admin only)' })
   async deleteCategory(
     @CurrentUser() user: any,
     @Param('categoryId', ParseUUIDPipe) categoryId: string,
   ): Promise<{ message: string }> {
-    return this.servicesService.deleteCategory(user.id, categoryId);
+    return this.servicesService.deleteCategory(user.sub ?? user.id, categoryId);
   }
 
   // ==================== SERVICE CATALOG ENDPOINTS (Admin only) ====================
@@ -120,8 +121,8 @@ export class ServicesController {
   }
 
   @Post()
-  @Roles('ADMIN')
-  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Create a new service in catalog (admin only - no price)',
   })
@@ -129,38 +130,38 @@ export class ServicesController {
     @CurrentUser() user: any,
     @Body() dto: CreateServiceDto,
   ): Promise<ServiceCatalogResponseDto> {
-    return this.servicesService.createService(user.id, dto);
+    return this.servicesService.createService(user.sub ?? user.id, dto);
   }
 
   @Put(':serviceId')
-  @Roles('ADMIN')
-  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Update service in catalog (admin only)' })
   async updateService(
     @CurrentUser() user: any,
     @Param('serviceId', ParseUUIDPipe) serviceId: string,
     @Body() dto: UpdateServiceDto,
   ): Promise<ServiceCatalogResponseDto> {
-    return this.servicesService.updateService(user.id, serviceId, dto);
+    return this.servicesService.updateService(user.sub ?? user.id, serviceId, dto);
   }
 
   @Delete(':serviceId')
-  @Roles('ADMIN')
-  @ApiBearerAuth()
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete service from catalog (admin only)' })
   async deleteService(
     @CurrentUser() user: any,
     @Param('serviceId', ParseUUIDPipe) serviceId: string,
   ): Promise<{ message: string }> {
-    return this.servicesService.deleteService(user.id, serviceId);
+    return this.servicesService.deleteService(user.sub ?? user.id, serviceId);
   }
 
   // ==================== BUSINESS SERVICE ASSIGNMENT (Manager - adds price) ====================
 
   @Get('business/:businessId/unassigned')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
+  @Roles(UserRole.MANAGER)
+  @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Get unassigned services for my business (manager only)',
   })
@@ -169,7 +170,7 @@ export class ServicesController {
     @Param('businessId', ParseUUIDPipe) businessId: string,
   ): Promise<ServiceCatalogResponseDto[]> {
     return this.servicesService.getUnassignedServicesForBusiness(
-      user.id,
+      user.sub ?? user.id,
       businessId,
     );
   }
@@ -199,8 +200,8 @@ export class ServicesController {
   }
 
   @Get('business/:businessId/assigned')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
+  @Roles(UserRole.MANAGER)
+  @ApiBearerAuth('access-token')
   @ApiOperation({
     summary:
       'Get all assigned services with prices for my business (manager only)',
@@ -209,13 +210,13 @@ export class ServicesController {
     @CurrentUser() user: any,
     @Param('businessId', ParseUUIDPipe) businessId: string,
   ): Promise<AssignedBusinessServiceResponseDto[]> {
-    await this.servicesService.verifyBusinessOwnership(user.id, businessId);
+    await this.servicesService.verifyBusinessOwnership(user.sub ?? user.id, businessId);
     return this.servicesService.getBusinessServices(businessId, true);
   }
 
   @Post('business/:businessId/assign')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
+  @Roles(UserRole.MANAGER)
+  @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Assign a service to my business with price (manager only)',
   })
@@ -225,15 +226,15 @@ export class ServicesController {
     @Body() dto: AssignServiceToBusinessDto,
   ): Promise<AssignedBusinessServiceResponseDto> {
     return this.servicesService.assignServiceToBusiness(
-      user.id,
+      user.sub ?? user.id,
       businessId,
       dto,
     );
   }
 
   @Post('business/:businessId/assign/bulk')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
+  @Roles(UserRole.MANAGER)
+  @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Bulk assign services to my business (manager only)',
   })
@@ -243,7 +244,7 @@ export class ServicesController {
     @Body() dto: BulkAssignServicesDto,
   ): Promise<BulkAssignResponseDto> {
     return this.servicesService.bulkAssignServicesToBusiness(
-      user.id,
+      user.sub ?? user.id,
       businessId,
       dto,
     );
@@ -259,8 +260,8 @@ export class ServicesController {
   }
 
   @Put('business/:businessId/assigned/:businessServiceId')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
+  @Roles(UserRole.MANAGER)
+  @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Update assigned service price/duration (manager only)',
   })
@@ -271,7 +272,7 @@ export class ServicesController {
     @Body() dto: UpdateBusinessServiceDto,
   ): Promise<AssignedBusinessServiceResponseDto> {
     return this.servicesService.updateBusinessService(
-      user.id,
+      user.sub ?? user.id,
       businessId,
       businessServiceId,
       dto,
@@ -279,8 +280,8 @@ export class ServicesController {
   }
 
   @Patch('business/:businessId/assigned/:businessServiceId/toggle')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
+  @Roles(UserRole.MANAGER)
+  @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Toggle service active status (manager only)' })
   async toggleServiceStatus(
@@ -289,15 +290,15 @@ export class ServicesController {
     @Param('businessServiceId', ParseUUIDPipe) businessServiceId: string,
   ): Promise<{ is_active: boolean; message: string }> {
     return this.servicesService.toggleServiceStatus(
-      user.id,
+      user.sub ?? user.id,
       businessId,
       businessServiceId,
     );
   }
 
   @Delete('business/:businessId/assigned/:businessServiceId')
-  @Roles('MANAGER')
-  @ApiBearerAuth()
+  @Roles(UserRole.MANAGER)
+  @ApiBearerAuth('access-token')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Remove service from business (manager only)' })
   async removeServiceFromBusiness(
@@ -306,7 +307,7 @@ export class ServicesController {
     @Param('businessServiceId', ParseUUIDPipe) businessServiceId: string,
   ): Promise<{ message: string }> {
     return this.servicesService.removeServiceFromBusiness(
-      user.id,
+      user.sub ?? user.id,
       businessId,
       businessServiceId,
     );
@@ -423,7 +424,7 @@ export class ServicesController {
   ): Promise<ServiceDiscoveryResponseDto> {
     return this.serviceDiscoveryService.getServiceWithProviders(
       serviceId,
-      user?.id || null,
+      user?.sub ?? user?.id ?? null,
       latitude ? parseFloat(latitude) : undefined,
       longitude ? parseFloat(longitude) : undefined,
     );

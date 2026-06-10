@@ -56,7 +56,7 @@ export class ReviewsService {
     }
 
     // Check if booking is completed (can only review completed bookings)
-    const latestStatus = booking.statusHistory[0]?.status?.context;
+    const latestStatus = booking.statusHistory[0]?.status?.name;
     if (latestStatus !== 'COMPLETED') {
       throw new BadRequestException(
         'You can only review completed bookings. Current status: ' + latestStatus,
@@ -575,7 +575,7 @@ export class ReviewsService {
       WHERE EXISTS (
         SELECT 1 FROM business_status bs 
         WHERE bs.business_id = b.id 
-          AND bs.status_id = (SELECT id FROM statuses WHERE context = 'APPROVED')
+          AND bs.status_id = (SELECT id FROM statuses WHERE context = 'BUSINESS' AND name = 'APPROVED')
       )
       GROUP BY b.id
       HAVING COUNT(r.id) >= ${minReviews}
@@ -622,7 +622,7 @@ export class ReviewsService {
       return { can_review: false, reason: 'You can only review your own bookings' };
     }
 
-    const latestStatus = booking.statusHistory[0]?.status?.context;
+    const latestStatus = booking.statusHistory[0]?.status?.name;
     if (latestStatus !== 'COMPLETED') {
       return { can_review: false, reason: 'Only completed bookings can be reviewed' };
     }

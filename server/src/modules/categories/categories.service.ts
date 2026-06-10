@@ -29,7 +29,7 @@ export class CategoriesService {
       throw new NotFoundException('Business not found');
     }
 
-    const status = business.statusHistory[0]?.status?.context;
+    const status = business.statusHistory[0]?.status?.name;
     if (status !== 'APPROVED') {
       throw new NotFoundException('Business is not available');
     }

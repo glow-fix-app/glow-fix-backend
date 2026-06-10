@@ -345,7 +345,7 @@ export class LoyaltyService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const status = bookingStatus?.status?.context || 'PENDING';
+    const status = bookingStatus?.status?.name || 'PENDING';
     if (status !== 'PENDING' && status !== 'CONFIRMED') {
       throw new BadRequestException(
         'Points can only be redeemed for pending or confirmed bookings',

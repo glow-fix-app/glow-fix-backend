@@ -1,0 +1,719 @@
+{
+  "info": {
+    "name": "Glow Fix API",
+    "description": "Complete API collection for Glow Fix Backend - Manager Onboarding & Business Management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "description": "Authentication endpoints",
+      "item": [
+        {
+          "name": "Register Client",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Ahmed Hassan\",\n  \"email\": \"client@example.com\",\n  \"phone\": \"01001234567\",\n  \"password\": \"SecurePass@123\",\n  \"confirmPassword\": \"SecurePass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register/client",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register", "client"]
+            },
+            "description": "Register a new client account - Required: fullName, email, password"
+          }
+        },
+        {
+          "name": "Register Manager",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"محمود علي\",\n  \"email\": \"manager@example.com\",\n  \"phone\": \"01234567890\",\n  \"password\": \"SecurePass@123\",\n  \"confirmPassword\": \"SecurePass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register/manager",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register", "manager"]
+            },
+            "description": "Register a new manager account - Required: fullName, email, password (8+ chars with uppercase, lowercase, number, special char)"
+          }
+        },
+        {
+          "name": "Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Admin User\",\n  \"email\": \"admin@example.com\",\n  \"phone\": \"01234567891\",\n  \"password\": \"AdminPass@123\",\n  \"confirmPassword\": \"AdminPass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register/admin",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register", "admin"]
+            },
+            "description": "Register a new admin account - Required: fullName, email, password"
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"identifier\": \"manager@example.com\",\n  \"password\": \"SecurePass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Login - identifier can be email or phone, password required"
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manager@example.com\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "verify-otp"]
+            },
+            "description": "Verify OTP for registration or login"
+          }
+        },
+        {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manager@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/resend-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "resend-otp"]
+            },
+            "description": "Resend OTP to email"
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manager@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "forgot-password"]
+            },
+            "description": "Request password reset"
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manager@example.com\",\n  \"resetOtp\": \"123456\",\n  \"newPassword\": \"NewPass@123\",\n  \"confirmPassword\": \"NewPass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/reset-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "reset-password"]
+            },
+            "description": "Reset password with OTP"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "description": "User profile management endpoints",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me"]
+            },
+            "description": "Get authenticated user's full profile"
+          }
+        },
+        {
+          "name": "Get My Client Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/client",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me", "client"]
+            },
+            "description": "Get authenticated user's client profile with location"
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"محمود علي إبراهيم\",\n  \"phone\": \"+201234567890\",\n  \"email\": \"updated@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me"]
+            },
+            "description": "Update authenticated user's profile - Optional fields: full_name, email, phone, avatar_url"
+          }
+        },
+        {
+          "name": "Upload Avatar",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "avatar",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/avatar",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me", "avatar"]
+            },
+            "description": "Upload user avatar"
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "Post",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"SecurePass@123\",\n  \"newPassword\": \"NewPassword@123\",\n  \"confirmPassword\": \"NewPassword@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me", "change-password"]
+            },
+            "description": "Change user password"
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", "me"]
+            },
+            "description": "Delete user account"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Businesses - Manager",
+      "description": "Business profile management for managers",
+      "item": [
+        {
+          "name": "Create Business Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessName\": \"عيادة الجمال المتقدمة\",\n  \"address\": \"شارع النيل، القاهرة، مصر\",\n  \"latitude\": 30.0444,\n  \"longitude\": 31.2357,\n  \"contactPhone\": \"+201001234567\",\n  \"contactEmail\": \"clinic@example.com\",\n  \"operatingHours\": [\n    {\n      \"dayOfWeek\": 0,\n      \"openTime\": \"09:00\",\n      \"closeTime\": \"18:00\"\n    },\n    {\n      \"dayOfWeek\": 1,\n      \"openTime\": \"09:00\",\n      \"closeTime\": \"18:00\"\n    },\n    {\n      \"dayOfWeek\": 2,\n      \"openTime\": \"09:00\",\n      \"closeTime\": \"18:00\"\n    },\n    {\n      \"dayOfWeek\": 3,\n      \"openTime\": \"09:00\",\n      \"closeTime\": \"18:00\"\n    },\n    {\n      \"dayOfWeek\": 4,\n      \"openTime\": \"09:00\",\n      \"closeTime\": \"18:00\"\n    },\n    {\n      \"dayOfWeek\": 5,\n      \"openTime\": \"09:00\",\n      \"closeTime\": \"17:00\"\n    },\n    {\n      \"dayOfWeek\": 6,\n      \"openTime\": null,\n      \"closeTime\": null\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses"]
+            },
+            "description": "Create a new business profile (Manager only) - Required: businessName, address, latitude, longitude - Optional: contactPhone, contactEmail, operatingHours"
+          }
+        },
+        {
+          "name": "Get My Business Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "me"]
+            },
+            "description": "Get manager's business profile"
+          }
+        },
+        {
+          "name": "Update My Business Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessName\": \"عيادة الجمال المتقدمة - تحديث\",\n  \"address\": \"شارع النيل، المعادي، القاهرة، مصر\",\n  \"contactPhone\": \"+201001234567\",\n  \"contactEmail\": \"clinic@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "me"]
+            },
+            "description": "Update manager's business profile - All fields optional: businessName, address, latitude, longitude, contactPhone, contactEmail"
+          }
+        },
+        {
+          "name": "Get Operating Hours",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/me/hours",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "me", "hours"]
+            },
+            "description": "Get business operating hours"
+          }
+        },
+        {
+          "name": "Update Operating Hours",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hours\": [\n    {\n      \"dayOfWeek\": 0,\n      \"openTime\": \"10:00\",\n      \"closeTime\": \"19:00\"\n    },\n    {\n      \"dayOfWeek\": 1,\n      \"openTime\": \"10:00\",\n      \"closeTime\": \"19:00\"\n    },\n    {\n      \"dayOfWeek\": 2,\n      \"openTime\": \"10:00\",\n      \"closeTime\": \"19:00\"\n    },\n    {\n      \"dayOfWeek\": 3,\n      \"openTime\": \"10:00\",\n      \"closeTime\": \"19:00\"\n    },\n    {\n      \"dayOfWeek\": 4,\n      \"openTime\": \"10:00\",\n      \"closeTime\": \"19:00\"\n    },\n    {\n      \"dayOfWeek\": 5,\n      \"openTime\": \"10:00\",\n      \"closeTime\": \"17:00\"\n    },\n    {\n      \"dayOfWeek\": 6,\n      \"openTime\": null,\n      \"closeTime\": null\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/me/hours",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "me", "hours"]
+            },
+            "description": "Update business operating hours"
+          }
+        },
+        {
+          "name": "Get My Documents",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/me/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "me", "documents"]
+            },
+            "description": "Get business documents"
+          }
+        },
+        {
+          "name": "Upload Document",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "type",
+                  "value": "BUSINESS_REGISTRATION",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/me/documents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "me", "documents"]
+            },
+            "description": "Upload a business document - Type options: BUSINESS_REGISTRATION, INSURANCE_CERTIFICATE, TAX_CARD - Supported formats: PDF, PNG, JPG, WEBP"
+          }
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/me/documents/{{documentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "me", "documents", "{{documentId}}"]
+            },
+            "description": "Delete a document"
+          }
+        },
+        {
+          "name": "Get Onboarding Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/me/onboarding-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "me", "onboarding-status"]
+            },
+            "description": "Get onboarding progress"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Businesses - Admin",
+      "description": "Business management for admins",
+      "item": [
+        {
+          "name": "Get All Businesses",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/admin/all?status=PENDING_REVIEW",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "admin", "all"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING_REVIEW",
+                  "description": "Filter by status: PENDING_REVIEW, APPROVED, REJECTED, SUSPENDED"
+                }
+              ]
+            },
+            "description": "Get all businesses with optional status filter (Admin only)"
+          }
+        },
+        {
+          "name": "Set Business Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/admin/{{businessId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "admin", "{{businessId}}", "status"]
+            },
+            "description": "Set business status (APPROVED, REJECTED, SUSPENDED) - Admin only - Required: status - Optional: reason (required for REJECTED/SUSPENDED)"
+          }
+        },
+        {
+          "name": "Set Business Status - Reject",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"REJECTED\",\n  \"reason\": \"Documents are not clear. Please provide better quality images.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/admin/{{businessId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "admin", "{{businessId}}", "status"]
+            },
+            "description": "Reject a business application - Use 'reason' field (not rejectionReason)"
+          }
+        },
+        {
+          "name": "Set Document Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"APPROVED\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/admin/documents/{{documentId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "admin", "documents", "{{documentId}}", "status"]
+            },
+            "description": "Set document status (APPROVED, REJECTED) - Admin only - Required: status - Optional: reason (required for REJECTED)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Businesses - Public",
+      "description": "Public endpoints to view approved businesses",
+      "item": [
+        {
+          "name": "List Approved Businesses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses"]
+            },
+            "description": "List all approved businesses (Public)"
+          }
+        },
+        {
+          "name": "Get Business Details",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/businesses/{{businessId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "businesses", "{{businessId}}"]
+            },
+            "description": "Get details of a specific approved business (Public)"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string",
+      "description": "Base URL for the API"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string",
+      "description": "JWT access token - Get from login response"
+    },
+    {
+      "key": "businessId",
+      "value": "",
+      "type": "string",
+      "description": "Business ID for dynamic requests"
+    },
+    {
+      "key": "documentId",
+      "value": "",
+      "type": "string",
+      "description": "Document ID for dynamic requests"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string",
+      "description": "User ID for dynamic requests"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  }
+}

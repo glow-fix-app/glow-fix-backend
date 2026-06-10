@@ -18,6 +18,7 @@ import { UsersModule } from './modules/users/users.module';
 
 // Guards
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 
 // Middleware
 import { CorrelationIdMiddleware } from './common/middleware/correlation-id.middleware';
@@ -30,6 +31,7 @@ import { ServicesModule } from './modules/services/services.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { BusinessesModule } from './modules/businesses/businesses.module';
 
 @Module({
   imports: [
@@ -44,9 +46,13 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: async (config: ConfigService) => ({
-        ttl: config.get<number>('throttle.ttl') || 60,
-        limit: config.get<number>('throttle.limit') || 100,
-      }) as any,
+        throttlers: [
+          {
+            ttl: config.get<number>('throttle.ttl') || 60000,
+            limit: config.get<number>('throttle.limit') || 100,
+          },
+        ],
+      }),
     }),
 
     // Event Emitter (global)
@@ -68,12 +74,17 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     ReviewsModule,
     LoyaltyModule,
     NotificationsModule,
+    BusinessesModule,
   ],
   providers: [
     JwtAuthGuard,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })

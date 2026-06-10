@@ -1,7 +1,7 @@
 // ─── User & Role Enums ───
 export enum UserRole {
-  CUSTOMER = 'CUSTOMER',
-  STAFF = 'STAFF',
+  CLIENT = 'CLIENT',
+  MANAGER = 'MANAGER',
   ADMIN = 'ADMIN',
 }
 

@@ -20,7 +20,9 @@ export class PrismaService
   }
 
   async onModuleInit(): Promise<void> {
+    console.log('[PRISMA] onModuleInit ENTERED');
     // Query logging - warn on slow queries (>200ms)
+    console.log('[PRISMA] about to $on query...');
     this.$on('query' as never, (event: any) => {
       if (event.duration > 200) {
         this.winstonLogger.warn(
@@ -29,8 +31,10 @@ export class PrismaService
         );
       }
     });
+    console.log('[PRISMA] $on query OK');
 
     // Error logging
+    console.log('[PRISMA] about to $on error...');
     this.$on('error' as never, (event: any) => {
       this.winstonLogger.error(
         `Database error: ${event.message}`,
@@ -38,14 +42,30 @@ export class PrismaService
         'PrismaService',
       );
     });
+    console.log('[PRISMA] $on error OK');
 
     // Warning logging
+    console.log('[PRISMA] about to $on warn...');
     this.$on('warn' as never, (event: any) => {
       this.winstonLogger.warn(`Database warning: ${event.message}`, 'PrismaService');
     });
+    console.log('[PRISMA] $on warn OK');
 
-    await this.$connect();
-    this.logger.log('✅ Database connected successfully');
+    console.log('[PRISMA] about to $connect() with 10s timeout...');
+    try {
+      const result = await Promise.race([
+        this.$connect(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Prisma $connect() timed out after 10s')), 10000),
+        ),
+      ]);
+      console.log('[PRISMA] $connect() resolved!');
+      this.logger.log('✅ Database connected successfully');
+    } catch (err: any) {
+      console.log(`[PRISMA] CATCH: ${err.message}`);
+      this.logger.error(`Database connection failed: ${err.message}`, err.stack, 'PrismaService');
+      throw err;
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -179,8 +199,7 @@ export class PrismaService
     const result = await this.$queryRaw`
       SELECT 
         b.*,
-        bs.status_id,
-        s.context as status,
+        s.name as status,
         bs.created_at as status_changed_at
       FROM bookings b
       LEFT JOIN booking_status bs ON b.id = bs.booking_id
@@ -202,7 +221,7 @@ export class PrismaService
   ): Promise<void> {
     // First get the status ID from statuses table
     const statusResult = await this.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM statuses WHERE context = ${statusContext} LIMIT 1
+      SELECT id FROM statuses WHERE context = 'BOOKING' AND name = ${statusContext} LIMIT 1
     `;
 
     if (statusResult.length === 0) {
@@ -226,8 +245,7 @@ export class PrismaService
     const result = await this.$queryRaw`
       SELECT 
         b.*,
-        bs.status_id,
-        s.context as status,
+        s.name as status,
         bs.created_at as status_changed_at
       FROM businesses b
       LEFT JOIN business_status bs ON b.id = bs.business_id
@@ -248,7 +266,7 @@ export class PrismaService
     statusContext: string,
   ): Promise<void> {
     const statusResult = await this.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM statuses WHERE context = ${statusContext} LIMIT 1
+      SELECT id FROM statuses WHERE context = 'BUSINESS' AND name = ${statusContext} LIMIT 1
     `;
 
     if (statusResult.length === 0) {
@@ -273,7 +291,7 @@ export class PrismaService
       SELECT 
         p.*,
         pm.name as payment_method,
-        s.context as status
+        s.name as status
       FROM payments p
       JOIN payment_methods pm ON p.payment_method_id = pm.id
       JOIN statuses s ON p.status_id = s.id
@@ -303,23 +321,23 @@ export class PrismaService
   /**
    * Get all active statuses
    */
-  async getStatuses(): Promise<Array<{ id: string; context: string }>> {
+  async getStatuses(): Promise<Array<{ id: string; context: string; name: string }>> {
     return this.status.findMany({
-      select: { id: true, context: true },
+      select: { id: true, context: true, name: true },
     });
   }
 
   /**
-   * Get or create status by context
+   * Get or create status by context and name
    */
-  async getOrCreateStatus(context: string): Promise<{ id: string; context: string }> {
+  async getOrCreateStatus(context: string, name: string): Promise<{ id: string; context: string; name: string }> {
     let status = await this.status.findFirst({
-      where: { context },
+      where: { context, name },
     });
 
     if (!status) {
       status = await this.status.create({
-        data: { context },
+        data: { context, name },
       });
     }
 

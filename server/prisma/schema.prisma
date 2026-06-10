@@ -144,6 +144,8 @@ model Status {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Domain this status belongs to: 'BUSINESS' | 'DOCUMENT' | 'BOOKING' | 'PAYMENT' | 'CONVERSATION' | 'MESSAGE'
   context   String
+  /// Status name within the context (e.g., 'PENDING', 'APPROVED', 'REJECTED')
+  name      String
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   // Relations — all RESTRICT: a status row must not be deleted while in use
@@ -155,6 +157,7 @@ model Status {
   conversations     Conversation[]
   messages          Message[]
 
+  @@unique([context, name])
   @@map("statuses")
 }
 

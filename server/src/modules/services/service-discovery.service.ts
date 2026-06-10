@@ -114,7 +114,7 @@ export class ServiceDiscoveryService {
     for (const service of services) {
       // Filter businesses by approval status
       let activeOffers = service.businessServices.filter(bs => {
-        const latestStatus = bs.business.statusHistory[0]?.status?.context;
+        const latestStatus = bs.business.statusHistory[0]?.status?.name;
         return latestStatus === 'APPROVED';
       });
 
@@ -306,7 +306,7 @@ export class ServiceDiscoveryService {
 
     for (const service of services) {
       for (const bs of service.businessServices) {
-        const latestStatus = bs.business.statusHistory[0]?.status?.context;
+        const latestStatus = bs.business.statusHistory[0]?.status?.name;
         if (latestStatus !== 'APPROVED') continue;
 
         // Count category
@@ -469,7 +469,7 @@ export class ServiceDiscoveryService {
 
     // Filter approved businesses
     const approvedOffers = service.businessServices.filter(bs => {
-      const latestStatus = bs.business.statusHistory[0]?.status?.context;
+      const latestStatus = bs.business.statusHistory[0]?.status?.name;
       return latestStatus === 'APPROVED';
     });
 
@@ -640,7 +640,8 @@ export class ServiceDiscoveryService {
       where: {
         businessId: businessId,
         status: {
-          context: 'DOC_ACCEPTED',
+          context: 'DOCUMENT',
+          name: 'APPROVED',
         },
       },
     });
@@ -666,7 +667,7 @@ export class ServiceDiscoveryService {
       WHERE EXISTS (
         SELECT 1 FROM business_status bs 
         WHERE bs.business_id = b.id 
-          AND bs.status_id = (SELECT id FROM statuses WHERE context = 'APPROVED')
+          AND bs.status_id = (SELECT id FROM statuses WHERE context = 'BUSINESS' AND name = 'APPROVED')
       )
       AND ST_DWithin(
         b.location, 
@@ -709,7 +710,7 @@ export class ServiceDiscoveryService {
             business: {
               statusHistory: {
                 some: {
-                  status: { context: 'APPROVED' },
+                  status: { context: 'BUSINESS', name: 'APPROVED' },
                 },
               },
             },

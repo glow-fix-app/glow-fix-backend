@@ -1,46 +1,67 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsOptional,
+  MinLength,
+  MaxLength,
   IsEmail,
-  IsPhoneNumber,
-  IsArray,
-  ValidateNested,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-import { BusinessLocationDto, OperatingHoursInputDto } from './create-business.dto';
 
 export class UpdateBusinessDto {
-  @ApiPropertyOptional({ example: 'Shine & Co. Detailing' })
+  @ApiPropertyOptional({
+    description: 'Business name (3-100 characters)',
+    example: 'Bright Auto Wash',
+  })
   @IsOptional()
   @IsString()
-  business_name?: string;
+  @MinLength(3)
+  @MaxLength(100)
+  businessName?: string;
 
-  @ApiPropertyOptional({ example: '123 Zamalek Street, Cairo, Egypt' })
+  @ApiPropertyOptional({
+    description: 'Business physical address',
+    example: '123 Main St, Cairo, Egypt',
+  })
   @IsOptional()
   @IsString()
   address?: string;
 
-  @ApiPropertyOptional({ type: BusinessLocationDto })
+  @ApiPropertyOptional({
+    description: 'Latitude coordinate',
+    example: 30.0444,
+  })
   @IsOptional()
-  @ValidateNested()
-  @Type(() => BusinessLocationDto)
-  location?: BusinessLocationDto;
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
 
-  @ApiPropertyOptional({ example: '+20123456789' })
+  @ApiPropertyOptional({
+    description: 'Longitude coordinate',
+    example: 31.2357,
+  })
   @IsOptional()
-  @IsPhoneNumber()
-  contact_phone?: string;
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 
-  @ApiPropertyOptional({ example: 'contact@shineco.com' })
+  @ApiPropertyOptional({
+    description: 'Business contact phone number',
+    example: '+20123456789',
+  })
+  @IsOptional()
+  @IsString()
+  contactPhone?: string;
+
+  @ApiPropertyOptional({
+    description: 'Business contact email address',
+    example: 'info@business.com',
+  })
   @IsOptional()
   @IsEmail()
-  contact_email?: string;
-
-  @ApiPropertyOptional({ type: [OperatingHoursInputDto] })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => OperatingHoursInputDto)
-  operating_hours?: OperatingHoursInputDto[];
+  contactEmail?: string;
 }

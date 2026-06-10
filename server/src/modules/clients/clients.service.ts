@@ -155,12 +155,12 @@ export class ClientsService {
     let totalSpent = 0;
 
     for (const booking of bookings) {
-      const latestStatus = booking.statusHistory[0]?.status?.context || 'PENDING';
+      const latestStatus = booking.statusHistory[0]?.status?.name || 'PENDING';
       
       switch (latestStatus) {
         case 'COMPLETED':
           completedBookings++;
-          if (booking.payment?.status?.context === 'PAID') {
+          if (booking.payment?.status?.name === 'PAID') {
             totalSpent += Number(booking.totalPrice);
           }
           break;
@@ -292,7 +292,7 @@ export class ClientsService {
 
     // Get APPROVED status ID
     const approvedStatus = await this.prisma.status.findFirst({
-      where: { context: 'APPROVED' },
+      where: { context: 'BUSINESS', name: 'APPROVED' },
     });
 
     if (!approvedStatus) {
