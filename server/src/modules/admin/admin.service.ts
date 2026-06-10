@@ -377,13 +377,13 @@ export class AdminService {
     const where: any = {};
 
     if (role) where.role = role;
-    if (email_verified !== undefined) where.email_verified = email_verified;
-    if (phone_verified !== undefined) where.phone_verified = phone_verified;
-    if (is_active !== undefined) where.is_active = is_active;
+    if (email_verified !== undefined) where.emailVerified = email_verified;
+    if (phone_verified !== undefined) where.phoneVerified = phone_verified;
+    if (is_active !== undefined) where.isActive = is_active;
 
     if (search) {
       where.OR = [
-        { full_name: { contains: search, mode: 'insensitive' } },
+        { fullName: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search } },
       ];
@@ -394,18 +394,17 @@ export class AdminService {
         where,
         select: {
           id: true,
-          full_name: true,
+          fullName: true,
           email: true,
           phone: true,
           role: true,
-          email_verified: true,
-          phone_verified: true,
-          is_active: true,
-          avatar_url: true,
-          created_at: true,
-          updated_at: true,
+          emailVerified: true,
+          phoneVerified: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
         },
-        orderBy: { created_at: 'desc' },
+        orderBy: { createdAt: 'desc' },
         skip,
         take,
       }),
@@ -413,7 +412,7 @@ export class AdminService {
     ]);
 
     return {
-      data: users,
+      data: users.map((user) => this.mapUserToResponse(user)),
       meta: { total, page, limit, total_pages: Math.ceil(total / limit) },
     };
   }
@@ -423,16 +422,15 @@ export class AdminService {
       where: { id: userId },
       select: {
         id: true,
-        full_name: true,
+        fullName: true,
         email: true,
         phone: true,
         role: true,
-        email_verified: true,
-        phone_verified: true,
-        is_active: true,
-        avatar_url: true,
-        created_at: true,
-        updated_at: true,
+        emailVerified: true,
+        phoneVerified: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -440,7 +438,7 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
-    return user;
+    return this.mapUserToResponse(user);
   }
 
   async createUser(dto: CreateUserAdminDto): Promise<UserResponseAdminDto> {
@@ -457,39 +455,38 @@ export class AdminService {
 
     const user = await this.prisma.user.create({
       data: {
-        full_name: dto.full_name,
+        fullName: dto.full_name,
         email: dto.email.toLowerCase(),
         phone: dto.phone,
-        password_hash: passwordHash,
+        passwordHash: passwordHash,
         role: dto.role,
-        email_verified: true,
-        is_active: true,
+        emailVerified: true,
+        isActive: true,
       },
       select: {
         id: true,
-        full_name: true,
+        fullName: true,
         email: true,
         phone: true,
         role: true,
-        email_verified: true,
-        phone_verified: true,
-        is_active: true,
-        avatar_url: true,
-        created_at: true,
-        updated_at: true,
+        emailVerified: true,
+        phoneVerified: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
     // Create client record if role is CLIENT
     if (dto.role === UserRole.CLIENT) {
       await this.prisma.client.create({
-        data: { user_id: user.id },
+        data: { userId: user.id },
       });
     }
 
     this.logger.log(`Admin created user: ${user.email} (${dto.role})`);
 
-    return user;
+    return this.mapUserToResponse(user);
   }
 
   async updateUser(userId: string, dto: UpdateUserAdminDto): Promise<UserResponseAdminDto> {
@@ -498,35 +495,34 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
-    const updateData: any = { updated_at: new Date() };
-    if (dto.full_name) updateData.full_name = dto.full_name;
+    const updateData: any = { updatedAt: new Date() };
+    if (dto.full_name) updateData.fullName = dto.full_name;
     if (dto.email) updateData.email = dto.email.toLowerCase();
     if (dto.phone) updateData.phone = dto.phone;
     if (dto.role) updateData.role = dto.role;
-    if (dto.is_active !== undefined) updateData.is_active = dto.is_active;
-    if (dto.password) updateData.password_hash = await bcrypt.hash(dto.password, this.SALT_ROUNDS);
+    if (dto.is_active !== undefined) updateData.isActive = dto.is_active;
+    if (dto.password) updateData.passwordHash = await bcrypt.hash(dto.password, this.SALT_ROUNDS);
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
       data: updateData,
       select: {
         id: true,
-        full_name: true,
+        fullName: true,
         email: true,
         phone: true,
         role: true,
-        email_verified: true,
-        phone_verified: true,
-        is_active: true,
-        avatar_url: true,
-        created_at: true,
-        updated_at: true,
+        emailVerified: true,
+        phoneVerified: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
     this.logger.log(`Admin updated user: ${updated.email}`);
 
-    return updated;
+    return this.mapUserToResponse(updated);
   }
 
   async deleteUser(userId: string): Promise<{ message: string }> {
@@ -538,9 +534,9 @@ export class AdminService {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
-        is_active: false,
-        deleted_at: new Date(),
-        updated_at: new Date(),
+        isActive: false,
+        deletedAt: new Date(),
+        updatedAt: new Date(),
       },
     });
 
@@ -565,7 +561,7 @@ export class AdminService {
     }
 
     if (search) {
-      where.business_name = { contains: search, mode: 'insensitive' };
+      where.businessName = { contains: search, mode: 'insensitive' };
     }
 
     const [businesses, total] = await Promise.all([
@@ -574,7 +570,7 @@ export class AdminService {
         include: {
           manager: {
             select: {
-              full_name: true,
+              fullName: true,
               email: true,
               phone: true,
             },
@@ -585,7 +581,7 @@ export class AdminService {
             take: 1,
           },
         },
-        orderBy: { created_at: 'desc' },
+        orderBy: { createdAt: 'desc' },
         skip,
         take,
       }),
@@ -597,8 +593,8 @@ export class AdminService {
         const stats = await this.getBusinessStats(b.id);
         return {
           id: b.id,
-          business_name: b.business_name,
-          manager_name: b.manager.full_name,
+          business_name: b.businessName,
+          manager_name: b.manager.fullName,
           manager_email: b.manager.email,
           manager_phone: b.manager.phone || undefined,
           address: b.address,
@@ -608,7 +604,7 @@ export class AdminService {
           total_bookings: stats.total_bookings,
           total_revenue: stats.total_revenue,
           average_rating: stats.average_rating,
-          created_at: b.created_at,
+          created_at: b.createdAt,
         };
       }),
     );
@@ -626,12 +622,12 @@ export class AdminService {
         manager: {
           select: {
             id: true,
-            full_name: true,
+            fullName: true,
             email: true,
             phone: true,
           },
         },
-        operating_hours: true,
+        operatingHours: true,
         documents: {
           include: { status: true },
         },
@@ -679,12 +675,12 @@ export class AdminService {
       },
     });
 
-    this.logger.log(`Admin approved business: ${business.business_name} (${businessId})`);
+    this.logger.log(`Admin approved business: ${business.businessName} (${businessId})`);
 
     this.eventEmitter.emit('business.approved', {
       businessId,
-      businessName: business.business_name,
-      managerId: business.manager_id,
+      businessName: business.businessName,
+      managerId: business.managerId,
     });
 
     return { message: 'Business approved successfully' };
@@ -719,12 +715,12 @@ export class AdminService {
       },
     });
 
-    this.logger.log(`Admin rejected business: ${business.business_name} (${businessId})`);
+    this.logger.log(`Admin rejected business: ${business.businessName} (${businessId})`);
 
     this.eventEmitter.emit('business.rejected', {
       businessId,
-      businessName: business.business_name,
-      managerId: business.manager_id,
+      businessName: business.businessName,
+      managerId: business.managerId,
       reason: dto.reason,
     });
 
@@ -789,13 +785,13 @@ export class AdminService {
         include: {
           business: {
             select: {
-              business_name: true,
-              manager: { select: { full_name: true, email: true } },
+              businessName: true,
+              manager: { select: { fullName: true, email: true } },
             },
           },
           status: true,
         },
-        orderBy: { created_at: 'desc' },
+        orderBy: { createdAt: 'desc' },
         skip,
         take,
       }),
@@ -806,8 +802,8 @@ export class AdminService {
       data: payouts.map(p => ({
         id: p.id,
         business_id: p.businessId,
-        business_name: p.business.business_name,
-        manager_name: p.business.manager.full_name,
+        business_name: p.business.businessName,
+        manager_name: p.business.manager.fullName,
         amount: Number(p.amount) / 100,
         status: p.status.context,
         processed_at: p.processedAt,
@@ -851,6 +847,22 @@ export class AdminService {
 
   // ==================== PRIVATE HELPERS ====================
 
+  private mapUserToResponse(user: any): UserResponseAdminDto {
+    return {
+      id: user.id,
+      full_name: user.fullName,
+      email: user.email,
+      phone: user.phone ?? undefined,
+      role: user.role,
+      email_verified: user.emailVerified,
+      phone_verified: user.phoneVerified,
+      is_active: user.isActive,
+      avatar_url: undefined,
+      created_at: user.createdAt,
+      updated_at: user.updatedAt,
+    };
+  }
+
   private getWeekNumber(date: Date): string {
     const d = new Date(date);
     const year = d.getFullYear();
@@ -862,8 +874,10 @@ export class AdminService {
     const bookings = await this.prisma.booking.findMany({
       where: { businessId },
       include: {
-        payments: true,
-        reviews: true,
+        payment: {
+          include: { status: true },
+        },
+        review: true,
       },
     });
 
@@ -872,11 +886,11 @@ export class AdminService {
     let reviewCount = 0;
 
     for (const booking of bookings) {
-      if (booking.payments?.status?.context === 'PAID') {
+      if (booking.payment?.status?.context === 'PAID') {
         totalRevenue += Number(booking.totalPrice);
       }
-      if (booking.reviews) {
-        totalRating += booking.reviews.rating;
+      if (booking.review) {
+        totalRating += booking.review.rating;
         reviewCount++;
       }
     }
