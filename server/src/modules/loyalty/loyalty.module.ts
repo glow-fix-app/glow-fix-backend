@@ -1,11 +1,13 @@
-// import { Module } from '@nestjs/common';
-// import { LoyaltyController } from './loyalty.controller';
-// import { LoyaltyService } from './loyalty.service';
-// import { LoyaltyJobs } from './loyalty.job';
+// loyalty.module.ts
+import { Module } from '@nestjs/common';
+import { LoyaltyController } from './loyalty.controller';
+import { LoyaltyService } from './loyalty.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
-// @Module({
-//   controllers: [LoyaltyController],
-//   providers: [LoyaltyService, LoyaltyJobs],
-//   exports: [LoyaltyService],
-// })
-// export class LoyaltyModule {}
+@Module({
+  imports: [NotificationsModule],
+  controllers: [LoyaltyController],
+  providers: [LoyaltyService],
+  exports: [LoyaltyService],
+})
+export class LoyaltyModule {}

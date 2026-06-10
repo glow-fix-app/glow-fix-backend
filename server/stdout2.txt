@@ -1,1 +1,1 @@
-2026-06-06 14:28:28.863 [32minfo[39m [EmailService] EmailService initialized — SMTP localhost:1025 {"service":"glow-fix-api"}
+2026-06-07 20:27:53.424 [32minfo[39m [EmailService] EmailService initialized — SMTP localhost:1025 {"service":"glow-fix-api"}

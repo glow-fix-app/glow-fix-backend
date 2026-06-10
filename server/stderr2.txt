@@ -1,4 +1,4 @@
-(node:26556) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
+(node:20124) Warning: NodeVersionSupportWarning: The AWS SDK for JavaScript (v3)
 versions published after the first week of January 2027
 will require node >=22. You are running node v20.20.2.
 

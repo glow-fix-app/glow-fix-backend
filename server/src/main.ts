@@ -124,7 +124,7 @@ async function bootstrap() {
           bearerFormat: 'JWT',
           description: 'Enter your JWT access token',
         },
-        'JWT-auth',
+        'access-token',
       )
       .addTag('Auth', 'Authentication & authorization')
       .addTag('Customers', 'Customer profile management')
