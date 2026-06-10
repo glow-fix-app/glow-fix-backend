@@ -15,6 +15,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ProviderDiscoveryService } from './provider-discovery.service';
 import {
   ApiTags,
   ApiOperation,
@@ -31,8 +32,20 @@ import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UpdateBusinessStatusDto } from './dto/business-status.dto';
 import { UpdateOperatingHoursDto } from './dto/operating-hours.dto';
-import { UploadBusinessDocumentDto, UpdateDocumentStatusDto } from './dto/business-document.dto';
-import { BusinessResponseDto, BusinessStatsDto, NearbyBusinessDto } from './dto/business-response.dto';
+import {
+  UploadBusinessDocumentDto,
+  UpdateDocumentStatusDto,
+} from './dto/business-document.dto';
+import {
+  BusinessResponseDto,
+  BusinessStatsDto,
+  NearbyBusinessDto,
+} from './dto/business-response.dto';
+import {
+  SearchProvidersDto,
+  ProviderDiscoveryResponseDto,
+  ProviderFilterOptionsDto,
+} from './dto/provider-discovery.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
@@ -40,7 +53,10 @@ import { Public } from '../../common/decorators/public.decorator';
 @ApiTags('Businesses')
 @Controller({ path: 'businesses', version: '1' })
 export class BusinessesController {
-  constructor(private readonly businessesService: BusinessesService) {}
+  constructor(
+    private readonly businessesService: BusinessesService,
+    private readonly providerDiscoveryService: ProviderDiscoveryService,
+  ) {}
 
   // ==================== MANAGER ENDPOINTS ====================
 
@@ -48,7 +64,11 @@ export class BusinessesController {
   @Roles('MANAGER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Register a new business (manager only)' })
-  @ApiResponse({ status: 201, description: 'Business created', type: BusinessResponseDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Business created',
+    type: BusinessResponseDto,
+  })
   async createBusiness(
     @CurrentUser() user: any,
     @Body() dto: CreateBusinessDto,
@@ -60,7 +80,11 @@ export class BusinessesController {
   @Roles('MANAGER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get my business' })
-  @ApiResponse({ status: 200, description: 'Business details', type: BusinessResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Business details',
+    type: BusinessResponseDto,
+  })
   async getMyBusiness(@CurrentUser() user: any): Promise<BusinessResponseDto> {
     return this.businessesService.getMyBusiness(user.id);
   }
@@ -69,7 +93,11 @@ export class BusinessesController {
   @Roles('MANAGER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update my business' })
-  @ApiResponse({ status: 200, description: 'Business updated', type: BusinessResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Business updated',
+    type: BusinessResponseDto,
+  })
   async updateMyBusiness(
     @CurrentUser() user: any,
     @Body() dto: UpdateBusinessDto,
@@ -84,9 +112,111 @@ export class BusinessesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Close my business' })
   @ApiResponse({ status: 200, description: 'Business closed' })
-  async deleteMyBusiness(@CurrentUser() user: any): Promise<{ success: boolean; message: string }> {
+  async deleteMyBusiness(
+    @CurrentUser() user: any,
+  ): Promise<{ success: boolean; message: string }> {
     const business = await this.businessesService.getMyBusiness(user.id);
     return this.businessesService.deleteBusiness(user.id, business.id);
+  }
+
+  // ==================== PROVIDER DISCOVERY (CLIENT) ====================
+
+  @Get('discover')
+  @Public()
+  @ApiOperation({
+    summary: 'Discover providers with search, filters, and sorting',
+  })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search by business name',
+  })
+  @ApiQuery({
+    name: 'latitude',
+    required: false,
+    type: Number,
+    description: 'User latitude',
+  })
+  @ApiQuery({
+    name: 'longitude',
+    required: false,
+    type: Number,
+    description: 'User longitude',
+  })
+  @ApiQuery({
+    name: 'filters[service]',
+    required: false,
+    enum: ['Wash', 'Repair', 'both'],
+    description: 'Service type filter',
+  })
+  @ApiQuery({
+    name: 'filters[max_distance]',
+    required: false,
+    type: Number,
+    description: 'Maximum distance in km',
+  })
+  @ApiQuery({
+    name: 'filters[min_rating]',
+    required: false,
+    type: Number,
+    description: 'Minimum rating (0-5)',
+  })
+  @ApiQuery({
+    name: 'filters[open_now]',
+    required: false,
+    type: Boolean,
+    description: 'Only show open now',
+  })
+  @ApiQuery({
+    name: 'filters[verified_only]',
+    required: false,
+    type: Boolean,
+    description: 'Only verified providers',
+  })
+  @ApiQuery({
+    name: 'sort_by',
+    required: false,
+    enum: ['highest_rated', 'nearest', 'most_reviews', 'newest', 'oldest'],
+    description: 'Sort by',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Page size',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Providers found',
+    type: ProviderDiscoveryResponseDto,
+  })
+  async discoverProviders(
+    @CurrentUser() user: any,
+    @Query() dto: SearchProvidersDto,
+  ): Promise<ProviderDiscoveryResponseDto> {
+    return this.providerDiscoveryService.searchProviders(user?.id || null, dto);
+  }
+
+  @Get('discover/filters')
+  @Public()
+  @ApiOperation({ summary: 'Get filter options for provider discovery' })
+  @ApiQuery({ name: 'latitude', required: false, type: Number })
+  @ApiQuery({ name: 'longitude', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Filter options' })
+  async getDiscoveryFilters(
+    @Query('latitude') latitude?: string,
+    @Query('longitude') longitude?: string,
+  ): Promise<ProviderFilterOptionsDto> {
+    return this.providerDiscoveryService.getFilterOptions(
+      latitude ? parseFloat(latitude) : undefined,
+      longitude ? parseFloat(longitude) : undefined,
+    );
   }
 
   // ==================== OPERATING HOURS ====================
@@ -126,7 +256,15 @@ export class BusinessesController {
       required: ['file', 'type'],
       properties: {
         file: { type: 'string', format: 'binary' },
-        type: { type: 'string', enum: ['BUSINESS_REGISTRATION', 'OWNER_ID', 'INSURANCE_CERTIFICATE', 'SERVICE_LICENSE'] },
+        type: {
+          type: 'string',
+          enum: [
+            'BUSINESS_REGISTRATION',
+            'OWNER_ID',
+            'INSURANCE_CERTIFICATE',
+            'SERVICE_LICENSE',
+          ],
+        },
       },
     },
   })
@@ -139,7 +277,12 @@ export class BusinessesController {
       throw new BadRequestException('File is required');
     }
     const business = await this.businessesService.getMyBusiness(user.id);
-    return this.businessesService.uploadDocument(user.id, business.id, file, dto);
+    return this.businessesService.uploadDocument(
+      user.id,
+      business.id,
+      file,
+      dto,
+    );
   }
 
   @Get('me/documents')
@@ -148,7 +291,9 @@ export class BusinessesController {
   @ApiOperation({ summary: 'Get my business documents' })
   async getMyDocuments(@CurrentUser() user: any): Promise<any[]> {
     const business = await this.businessesService.getMyBusiness(user.id);
-    const fullBusiness = await this.businessesService.getBusinessWithDetails(business.id);
+    const fullBusiness = await this.businessesService.getBusinessWithDetails(
+      business.id,
+    );
     return fullBusiness.documents;
   }
 
@@ -161,7 +306,11 @@ export class BusinessesController {
     @Param('documentId', ParseUUIDPipe) documentId: string,
   ): Promise<{ success: boolean; message: string }> {
     const business = await this.businessesService.getMyBusiness(user.id);
-    return this.businessesService.deleteDocument(user.id, business.id, documentId);
+    return this.businessesService.deleteDocument(
+      user.id,
+      business.id,
+      documentId,
+    );
   }
 
   // ==================== BUSINESS STATISTICS ====================
@@ -170,7 +319,11 @@ export class BusinessesController {
   @Roles('MANAGER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get my business statistics' })
-  @ApiResponse({ status: 200, description: 'Business statistics', type: BusinessStatsDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Business statistics',
+    type: BusinessStatsDto,
+  })
   async getMyStats(@CurrentUser() user: any): Promise<BusinessStatsDto> {
     const business = await this.businessesService.getMyBusiness(user.id);
     return this.businessesService.getBusinessStats(business.id);
@@ -183,7 +336,11 @@ export class BusinessesController {
   @ApiOperation({ summary: 'Get all approved businesses (public)' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
-  @ApiQuery({ name: 'search', required: false, description: 'Search by business name' })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search by business name',
+  })
   async getAllBusinesses(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
@@ -197,7 +354,13 @@ export class BusinessesController {
   @ApiOperation({ summary: 'Find nearby businesses (public)' })
   @ApiQuery({ name: 'lat', required: true, type: Number })
   @ApiQuery({ name: 'lng', required: true, type: Number })
-  @ApiQuery({ name: 'radius', required: false, type: Number, description: 'Radius in km', example: 10 })
+  @ApiQuery({
+    name: 'radius',
+    required: false,
+    type: Number,
+    description: 'Radius in km',
+    example: 10,
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getNearbyBusinesses(
@@ -220,7 +383,11 @@ export class BusinessesController {
   @Public()
   @ApiOperation({ summary: 'Get business by ID (public)' })
   @ApiParam({ name: 'businessId', description: 'Business UUID' })
-  @ApiResponse({ status: 200, description: 'Business details', type: BusinessResponseDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Business details',
+    type: BusinessResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Business not found' })
   async getBusinessById(
     @Param('businessId', ParseUUIDPipe) businessId: string,
@@ -231,7 +398,9 @@ export class BusinessesController {
   @Get(':businessId/hours')
   @Public()
   @ApiOperation({ summary: 'Get business operating hours' })
-  async getBusinessHours(@Param('businessId', ParseUUIDPipe) businessId: string): Promise<any[]> {
+  async getBusinessHours(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+  ): Promise<any[]> {
     return this.businessesService.getOperatingHours(businessId);
   }
 
@@ -241,7 +410,11 @@ export class BusinessesController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all businesses with filters (admin only)' })
-  @ApiQuery({ name: 'status', required: false, enum: ['PENDING_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['PENDING_REVIEW', 'APPROVED', 'REJECTED', 'SUSPENDED'],
+  })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getAllBusinessesAdmin(

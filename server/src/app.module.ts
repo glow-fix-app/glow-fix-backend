@@ -27,6 +27,11 @@ import { ClientsModule } from './modules/clients/clients.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ServicesModule } from './modules/services/services.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { LoyaltyModule } from './modules/loyalty/loyalty.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { DiagnosticReportsModule } from './modules/diagnostic-reports/diagnostic-reports.module';
+import { BusinessesModule } from './modules/businesses/businesses.module';
 
 @Module({
   imports: [
@@ -61,7 +66,12 @@ import { ServicesModule } from './modules/services/services.module';
     ClientsModule,
     VehiclesModule,
     CategoriesModule,
+    BusinessesModule,
     ServicesModule,
+    ReviewsModule,
+    LoyaltyModule,
+    NotificationsModule,
+    DiagnosticReportsModule,
   ],
   providers: [
     JwtAuthGuard,

@@ -15,9 +15,9 @@
     "declaration": true,
     "declarationMap": true,
 
-    "module": "commonjs",
+    "module": "node16",
     "target": "ES2021",
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]

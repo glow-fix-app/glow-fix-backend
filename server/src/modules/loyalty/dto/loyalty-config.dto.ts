@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsBoolean, IsNumber, Min, Max } from 'class-validator';
+import { IsOptional, IsInt, IsNumber, Min, Max, IsBoolean, IsPositive } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateLoyaltyConfigDto {
@@ -9,7 +9,7 @@ export class UpdateLoyaltyConfigDto {
   @Min(0)
   points_per_100_egp?: number;
 
-  @ApiPropertyOptional({ description: 'EGP value per point (for redemption)', example: 0.1 })
+  @ApiPropertyOptional({ description: 'EGP value per point for redemption', example: 0.1 })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -32,7 +32,7 @@ export class UpdateLoyaltyConfigDto {
   @ApiPropertyOptional({ description: 'Points expiry in days (null = never expire)', example: 365 })
   @IsOptional()
   @IsInt()
-  @Min(0)
+  @IsPositive()
   points_expiry_days?: number | null;
 
   @ApiPropertyOptional({ description: 'Is loyalty program active' })
@@ -44,20 +44,28 @@ export class UpdateLoyaltyConfigDto {
 export class LoyaltyConfigResponseDto {
   @ApiProperty()
   id: string;
+
   @ApiProperty()
   points_per_100_egp: number;
+
   @ApiProperty()
   egp_per_point: number;
+
   @ApiProperty()
   max_redeem_pct: number;
+
   @ApiProperty()
   min_points_to_redeem: number;
+
   @ApiPropertyOptional()
   points_expiry_days?: number;
+
   @ApiProperty()
   is_active: boolean;
+
   @ApiProperty()
   created_at: Date;
+
   @ApiProperty()
   updated_at: Date;
 }

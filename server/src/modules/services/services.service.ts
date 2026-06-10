@@ -11,7 +11,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
-import { AssignServiceToBusinessDto, BulkAssignServicesDto } from './dto/assign-service-to-business.dto';
+import {
+  AssignServiceToBusinessDto,
+  BulkAssignServicesDto,
+} from './dto/assign-service-to-business.dto';
 import { UpdateBusinessServiceDto } from './dto/update-business-service.dto';
 import {
   ServiceCatalogResponseDto,
@@ -33,9 +36,13 @@ export class ServicesService {
 
   // ==================== CATEGORY MANAGEMENT (Admin) ====================
 
-  async createCategory(adminId: string, dto: CreateCategoryDto): Promise<CategoryResponseDto> {
-    const existingCategory = await this.prisma.category.findUnique({
-      where: { name: dto.name.toUpperCase() },
+  async createCategory(adminId: string, dto: CreateCategoryDto) {
+    const normalizedName = dto.name.trim().toUpperCase();
+
+    const existingCategory = await this.prisma.category.findFirst({
+      where: {
+        name: normalizedName,
+      },
     });
 
     if (existingCategory) {
@@ -44,7 +51,7 @@ export class ServicesService {
 
     const category = await this.prisma.category.create({
       data: {
-        name: dto.name.toUpperCase(),
+        name: normalizedName,
       },
     });
 
@@ -62,7 +69,7 @@ export class ServicesService {
       orderBy: { name: 'asc' },
     });
 
-    return categories.map(c => ({
+    return categories.map((c) => ({
       id: c.id,
       name: c.name,
       created_at: c.createdAt,
@@ -85,7 +92,10 @@ export class ServicesService {
     };
   }
 
-  async deleteCategory(adminId: string, categoryId: string): Promise<{ message: string }> {
+  async deleteCategory(
+    adminId: string,
+    categoryId: string,
+  ): Promise<{ message: string }> {
     const category = await this.prisma.category.findUnique({
       where: { id: categoryId },
       include: {
@@ -103,7 +113,7 @@ export class ServicesService {
 
     if (category.services.length > 0) {
       throw new BadRequestException(
-        `Cannot delete category with ${category.services.length} service(s). Delete or reassign services first.`
+        `Cannot delete category with ${category.services.length} service(s). Delete or reassign services first.`,
       );
     }
 
@@ -118,7 +128,10 @@ export class ServicesService {
 
   // ==================== SERVICE CATALOG MANAGEMENT (Admin only - NO price) ====================
 
-  async createService(adminId: string, dto: CreateServiceDto): Promise<ServiceCatalogResponseDto> {
+  async createService(
+    adminId: string,
+    dto: CreateServiceDto,
+  ): Promise<ServiceCatalogResponseDto> {
     const category = await this.prisma.category.findUnique({
       where: { id: dto.category_id },
     });
@@ -136,7 +149,9 @@ export class ServicesService {
       include: { category: true },
     });
 
-    this.logger.log(`Service created in catalog: ${service.title} by admin ${adminId}`);
+    this.logger.log(
+      `Service created in catalog: ${service.title} by admin ${adminId}`,
+    );
 
     return {
       id: service.id,
@@ -149,35 +164,37 @@ export class ServicesService {
     };
   }
 
-  async getAllServices(categoryId?: string): Promise<ServiceCatalogResponseDto[]> {
-  const where: any = {};
+  async getAllServices(
+    categoryId?: string,
+  ): Promise<ServiceCatalogResponseDto[]> {
+    const where: any = {};
 
-  if (categoryId) {
-    if (!isUUID(categoryId)) {
-      throw new BadRequestException('Invalid categoryId format');
+    if (categoryId) {
+      if (!isUUID(categoryId)) {
+        throw new BadRequestException('Invalid categoryId format');
+      }
+
+      where.categoryId = categoryId;
     }
 
-    where.categoryId = categoryId;
+    const services = await this.prisma.service.findMany({
+      where,
+      include: {
+        category: true,
+      },
+      orderBy: { title: 'asc' },
+    });
+
+    return services.map((s) => ({
+      id: s.id,
+      category_id: s.categoryId,
+      category_name: s.category.name,
+      title: s.title,
+      description: s.description || undefined,
+      created_at: s.createdAt,
+      updated_at: s.updatedAt,
+    }));
   }
-
-  const services = await this.prisma.service.findMany({
-    where,
-    include: {
-      category: true,
-    },
-    orderBy: { title: 'asc' },
-  });
-
-  return services.map(s => ({
-    id: s.id,
-    category_id: s.categoryId,
-    category_name: s.category.name,
-    title: s.title,
-    description: s.description || undefined,
-    created_at: s.createdAt,
-    updated_at: s.updatedAt,
-  }));
-}
 
   async getServiceById(serviceId: string): Promise<ServiceCatalogResponseDto> {
     const service = await this.prisma.service.findUnique({
@@ -233,7 +250,9 @@ export class ServicesService {
       include: { category: true },
     });
 
-    this.logger.log(`Service updated in catalog: ${updatedService.title} by admin ${adminId}`);
+    this.logger.log(
+      `Service updated in catalog: ${updatedService.title} by admin ${adminId}`,
+    );
 
     return {
       id: updatedService.id,
@@ -246,7 +265,10 @@ export class ServicesService {
     };
   }
 
-  async deleteService(adminId: string, serviceId: string): Promise<{ message: string }> {
+  async deleteService(
+    adminId: string,
+    serviceId: string,
+  ): Promise<{ message: string }> {
     const service = await this.prisma.service.findUnique({
       where: { id: serviceId },
       include: {
@@ -260,7 +282,7 @@ export class ServicesService {
 
     if (service.businessServices.length > 0) {
       throw new BadRequestException(
-        `Cannot delete service assigned to ${service.businessServices.length} business(es). Remove assignments first.`
+        `Cannot delete service assigned to ${service.businessServices.length} business(es). Remove assignments first.`,
       );
     }
 
@@ -268,7 +290,9 @@ export class ServicesService {
       where: { id: serviceId },
     });
 
-    this.logger.log(`Service deleted from catalog: ${service.title} by admin ${adminId}`);
+    this.logger.log(
+      `Service deleted from catalog: ${service.title} by admin ${adminId}`,
+    );
 
     return { message: 'Service deleted successfully' };
   }
@@ -319,7 +343,7 @@ export class ServicesService {
     });
 
     this.logger.log(
-      `Service "${service.title}" assigned to business ${businessId} by manager ${managerId} with price ${dto.price} EGP`
+      `Service "${service.title}" assigned to business ${businessId} by manager ${managerId} with price ${dto.price} EGP`,
     );
 
     this.eventEmitter.emit('business.service_assigned', {
@@ -359,11 +383,17 @@ export class ServicesService {
 
     for (const serviceDto of dto.services) {
       try {
-        const result = await this.assignServiceToBusiness(managerId, businessId, serviceDto);
+        const result = await this.assignServiceToBusiness(
+          managerId,
+          businessId,
+          serviceDto,
+        );
         assignedServices.push(result);
       } catch (error: any) {
         skippedServices.push(serviceDto.service_id);
-        this.logger.warn(`Failed to assign service ${serviceDto.service_id}: ${error.message}`);
+        this.logger.warn(
+          `Failed to assign service ${serviceDto.service_id}: ${error.message}`,
+        );
       }
     }
 
@@ -415,7 +445,7 @@ export class ServicesService {
       orderBy: { createdAt: 'asc' },
     });
 
-    return businessServices.map(bs => ({
+    return businessServices.map((bs) => ({
       id: bs.id,
       business_id: businessId,
       business_name: business.businessName,
@@ -432,7 +462,9 @@ export class ServicesService {
     }));
   }
 
-  async getBusinessServiceById(businessServiceId: string): Promise<AssignedBusinessServiceResponseDto> {
+  async getBusinessServiceById(
+    businessServiceId: string,
+  ): Promise<AssignedBusinessServiceResponseDto> {
     const businessService = await this.prisma.businessService.findUnique({
       where: { id: businessServiceId },
       include: {
@@ -520,7 +552,9 @@ export class ServicesService {
       },
     });
 
-    this.logger.log(`Business service ${businessServiceId} updated by manager ${managerId}`);
+    this.logger.log(
+      `Business service ${businessServiceId} updated by manager ${managerId}`,
+    );
 
     this.eventEmitter.emit('business.service_updated', {
       businessId,
@@ -596,7 +630,9 @@ export class ServicesService {
       where: { id: businessServiceId },
     });
 
-    this.logger.log(`Business service ${businessServiceId} removed by manager ${managerId}`);
+    this.logger.log(
+      `Business service ${businessServiceId} removed by manager ${managerId}`,
+    );
 
     this.eventEmitter.emit('business.service_removed', {
       businessId,
@@ -633,7 +669,9 @@ export class ServicesService {
     });
 
     const status = updated.isActive ? 'activated' : 'deactivated';
-    this.logger.log(`Business service ${businessServiceId} ${status} by manager ${managerId}`);
+    this.logger.log(
+      `Business service ${businessServiceId} ${status} by manager ${managerId}`,
+    );
 
     return {
       is_active: updated.isActive,
@@ -643,7 +681,9 @@ export class ServicesService {
 
   // ==================== PUBLIC DISCOVERY (For Clients) ====================
 
-  async getAvailableServicesForBusiness(businessId: string): Promise<AvailableServiceDto[]> {
+  async getAvailableServicesForBusiness(
+    businessId: string,
+  ): Promise<AvailableServiceDto[]> {
     const business = await this.prisma.business.findUnique({
       where: { id: businessId },
     });
@@ -667,7 +707,7 @@ export class ServicesService {
       orderBy: { price: 'asc' },
     });
 
-    return businessServices.map(bs => ({
+    return businessServices.map((bs) => ({
       business_service_id: bs.id,
       service_id: bs.service.id,
       title: bs.service.title,
@@ -713,7 +753,7 @@ export class ServicesService {
       orderBy: { price: 'asc' },
     });
 
-    return businessServices.map(bs => ({
+    return businessServices.map((bs) => ({
       business_service_id: bs.id,
       service_id: bs.service.id,
       title: bs.service.title,
@@ -736,7 +776,7 @@ export class ServicesService {
       select: { serviceId: true },
     });
 
-    const assignedServiceIds = assignedServices.map(s => s.serviceId);
+    const assignedServiceIds = assignedServices.map((s) => s.serviceId);
 
     // Get unassigned services from catalog
     const unassignedServices = await this.prisma.service.findMany({
@@ -749,7 +789,7 @@ export class ServicesService {
       orderBy: { title: 'asc' },
     });
 
-    return unassignedServices.map(s => ({
+    return unassignedServices.map((s) => ({
       id: s.id,
       category_id: s.categoryId,
       category_name: s.category.name,
@@ -762,7 +802,10 @@ export class ServicesService {
 
   // ==================== PRIVATE HELPERS ====================
 
-  async verifyBusinessOwnership(managerId: string, businessId: string): Promise<void> {
+  async verifyBusinessOwnership(
+    managerId: string,
+    businessId: string,
+  ): Promise<void> {
     const business = await this.prisma.business.findFirst({
       where: {
         id: businessId,
