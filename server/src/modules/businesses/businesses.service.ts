@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { StorageService } from '../../core/storage/storage.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UpdateBusinessStatusDto, BusinessStatus } from './dto/business-status.dto';
@@ -21,6 +22,7 @@ export class BusinessesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly storage: StorageService,
   ) {}
 
   // ==================== BUSINESS CRUD ====================
@@ -397,8 +399,13 @@ export class BusinessesService {
       });
     }
 
-    // TODO: Upload file to S3/Storage and get URL
-    const fileUrl = `https://storage.glowfix.com/businesses/${businessId}/${dto.type}-${Date.now()}.pdf`;
+    // Upload file to S3/Storage and get URL
+    const { url: fileUrl } = await this.storage.uploadFile(
+      file.buffer,
+      `businesses/${businessId}/documents`,
+      file.mimetype,
+      file.originalname,
+    );
 
     const document = await this.prisma.businessDocument.create({
       data: {

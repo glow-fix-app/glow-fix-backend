@@ -103,6 +103,45 @@ export class StorageService {
     };
   }
 
+  /**
+   * Upload a raw file buffer without any image processing/WebP conversion.
+   * Useful for documents, PDFs, Tax Cards, etc.
+   *
+   * @param buffer       Raw file bytes
+   * @param folder       Logical folder prefix, e.g. "businesses/documents"
+   * @param mimetype     File mimetype
+   * @param originalName Original file name to extract file extension
+   */
+  async uploadFile(
+    buffer: Buffer,
+    folder: string,
+    mimetype: string,
+    originalName: string,
+  ): Promise<UploadResult> {
+    const ext = originalName.split('.').pop() || 'bin';
+    const storageKey = `${folder}/${this.generateKey()}.${ext}`;
+
+    try {
+      await this.s3.send(
+        new PutObjectCommand({
+          Bucket:      this.bucket,
+          Key:         storageKey,
+          Body:        buffer,
+          ContentType: mimetype,
+          ACL:         'public-read',
+          CacheControl: 'public, max-age=31536000, immutable',
+        }),
+      );
+    } catch (err) {
+      throw new InternalServerErrorException('File upload failed');
+    }
+
+    return {
+      storageKey,
+      url: `${this.cdnBase}/${storageKey}`,
+    };
+  }
+
   // ── Delete ──────────────────────────────────────────────────────────────────
 
   /**

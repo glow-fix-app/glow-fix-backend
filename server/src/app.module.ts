@@ -31,6 +31,7 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DiagnosticReportsModule } from './modules/diagnostic-reports/diagnostic-reports.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { DiagnosticReportsModule } from './modules/diagnostic-reports/diagnostic
     LoyaltyModule,
     NotificationsModule,
     DiagnosticReportsModule,
+    ChatModule,
   ],
   providers: [
     JwtAuthGuard,

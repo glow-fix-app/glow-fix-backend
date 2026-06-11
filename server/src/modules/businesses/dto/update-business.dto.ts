@@ -6,6 +6,7 @@ import {
   IsPhoneNumber,
   IsArray,
   ValidateNested,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { BusinessLocationDto, OperatingHoursInputDto } from './create-business.dto';
@@ -27,9 +28,9 @@ export class UpdateBusinessDto {
   @Type(() => BusinessLocationDto)
   location?: BusinessLocationDto;
 
-  @ApiPropertyOptional({ example: '+20123456789' })
+  @ApiPropertyOptional({ example: '0123456789' })
   @IsOptional()
-  @IsPhoneNumber()
+  @Matches(/^\+?\d{7,15}$/, { message: 'Invalid phone number format' })
   contact_phone?: string;
 
   @ApiPropertyOptional({ example: 'contact@shineco.com' })

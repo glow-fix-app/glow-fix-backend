@@ -23,7 +23,7 @@ export class RegisterClientDto {
  
   @ApiPropertyOptional({ example: '+201112223344' })
   @IsOptional()
-  @Matches(/^\+?[1-9]\d{7,14}$/, { message: 'Invalid phone number format' })
+  @Matches(/^\+?\d{7,15}$/, { message: 'Invalid phone number format' })
   phone?: string;
  
   @ApiProperty({ minLength: 8 })
