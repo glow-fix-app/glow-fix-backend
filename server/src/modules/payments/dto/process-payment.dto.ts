@@ -1,16 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsUUID, IsInt, Min, IsOptional, IsEnum, IsBoolean, IsString, MaxLength } from 'class-validator';
+import { IsUUID, IsInt, Min, IsOptional, IsEnum, IsBoolean, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export enum PaymentMethodType {
+export enum PaymentMethod {
   CARD = 'CARD',
   CASH = 'CASH',
   WALLET = 'WALLET',
-}
-
-export enum PaymentType {
-  SERVICE = 'SERVICE',
-  REPAIR_AUTHORIZATION = 'REPAIR_AUTHORIZATION',
 }
 
 export class ProcessPaymentDto {
@@ -18,11 +13,11 @@ export class ProcessPaymentDto {
   @IsUUID()
   booking_id: string;
 
-  @ApiProperty({ enum: PaymentMethodType, description: 'Payment method' })
-  @IsEnum(PaymentMethodType)
-  payment_method: PaymentMethodType;
+  @ApiProperty({ enum: PaymentMethod, description: 'Payment method' })
+  @IsEnum(PaymentMethod)
+  payment_method: PaymentMethod;
 
-  @ApiPropertyOptional({ description: 'Payment provider (e.g., stripe, paymob)', example: 'stripe' })
+  @ApiPropertyOptional({ description: 'Payment provider (stripe, paymob, etc.)' })
   @IsOptional()
   @IsString()
   provider?: string;
@@ -36,6 +31,7 @@ export class ProcessPaymentDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Type(() => Number)
   amount?: number;
 
   @ApiPropertyOptional({ description: 'Redeem loyalty points' })
@@ -47,26 +43,29 @@ export class ProcessPaymentDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Type(() => Number)
   points_to_redeem?: number;
 }
 
-export class PaymentResponseDto {
+export class ProcessPaymentResponseDto {
   @ApiProperty()
-  id: string;
+  success: boolean;
+
   @ApiProperty()
-  booking_id: string;
-  @ApiProperty({ enum: PaymentType })
-  type: PaymentType;
+  payment_id: string;
+
   @ApiProperty()
   amount: number;
+
   @ApiProperty()
-  currency: string;
-  @ApiProperty({ enum: ['PENDING', 'PAID', 'FAILED'] })
-  status: string;
-  @ApiPropertyOptional()
-  provider_ref?: string;
-  @ApiPropertyOptional()
-  paid_at?: Date;
+  loyalty_points_used: number;
+
   @ApiProperty()
-  created_at: Date;
+  loyalty_points_earned: number;
+
+  @ApiProperty()
+  receipt_url: string;
+
+  @ApiProperty()
+  message: string;
 }

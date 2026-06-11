@@ -33,6 +33,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { DiagnosticReportsModule } from './modules/diagnostic-reports/diagnostic-reports.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { BusinessesModule } from './modules/businesses/businesses.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { BusinessesModule } from './modules/businesses/businesses.module';
     NotificationsModule,
     DiagnosticReportsModule,
     ChatModule,
+    PaymentsModule
   ],
   providers: [
     JwtAuthGuard,

@@ -8,34 +8,34 @@ export enum WebhookEventType {
 }
 
 export class PaymentWebhookDto {
-  @ApiProperty({ description: 'Webhook event type' })
+  @ApiProperty({ enum: WebhookEventType })
   @IsEnum(WebhookEventType)
   event: WebhookEventType;
 
-  @ApiProperty({ description: 'Payment provider' })
+  @ApiProperty()
   @IsString()
   provider: string;
 
-  @ApiProperty({ description: 'Provider reference ID' })
+  @ApiProperty()
   @IsString()
   provider_ref: string;
 
-  @ApiPropertyOptional({ description: 'Payment amount' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   amount?: number;
 
-  @ApiPropertyOptional({ description: 'Payment status' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Failure reason' })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   failure_reason?: string;
 
-  @ApiPropertyOptional({ description: 'Raw webhook payload' })
+  @ApiPropertyOptional()
   @IsOptional()
   raw_payload?: any;
 }

@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsUUID, IsString, IsEnum, IsOptional, MaxLength, IsArray, IsNumber } from 'class-validator';
+import { IsUUID, IsString, IsEnum, IsOptional, IsInt, Min, IsArray } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum DisputeReason {
   WORK_NOT_COMPLETED = 'WORK_NOT_COMPLETED',
@@ -20,50 +21,57 @@ export class CreateDisputeDto {
   @IsUUID()
   payment_id: string;
 
-  @ApiProperty({ enum: DisputeReason, description: 'Reason for dispute' })
+  @ApiProperty({ enum: DisputeReason })
   @IsEnum(DisputeReason)
   reason: DisputeReason;
 
-  @ApiProperty({ description: 'Detailed description of what went wrong' })
+  @ApiProperty()
   @IsString()
-  @MaxLength(2000)
   description: string;
 
-  @ApiPropertyOptional({ description: 'Photo evidence URLs' })
+  @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   photo_urls?: string[];
 
-  @ApiProperty({ enum: DesiredOutcome, description: 'Desired resolution' })
+  @ApiProperty({ enum: DesiredOutcome })
   @IsEnum(DesiredOutcome)
   desired_outcome: DesiredOutcome;
 
-  @ApiPropertyOptional({ description: 'Suggested refund amount (for partial refund)' })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsNumber()
+  @IsInt()
+  @Min(0)
+  @Type(() => Number)
   suggested_amount?: number;
 }
 
 export class DisputeResponseDto {
   @ApiProperty()
   id: string;
+
   @ApiProperty()
   payment_id: string;
+
   @ApiProperty()
   booking_id: string;
-  @ApiProperty({ enum: DisputeReason })
-  reason: DisputeReason;
+
+  @ApiProperty()
+  reason: string;
+
   @ApiProperty()
   description: string;
+
   @ApiProperty({ enum: ['PENDING', 'INVESTIGATING', 'RESOLVED', 'REJECTED'] })
   status: string;
-  @ApiPropertyOptional({ enum: DesiredOutcome })
-  desired_outcome?: DesiredOutcome;
+
   @ApiPropertyOptional()
   resolution?: string;
+
   @ApiPropertyOptional()
   resolved_at?: Date;
+
   @ApiProperty()
   created_at: Date;
 }
