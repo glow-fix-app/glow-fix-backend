@@ -1,0 +1,1 @@
+ALTER TABLE "clients" ALTER COLUMN "location" DROP DEFAULT, ALTER COLUMN "location" DROP NOT NULL; UPDATE "clients" SET "location" = NULL WHERE ST_Equals("location"::geometry, ST_SetSRID(ST_MakePoint(31.2357, 30.0444), 4326)::geometry);

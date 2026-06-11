@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsBoolean, IsEmail, IsPhoneNumber, MinLength, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsEmail, IsPhoneNumber, MinLength, MaxLength, Matches } from 'class-validator';
 
 export class UpdateClientProfileDto {
   @ApiPropertyOptional({ description: 'User full name', example: 'Mahmoud Ali' })
@@ -16,7 +16,7 @@ export class UpdateClientProfileDto {
 
   @ApiPropertyOptional({ description: 'User phone number', example: '+201000000000' })
   @IsOptional()
-  @IsPhoneNumber()
+  @Matches(/^\+?\d{7,15}$/, { message: 'Invalid phone number format' })
   phone?: string;
 
   @ApiPropertyOptional({ description: 'Marketing consent' })
@@ -44,7 +44,7 @@ export class ChangePasswordDto {
 
 export class VerifyPhoneDto {
   @ApiProperty({ description: 'Phone number to verify' })
-  @IsPhoneNumber()
+  @Matches(/^\+?\d{7,15}$/, { message: 'Invalid phone number format' })
   phone: string;
 
   @ApiProperty({ description: 'OTP code' })

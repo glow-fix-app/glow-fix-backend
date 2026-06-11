@@ -68,6 +68,10 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     this.server.to(`user:${userId}`).emit('notification.read_all', payload);
   }
 
+  emitNotificationDeleted(userId: string, payload: unknown): void {
+    this.server.to(`user:${userId}`).emit('notification.deleted', payload);
+  }
+
   private async authenticate(client: Socket): Promise<{ id: string }> {
     const token =
       client.handshake.auth?.token ||

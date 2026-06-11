@@ -29,7 +29,7 @@ export class RegisterAdminDto {
 
   @ApiPropertyOptional({ example: '01009999999' })
   @IsOptional()
-  @Matches(/^\d{8,15}$/, { message: 'Invalid phone number format' })
+  @Matches(/^\+?\d{7,15}$/, { message: 'Invalid phone number format' })
   phone?: string;
 
   @ApiProperty({ minLength: 8 })

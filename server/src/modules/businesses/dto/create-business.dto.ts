@@ -13,6 +13,7 @@ import {
   IsLongitude,
   MinLength,
   MaxLength,
+  Matches,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -70,7 +71,7 @@ export class CreateBusinessDto {
 
   @ApiPropertyOptional({ example: '+20123456789' })
   @IsOptional()
-  @IsPhoneNumber()
+  @Matches(/^\+?\d{7,15}$/, { message: 'Invalid phone number format' })
   contact_phone?: string;
 
   @ApiPropertyOptional({ example: 'contact@shineco.com' })

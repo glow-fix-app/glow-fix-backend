@@ -12,6 +12,8 @@ import {
   Param,
   BadRequestException,
   ConflictException,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -39,6 +41,8 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyResetOtpDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { AuthUser } from '../auth/types/auth.types';
 import { RegisterAdminDto } from './dto/registerAdmin.dto';
 import { RegisterManagerDto } from './dto/registerManager.dto';
@@ -79,6 +83,20 @@ export class AuthController {
 
   @Post('register/manager')
   @Public()
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'businessRegistration', maxCount: 1 },
+        { name: 'ownerID', maxCount: 1 },
+        { name: 'insuranceCertificate', maxCount: 1 },
+        { name: 'serviceLicense', maxCount: 1 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit per file
+      },
+    ),
+  )
   @ApiOperation({ summary: 'Register a new manager (workshop owner) account' })
   @ApiResponse({
     status: 201,
@@ -87,6 +105,13 @@ export class AuthController {
   @ApiResponse({ status: 409, description: 'Email or phone already exists' })
   async registerManager(
     @Body() dto: RegisterManagerDto,
+    @UploadedFiles()
+    files: {
+      businessRegistration?: Express.Multer.File[];
+      ownerID?: Express.Multer.File[];
+      insuranceCertificate?: Express.Multer.File[];
+      serviceLicense?: Express.Multer.File[];
+    },
     @Req() req: Request,
   ): Promise<{ message: string; requiresOtp: boolean }> {
     if (dto.password !== dto.confirmPassword) {
@@ -94,6 +119,7 @@ export class AuthController {
     }
     return this.authService.registerManager(
       dto,
+      files || {},
       req.ip || '',
       req.get('user-agent') || '',
     );

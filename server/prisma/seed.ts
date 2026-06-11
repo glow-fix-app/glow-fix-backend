@@ -50,75 +50,9 @@ async function main() {
   console.log('✅ Settings created');
 
   // =====================================================================
-  // 2. STATUS LOOKUP ROWS
-  // =====================================================================
-
-  const statusDefs = [
-    { name: 'PENDING_REVIEW', context: 'BUSINESS' },
-    { name: 'APPROVED', context: 'BUSINESS' },
-    { name: 'SUSPENDED', context: 'BUSINESS' },
-    { name: 'REJECTED', context: 'BUSINESS' },
-    { name: 'DOC_PENDING', context: 'DOCUMENT' },
-    { name: 'DOC_ACCEPTED', context: 'DOCUMENT' },
-    { name: 'DOC_REJECTED', context: 'DOCUMENT' },
-    { name: 'PENDING', context: 'BOOKING' },
-    { name: 'CONFIRMED', context: 'BOOKING' },
-    { name: 'VEHICLE_RECEIVED', context: 'BOOKING' },
-    { name: 'IN_PROGRESS', context: 'BOOKING' },
-    { name: 'DIAGNOSIS_SENT', context: 'BOOKING' },
-    { name: 'DIAGNOSIS_ACCEPTED', context: 'BOOKING' },
-    { name: 'READY_FOR_PICKUP', context: 'BOOKING' },
-    { name: 'COMPLETED', context: 'BOOKING' },
-    { name: 'CANCELLED', context: 'BOOKING' },
-    { name: 'PAYMENT_PENDING', context: 'PAYMENT' },
-    { name: 'PAID', context: 'PAYMENT' },
-    { name: 'REFUNDED', context: 'PAYMENT' },
-    { name: 'FAILED', context: 'PAYMENT' },
-    { name: 'PAYOUT_PENDING', context: 'PAYMENT' },
-    { name: 'PAYOUT_PROCESSED', context: 'PAYMENT' },
-    { name: 'OPEN', context: 'CONVERSATION' },
-    { name: 'CLOSED', context: 'CONVERSATION' },
-    { name: 'SENT', context: 'MESSAGE' },
-    { name: 'DELIVERED', context: 'MESSAGE' },
-    { name: 'READ', context: 'MESSAGE' },
-  ] as const;
-  
   // 2. STATUSES
   // =====================================================================
   console.log('\n📦 Creating statuses...');
-
-<<<<<<< HEAD
-  const statusDefs = [
-    { name: 'PENDING_REVIEW', context: 'BUSINESS' },
-    { name: 'APPROVED', context: 'BUSINESS' },
-    { name: 'SUSPENDED', context: 'BUSINESS' },
-    { name: 'REJECTED', context: 'BUSINESS' },
-    { name: 'DOC_PENDING', context: 'DOCUMENT' },
-    { name: 'DOC_ACCEPTED', context: 'DOCUMENT' },
-    { name: 'DOC_REJECTED', context: 'DOCUMENT' },
-    { name: 'PENDING', context: 'BOOKING' },
-    { name: 'CONFIRMED', context: 'BOOKING' },
-    { name: 'VEHICLE_RECEIVED', context: 'BOOKING' },
-    { name: 'IN_PROGRESS', context: 'BOOKING' },
-    { name: 'DIAGNOSIS_SENT', context: 'BOOKING' },
-    { name: 'DIAGNOSIS_ACCEPTED', context: 'BOOKING' },
-    { name: 'READY_FOR_PICKUP', context: 'BOOKING' },
-    { name: 'COMPLETED', context: 'BOOKING' },
-    { name: 'CANCELLED', context: 'BOOKING' },
-    { name: 'PAYMENT_PENDING', context: 'PAYMENT' },
-    { name: 'PAID', context: 'PAYMENT' },
-    { name: 'REFUNDED', context: 'PAYMENT' },
-    { name: 'FAILED', context: 'PAYMENT' },
-    { name: 'PAYOUT_PENDING', context: 'PAYMENT' },
-    { name: 'PAYOUT_PROCESSED', context: 'PAYMENT' },
-    { name: 'OPEN', context: 'CONVERSATION' },
-    { name: 'CLOSED', context: 'CONVERSATION' },
-    { name: 'SENT', context: 'MESSAGE' },
-    { name: 'DELIVERED', context: 'MESSAGE' },
-    { name: 'READ', context: 'MESSAGE' },
-  ] as const;
-=======
->>>>>>> 2f0be696ba976c3e03b5ed86667d27e8b7541811
   const statuses = [
     // Business statuses
     { context: 'PENDING_REVIEW' },
@@ -511,15 +445,15 @@ async function main() {
     create: { userId: client3.id },
   });
 
-  // Update locations
+  // Update locations and cities
   await prisma.$executeRaw`
-    UPDATE clients SET location = ST_SetSRID(ST_MakePoint(31.2357, 30.0444), 4326)::geography WHERE user_id = ${client1.id}::uuid
+    UPDATE clients SET city = 'Cairo', location = ST_SetSRID(ST_MakePoint(31.2357, 30.0444), 4326)::geography WHERE user_id = ${client1.id}::uuid
   `;
   await prisma.$executeRaw`
-    UPDATE clients SET location = ST_SetSRID(ST_MakePoint(31.2581, 29.9602), 4326)::geography WHERE user_id = ${client2.id}::uuid
+    UPDATE clients SET city = 'Cairo', location = ST_SetSRID(ST_MakePoint(31.2581, 29.9602), 4326)::geography WHERE user_id = ${client2.id}::uuid
   `;
   await prisma.$executeRaw`
-    UPDATE clients SET location = ST_SetSRID(ST_MakePoint(31.3228, 30.0892), 4326)::geography WHERE user_id = ${client3.id}::uuid
+    UPDATE clients SET city = 'Cairo', location = ST_SetSRID(ST_MakePoint(31.3228, 30.0892), 4326)::geography WHERE user_id = ${client3.id}::uuid
   `;
 
   console.log('✅ Clients created');
@@ -584,16 +518,16 @@ async function main() {
   // =====================================================================
   console.log('\n📦 Creating businesses...');
 
-  async function upsertBusiness(id: string, managerId: string, businessName: string, address: string, contactPhone: string, contactEmail: string, lng: number, lat: number) {
+  async function upsertBusiness(id: string, managerId: string, businessName: string, address: string, city: string, contactPhone: string, contactEmail: string, lng: number, lat: number) {
     let business = await prisma.business.findUnique({ where: { id } }).catch(() => null);
     if (business) {
       await prisma.$executeRaw`
-        UPDATE businesses SET manager_id = ${managerId}::uuid, business_name = ${businessName}, address = ${address}, contact_phone = ${contactPhone}, contact_email = ${contactEmail}, location = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography WHERE id = ${id}::uuid
+        UPDATE businesses SET manager_id = ${managerId}::uuid, business_name = ${businessName}, address = ${address}, city = ${city}, contact_phone = ${contactPhone}, contact_email = ${contactEmail}, location = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography WHERE id = ${id}::uuid
       `;
     } else {
       await prisma.$executeRaw`
-        INSERT INTO businesses (id, manager_id, business_name, address, location, contact_phone, contact_email, created_at, updated_at)
-        VALUES (${id}::uuid, ${managerId}::uuid, ${businessName}, ${address}, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${contactPhone}, ${contactEmail}, now(), now())
+        INSERT INTO businesses (id, manager_id, business_name, address, city, location, contact_phone, contact_email, created_at, updated_at)
+        VALUES (${id}::uuid, ${managerId}::uuid, ${businessName}, ${address}, ${city}, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${contactPhone}, ${contactEmail}, now(), now())
       `;
     }
     return prisma.business.findUniqueOrThrow({ where: { id } });
@@ -602,21 +536,21 @@ async function main() {
   // Business 1: Shine & Co. Detailing (Zamalek)
   const business1 = await upsertBusiness(
     '22222222-2222-2222-2222-222222222221',
-    manager1.id, 'Shine & Co. Detailing', '22 26th of July St, Zamalek, Cairo',
+    manager1.id, 'Shine & Co. Detailing', '22 26th of July St, Zamalek, Cairo', 'Cairo',
     '+20225000001', 'contact@shineco.com', 31.2357, 30.0444,
   );
 
   // Business 2: Garage 37 Auto Service (Maadi)
   const business2 = await upsertBusiness(
     '22222222-2222-2222-2222-222222222222',
-    manager2.id, 'Garage 37 Auto Service', '15 Road 9, Maadi, Cairo',
+    manager2.id, 'Garage 37 Auto Service', '15 Road 9, Maadi, Cairo', 'Cairo',
     '+20225000002', 'contact@garage37.com', 31.2581, 29.9602,
   );
 
   // Business 3: Aqua Bay Express Wash (Downtown)
   const business3 = await upsertBusiness(
     '22222222-2222-2222-2222-222222222223',
-    manager3.id, 'Aqua Bay Express Wash', '123 Tahrir St, Downtown, Cairo',
+    manager3.id, 'Aqua Bay Express Wash', '123 Tahrir St, Downtown, Cairo', 'Cairo',
     '+20225000003', 'contact@aquabay.com', 31.2200, 30.0500,
   );
 
