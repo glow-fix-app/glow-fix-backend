@@ -32,6 +32,7 @@ import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DiagnosticReportsModule } from './modules/diagnostic-reports/diagnostic-reports.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { BusinessesModule } from './modules/businesses/businesses.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { ChatModule } from './modules/chat/chat.module';
     ClientsModule,
     VehiclesModule,
     CategoriesModule,
+    BusinessesModule,
     ServicesModule,
     ReviewsModule,
     LoyaltyModule,
