@@ -319,9 +319,10 @@ model UserSession {
 model Client {
   id        String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String                               @unique @map("user_id") @db.Uuid
-  /// Stored as PostGIS geography point. Default: Cairo, Egypt (lon: 31.2357, lat: 30.0444)
+  /// Stored as PostGIS geography point. Null if the client hasn't set their location yet.
   /// Use Prisma.$queryRaw for spatial queries and updates.
-  location  Unsupported("geography(Point,4326)") @default(dbgenerated("ST_MakePoint(31.2357, 30.0444)::geography"))
+  location  Unsupported("geography(Point,4326)")?
+  city      String?
   createdAt DateTime                             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime                             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -362,6 +363,7 @@ model Business {
   managerId    String                               @map("manager_id") @db.Uuid
   businessName String                               @map("business_name")
   address      String
+  city         String?
   /// Stored as PostGIS geography point.
   /// Use Prisma.$queryRaw for spatial queries and updates.
   location     Unsupported("geography(Point,4326)")

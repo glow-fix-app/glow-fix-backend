@@ -76,6 +76,7 @@ export class ProviderDiscoveryService {
         b.id,
         b.business_name,
         b.address,
+        b.city,
         b.contact_phone,
         b.contact_email,
         b.created_at,
@@ -202,6 +203,23 @@ export class ProviderDiscoveryService {
       }
     }
 
+    // Apply city filter (uses the structured `city` column and the freeform `address` as fallback)
+    if (filters?.city) {
+      sql = Prisma.sql`
+        ${sql}
+        AND (b.city ILIKE ${`%${filters.city}%`} OR b.address ILIKE ${`%${filters.city}%`})
+      `;
+    } else if (filters?.locations && filters.locations.length > 0) {
+      // Fallback: filter by any of the supplied city names
+      const cityConditions = filters.locations.map(
+        (loc) => Prisma.sql`(b.city ILIKE ${`%${loc}%`} OR b.address ILIKE ${`%${loc}%`})`,
+      );
+      sql = Prisma.sql`
+        ${sql}
+        AND (${Prisma.join(cityConditions, ' OR ')})
+      `;
+    }
+
     // Apply open now filter
     if (filters?.open_now) {
       sql = Prisma.sql`
@@ -305,6 +323,7 @@ export class ProviderDiscoveryService {
           id: provider.id,
           business_name: provider.business_name,
           address: provider.address,
+          city: provider.city ?? null,
           contact_phone: provider.contact_phone || undefined,
           contact_email: provider.contact_email || undefined,
           distance_km: provider.distance_km
@@ -376,6 +395,7 @@ export class ProviderDiscoveryService {
         service_types: [],
         rating_ranges: [],
         distance_ranges: [],
+        locations: [],
       };
     }
 
@@ -458,6 +478,24 @@ export class ProviderDiscoveryService {
       `;
     }
 
+    // Get distinct cities with provider counts
+    const cityCounts = await this.prisma.$queryRaw<
+      Array<{ city: string; count: number }>
+    >`
+      SELECT 
+        b.city,
+        COUNT(*) as count
+      FROM businesses b
+      WHERE b.city IS NOT NULL
+        AND EXISTS (
+          SELECT 1 FROM business_status bs 
+          WHERE bs.business_id = b.id 
+            AND bs.status_id = ${approvedStatusId}::uuid
+        )
+      GROUP BY b.city
+      ORDER BY count DESC, b.city ASC
+    `;
+
     return {
       service_types: serviceTypeCounts.map((st) => ({
         name: st.service_type === 'both' ? 'Wash & Repair' : st.service_type,
@@ -483,6 +521,11 @@ export class ProviderDiscoveryService {
         name: dr.distance_range,
         max_km: parseFloat(dr.distance_range.match(/\d+/)?.toString() || '0'),
         count: Number(dr.count),
+        selected: false,
+      })),
+      locations: cityCounts.map((c) => ({
+        name: c.city,
+        count: Number(c.count),
         selected: false,
       })),
     };
@@ -522,7 +565,7 @@ export class ProviderDiscoveryService {
     userId: string,
   ): Promise<{ latitude: number; longitude: number } | null> {
     const result = await this.prisma.$queryRaw<
-      Array<{ latitude: number; longitude: number }>
+      Array<{ latitude: number | null; longitude: number | null }>
     >`
       SELECT 
         ST_Y(location::geometry) as latitude,
@@ -531,7 +574,7 @@ export class ProviderDiscoveryService {
       WHERE user_id = ${userId}::uuid
     `;
 
-    if (!result || result.length === 0) {
+    if (!result || result.length === 0 || result[0].latitude === null || result[0].longitude === null) {
       return null;
     }
 

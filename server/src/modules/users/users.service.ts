@@ -11,6 +11,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUsersQueryDto } from './dto/get-users-query.dto';
 import { AvatarService } from './avatar.service';
 import { UserProfile } from './user.types';
+import { reverseGeocodeCity } from '../../utils/geocode';
 
 // Shared select matching schema exactly (Prisma uses camelCase)
 const USER_SELECT = {
@@ -39,7 +40,7 @@ export class UsersService {
   ) {}
 
   // ─── Get full profile (includes avatar resolution) ───
-  async getProfile(userId: string): Promise<UserProfile> {
+  async getProfile(userId: string): Promise<UserProfile & { clientLocation: { latitude: number; longitude: number; city: string | null } | null }> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId, deletedAt: null },
       select: {
@@ -59,6 +60,40 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
 
     const avatarUrl = await this.avatarService.resolve(userId);
+    
+    // For CLIENT role: fetch location from clients table. Always explicitly null if not set.
+    let clientLocation: { latitude: number; longitude: number; city: string | null } | null = null;
+    if (user.role === 'CLIENT') {
+      const locResult = await this.prisma.$queryRaw<Array<{ latitude: number; longitude: number; city: string | null }>>`
+        SELECT 
+          ST_Y(location::geometry) as latitude,
+          ST_X(location::geometry) as longitude,
+          city
+        FROM clients 
+        WHERE user_id = ${userId}::uuid AND location IS NOT NULL
+      `;
+      if (locResult && locResult.length > 0) {
+        let city = locResult[0].city;
+        // If we have coordinates but no city, reverse-geocode and cache it
+        if (!city) {
+          try {
+            city = await reverseGeocodeCity(locResult[0].latitude, locResult[0].longitude);
+            if (city) {
+              await this.prisma.$executeRaw`UPDATE clients SET city = ${city} WHERE user_id = ${userId}::uuid`;
+            }
+          } catch (err) {
+            this.logger.warn(`Failed to auto-geocode client location: ${err}`);
+          }
+        }
+        clientLocation = {
+          latitude: Number(locResult[0].latitude),
+          longitude: Number(locResult[0].longitude),
+          city: city ?? null,
+        };
+      }
+      // clientLocation stays null if no location row found — this explicitly signals
+      // the frontend that the user has not set a location yet.
+    }
 
     return {
       id: user.id,
@@ -72,8 +107,10 @@ export class UsersService {
       avatar_url: avatarUrl,
       created_at: user.createdAt,
       updated_at: user.updatedAt,
+      clientLocation,
     };
   }
+
 
   // ─── Get client profile with client-specific data ───
   async getClientProfile(userId: string): Promise<any> {

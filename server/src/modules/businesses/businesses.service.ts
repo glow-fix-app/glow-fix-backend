@@ -14,6 +14,7 @@ import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UpdateBusinessStatusDto, BusinessStatus } from './dto/business-status.dto';
 import { UploadBusinessDocumentDto, UpdateDocumentStatusDto, DocumentStatus } from './dto/business-document.dto';
 import { BusinessResponseDto, BusinessStatsDto, NearbyBusinessDto } from './dto/business-response.dto';
+import { reverseGeocodeCity } from '../../utils/geocode';
 
 @Injectable()
 export class BusinessesService {
@@ -39,13 +40,20 @@ export class BusinessesService {
       throw new ConflictException('You already have a registered business');
     }
 
+    // Reverse-geocode lat/lng to city name (best-effort, non-blocking)
+    const city = await reverseGeocodeCity(
+      dto.location.latitude,
+      dto.location.longitude,
+    );
+
     const businesses = await this.prisma.$queryRaw<Array<{ id: string }>>`
-      INSERT INTO businesses (id, manager_id, business_name, address, location, contact_phone, contact_email, created_at, updated_at)
+      INSERT INTO businesses (id, manager_id, business_name, address, city, location, contact_phone, contact_email, created_at, updated_at)
       VALUES (
         gen_random_uuid(),
         ${managerId}::uuid,
         ${dto.business_name},
         ${dto.address},
+        ${city},
         ST_SetSRID(ST_MakePoint(${dto.location.longitude}, ${dto.location.latitude}), 4326)::geography,
         ${dto.contact_phone},
         ${dto.contact_email},
@@ -189,6 +197,15 @@ export class BusinessesService {
     if (dto.location) {
       sets.push(`location = ST_SetSRID(ST_MakePoint($${paramIndex++}, $${paramIndex++}), 4326)::geography`);
       params.push(dto.location.longitude, dto.location.latitude);
+      // Also update city from new coordinates (best-effort)
+      const city = await reverseGeocodeCity(
+        dto.location.latitude,
+        dto.location.longitude,
+      );
+      if (city) {
+        sets.push(`city = $${paramIndex++}`);
+        params.push(city);
+      }
     }
 
     if (sets.length > 0) {

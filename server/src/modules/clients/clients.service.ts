@@ -10,6 +10,7 @@ import { UpdateClientLocationDto } from './dto/client-location.dto';
 import { ClientStatsDto, LoyaltySummaryDto } from './dto/client-stats.dto';
 import { NearbyBusinessDto } from './dto/client-response.dto';
 import { validate as isUUID } from 'uuid';
+import { reverseGeocodeCity } from '../../utils/geocode';
 
 @Injectable()
 export class ClientsService {
@@ -65,32 +66,36 @@ export class ClientsService {
    * Update client location using PostGIS
    */
   async updateLocation(
-  userId: string,
-  dto: UpdateClientLocationDto,
-): Promise<{ success: boolean; location: { latitude: number; longitude: number } }> {
+    userId: string,
+    dto: UpdateClientLocationDto,
+  ): Promise<{ success: boolean; location: { latitude: number; longitude: number; city: string | null } }> {
 
-  await this.getClientOrThrow(userId);
+    await this.getClientOrThrow(userId);
 
-  await this.prisma.$executeRaw`
-    UPDATE clients 
-    SET location = ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)::geography,
-        updated_at = NOW()
-    WHERE user_id = ${userId}::uuid
-  `;
+    const city = await reverseGeocodeCity(dto.latitude, dto.longitude);
 
-  this.logger.log(`Location updated for client ${userId}: ${dto.latitude}, ${dto.longitude}`);
+    await this.prisma.$executeRaw`
+      UPDATE clients 
+      SET location = ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)::geography,
+          city = ${city},
+          updated_at = NOW()
+      WHERE user_id = ${userId}::uuid
+    `;
 
-  this.eventEmitter.emit('client.location_updated', {
-    userId,
-    latitude: dto.latitude,
-    longitude: dto.longitude,
-  });
+    this.logger.log(`Location updated for client ${userId}: ${dto.latitude}, ${dto.longitude}, city: ${city}`);
 
-  return {
-    success: true,
-    location: { latitude: dto.latitude, longitude: dto.longitude },
-  };
-}
+    this.eventEmitter.emit('client.location_updated', {
+      userId,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
+      city,
+    });
+
+    return {
+      success: true,
+      location: { latitude: dto.latitude, longitude: dto.longitude, city },
+    };
+  }
 
   /**
    * Get client location
@@ -100,7 +105,7 @@ export class ClientsService {
   if (!isUUID(userId)) return null;
 
   const result = await this.prisma.$queryRaw<
-    Array<{ latitude: number; longitude: number }>
+    Array<{ latitude: number | null; longitude: number | null }>
   >`
     SELECT 
       ST_Y(location::geometry) as latitude,
@@ -109,7 +114,7 @@ export class ClientsService {
     WHERE user_id = ${userId}::uuid
   `;
 
-  if (!result || result.length === 0) {
+  if (!result || result.length === 0 || result[0].latitude === null || result[0].longitude === null) {
     return null;
   }
 

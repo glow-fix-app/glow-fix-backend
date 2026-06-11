@@ -130,7 +130,7 @@ export class AuthService {
       },
     });
 
-    // CLIENT role → create Client profile row (location defaults to Cairo centre)
+    // CLIENT role → create Client profile row (location starts as NULL — user must set it)
     await this.prisma.client.create({ data: { userId: user.id } });
 
     this.logger.log('Client registered', 'AuthService', {

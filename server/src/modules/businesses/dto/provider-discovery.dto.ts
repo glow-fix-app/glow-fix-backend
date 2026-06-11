@@ -1,6 +1,6 @@
 // modules/businesses/dto/provider-discovery.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsNumber, Min, Max, IsEnum, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsNumber, Min, Max, IsEnum, IsBoolean, IsArray } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 export enum ProviderSortBy {
@@ -24,6 +24,17 @@ export class ProviderFiltersDto {
   @IsOptional()
   @IsEnum(ServiceType)
   service?: ServiceType;
+
+  @ApiPropertyOptional({ description: 'Location names', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  locations?: string[];
+
+  @ApiPropertyOptional({ description: 'City name filter (uses stored city column)', example: 'Zamalek' })
+  @IsOptional()
+  @IsString()
+  city?: string;
 
   @ApiPropertyOptional({ description: 'Maximum distance in km', example: 50 })
   @IsOptional()
@@ -127,6 +138,9 @@ export class ProviderResponseDto {
   @ApiProperty({ description: 'Business address', example: '22 26th of July St, Zamalek, Cairo' })
   address: string;
 
+  @ApiPropertyOptional({ description: 'City derived from lat/lng at registration', example: 'Zamalek' })
+  city?: string | null;
+
   @ApiPropertyOptional({ description: 'Contact phone', example: '+20123456789' })
   contact_phone?: string;
 
@@ -211,6 +225,17 @@ export class DistanceRangeFilterOptionDto {
   selected: boolean;
 }
 
+export class LocationFilterOptionDto {
+  @ApiProperty({ description: 'City name', example: 'Zamalek' })
+  name: string;
+
+  @ApiProperty({ description: 'Number of providers in this city', example: 5 })
+  count: number;
+
+  @ApiProperty({ description: 'Whether this filter is currently selected' })
+  selected: boolean;
+}
+
 export class ProviderFilterOptionsDto {
   @ApiProperty({ type: [ServiceTypeFilterOptionDto], description: 'Service type filter options' })
   service_types: ServiceTypeFilterOptionDto[];
@@ -220,6 +245,9 @@ export class ProviderFilterOptionsDto {
 
   @ApiProperty({ type: [DistanceRangeFilterOptionDto], description: 'Distance range filter options' })
   distance_ranges: DistanceRangeFilterOptionDto[];
+
+  @ApiProperty({ type: [LocationFilterOptionDto], description: 'City location filter options' })
+  locations: LocationFilterOptionDto[];
 }
 
 // ==================== MAIN RESPONSE DTO ====================
