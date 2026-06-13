@@ -22,28 +22,29 @@ export class EmailService {
   ) {
     const host = this.configService.get<string>('mail.host');
     const port = this.configService.get<number>('mail.port');
+    const secure = this.configService.get<boolean>('mail.secure');
+    const user = this.configService.get<string>('mail.user');
+    const pass = this.configService.get<string>('mail.pass');
 
-    // MailHog: no TLS, no auth — purely a local SMTP catcher
     this.transporter = nodemailer.createTransport({
       host,
       port,
-      secure: false,
-      ignoreTLS: true,
-      auth: undefined,
+      secure,
+      auth: user && pass ? { user, pass } : undefined,
     });
 
     this.logger.log(
-      `EmailService initialized — SMTP ${host}:${port}`,
+      `EmailService → SMTP ${host}:${port} (${user ? 'authenticated' : 'no auth'})`,
       'EmailService',
     );
   }
 
   async sendEmail(options: SendEmailOptions): Promise<void> {
-    const from = this.configService.get<string>('mail.from');
+    const from = `"Glow Fix" <${this.configService.get<string>('mail.from')}>`;
 
     try {
       const info = await this.transporter.sendMail({
-        from: `"Glow Fix" <${from}>`,
+        from,
         to: options.to,
         subject: options.subject,
         html: options.html,

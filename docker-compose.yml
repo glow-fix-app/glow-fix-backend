@@ -66,20 +66,6 @@ services:
       retries: 5
 
   # ─────────────────────────────────────────
-  # MailHog (local email testing)
-  # UI at http://localhost:8025
-  # ─────────────────────────────────────────
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: glowfix_mailhog
-    restart: unless-stopped
-    ports:
-      - "1025:1025" # SMTP server
-      - "8025:8025" # Web UI
-    networks:
-      - glowfix_network
-
-  # ─────────────────────────────────────────
   # Redis Commander (Redis UI)
   # UI at http://localhost:8081
   # ─────────────────────────────────────────
