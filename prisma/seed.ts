@@ -1,4 +1,3 @@
-// prisma/seed.ts
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
@@ -1308,7 +1307,7 @@ async function main() {
 
 main()
   .catch((e) => {
-  console.error('\n❌ Seed failed:', e);
+    console.error('\n❌ Seed failed:', e);
     process.exit(1);
   })
   .finally(async () => {
