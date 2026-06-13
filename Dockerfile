@@ -8,12 +8,10 @@ ENV NODE_ENV=production
 ENV HUSKY=0
 
 RUN npm ci --omit=dev --ignore-scripts
-RUN npm install --ignore-scripts
-
 
 COPY . .
 
-RUN npx prisma generate --no-install
+RUN npx prisma generate
 RUN npm run build
 
 CMD ["node", "dist/main.js"]
