@@ -3,7 +3,7 @@ import { IsUUID, IsInt, Min, Max, IsOptional, IsString, MaxLength } from 'class-
 
 export class CreateReviewDto {
   @ApiProperty({ description: 'Booking ID' })
-  @IsUUID()
+  @IsString()
   booking_id: string;
 
   @ApiProperty({ description: 'Overall rating (1-5)', minimum: 1, maximum: 5 })

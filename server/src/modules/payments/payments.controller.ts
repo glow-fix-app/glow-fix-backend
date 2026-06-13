@@ -71,7 +71,7 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Get payment for a booking' })
   @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
   async getBookingPayment(
-    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @Param('bookingId') bookingId: string,
     @CurrentUser() user: any,
   ): Promise<PaymentResponseDto | null> {
     return this.paymentsService.getBookingPayment(bookingId, user.id);

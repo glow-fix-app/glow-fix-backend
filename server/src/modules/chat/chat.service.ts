@@ -473,6 +473,34 @@ export class ChatService {
     });
 
     const statusId = await this.getStatusId('CONVERSATION', 'OPEN');
+    const participantIds = participants.map(p => p.userId).sort();
+
+    // Check for existing open conversation with the exact same participant set
+    const existingConversations = await this.prisma.conversation.findMany({
+      where: {
+        bookingId: null,
+        type: input.type,
+        statusId,
+        closedAt: null,
+        participants: {
+          every: { userId: { in: participantIds } },
+        },
+      },
+      select: {
+        id: true,
+        _count: { select: { participants: true } },
+      },
+    });
+
+    const existing = existingConversations.find(
+      (c) => c._count.participants === participantIds.length,
+    );
+
+    if (existing) {
+      await this.ensureParticipants(existing.id, participants);
+      return this.fetchConversationById(existing.id);
+    }
+
     const conversation = await this.prisma.conversation.create({
       data: {
         type: input.type,

@@ -34,6 +34,8 @@ import { DiagnosticReportsModule } from './modules/diagnostic-reports/diagnostic
 import { ChatModule } from './modules/chat/chat.module';
 import { BusinessesModule } from './modules/businesses/businesses.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
+import { RolesGuard } from './common/guards/roles.guard';
 
 @Module({
   imports: [
@@ -75,13 +77,18 @@ import { PaymentsModule } from './modules/payments/payments.module';
     NotificationsModule,
     DiagnosticReportsModule,
     ChatModule,
-    PaymentsModule
+    PaymentsModule,
+    BookingsModule
   ],
   providers: [
     JwtAuthGuard,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })

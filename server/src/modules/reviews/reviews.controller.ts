@@ -54,7 +54,7 @@ export class ReviewsController {
   @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
   async canReview(
     @CurrentUser() user: any,
-    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @Param('bookingId') bookingId: string,
   ): Promise<{ can_review: boolean; reason?: string }> {
     return this.reviewsService.canReview(user.id, bookingId);
   }
@@ -66,9 +66,11 @@ export class ReviewsController {
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getMyReviews(
     @CurrentUser() user: any,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') pageParam?: string,
+    @Query('limit') limitParam?: string,
   ): Promise<{ data: ReviewWithUserDto[]; meta: any }> {
+    const page = pageParam && !isNaN(Number(pageParam)) ? Number(pageParam) : 1;
+    const limit = limitParam && !isNaN(Number(limitParam)) ? Number(limitParam) : 20;
     return this.reviewsService.getUserReviews(user.id, page, limit);
   }
 
@@ -78,7 +80,7 @@ export class ReviewsController {
   @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
   async getReviewByBookingId(
     @CurrentUser() user: any,
-    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @Param('bookingId') bookingId: string,
   ): Promise<ReviewWithUserDto | null> {
     return this.reviewsService.getReviewByBookingId(bookingId, user.id, user.role);
   }
@@ -117,9 +119,11 @@ export class ReviewsController {
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getBusinessReviews(
     @Param('businessId', ParseUUIDPipe) businessId: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') pageParam?: string,
+    @Query('limit') limitParam?: string,
   ): Promise<BusinessReviewsResponseDto> {
+    const page = pageParam && !isNaN(Number(pageParam)) ? Number(pageParam) : 1;
+    const limit = limitParam && !isNaN(Number(limitParam)) ? Number(limitParam) : 20;
     return this.reviewsService.getBusinessReviews(businessId, page, limit);
   }
 

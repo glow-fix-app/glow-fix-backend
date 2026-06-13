@@ -40,6 +40,15 @@ export class BusinessResponseDto {
   @ApiProperty({ type: [Object] })
   documents: any[];
 
+  @ApiPropertyOptional()
+  logo_url?: string;
+
+  @ApiPropertyOptional()
+  cover_url?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  gallery?: string[];
+
   @ApiProperty()
   created_at: Date;
 

@@ -82,7 +82,7 @@ export class PaymentsService {
     }
 
     // Calculate total amount and loyalty discount
-    let totalAmount = Number(booking.totalPrice) / 100;
+    let totalAmount = Number(booking.totalPrice);
     let loyaltyDiscount = 0;
     let pointsUsed = 0;
 
@@ -102,7 +102,7 @@ export class PaymentsService {
 
     // Override with manual amount if provided
     if (dto.amount && dto.amount > 0) {
-      if (dto.amount > Number(booking.totalPrice) / 100) {
+      if (dto.amount > Number(booking.totalPrice)) {
         throw new BadRequestException('Payment amount cannot exceed booking total');
       }
       totalAmount = dto.amount;
@@ -128,7 +128,7 @@ export class PaymentsService {
         bookingId: dto.booking_id,
         paymentMethodId: paymentMethod.id,
         provider: dto.provider,
-        amount: Math.round(totalAmount * 100),
+        amount: totalAmount,
         currency: 'EGP',
         statusId: pendingStatus?.id || '',
         idempotencyKey: randomUUID(),
@@ -173,7 +173,7 @@ export class PaymentsService {
       return { success: false, error: 'Card token is required' };
     }
 
-    this.logger.log(`Processing card payment ${payment.id} for ${Number(payment.amount) / 100} EGP`);
+    this.logger.log(`Processing card payment ${payment.id} for ${Number(payment.amount)} EGP`);
 
     // TODO: Integrate with Stripe/Paymob
     return {
@@ -286,7 +286,7 @@ export class PaymentsService {
     if (Number(payment.amount) > 0) {
       const config = await this.prisma.loyaltyConfig.findFirst();
       if (config && config.isActive) {
-        pointsEarned = Math.floor((Number(payment.amount) / 100 / 100) * config.pointsPer100Egp);
+        pointsEarned = Math.floor((Number(payment.amount) / 100) * config.pointsPer100Egp);
         await this.prisma.loyaltyTransaction.create({
           data: {
             clientId,
@@ -327,7 +327,7 @@ export class PaymentsService {
     }
 
     // Create payout for provider
-    const grossAmount = Number(payment.booking.totalPrice) / 100;
+    const grossAmount = Number(payment.booking.totalPrice);
     const platformFee = (grossAmount * this.PLATFORM_FEE_PERCENT) / 100;
     const netAmount = grossAmount - platformFee;
 
@@ -338,7 +338,7 @@ export class PaymentsService {
     const payout = await this.prisma.payout.create({
       data: {
         businessId: payment.booking.business.id,
-        amount: Math.round(netAmount * 100),
+        amount: netAmount,
         statusId: payoutPendingStatus?.id || '',
       },
     });
@@ -355,7 +355,7 @@ export class PaymentsService {
     this.eventEmitter.emit('payment.completed', {
       bookingId,
       paymentId,
-      amount: Number(payment.amount) / 100,
+      amount: Number(payment.amount),
       loyaltyPointsEarned: pointsEarned,
       loyaltyPointsUsed: pointsUsed,
     });
@@ -363,7 +363,7 @@ export class PaymentsService {
     return {
       success: true,
       payment_id: payment.id,
-      amount: Number(payment.amount) / 100,
+      amount: Number(payment.amount),
       loyalty_points_used: pointsUsed,
       loyalty_points_earned: pointsEarned,
       receipt_url: `/api/v1/payments/${payment.id}/receipt`,
@@ -420,7 +420,7 @@ export class PaymentsService {
     return {
       id: payment.id,
       booking_id: payment.bookingId,
-      amount: Number(payment.amount) / 100,
+      amount: Number(payment.amount),
       currency: payment.currency,
       status: payment.status.context,
       provider_ref: payment.providerRef || undefined,
@@ -461,7 +461,7 @@ export class PaymentsService {
     return {
       id: payment.id,
       booking_id: payment.bookingId,
-      amount: Number(payment.amount) / 100,
+      amount: Number(payment.amount),
       currency: payment.currency,
       status: payment.status.context,
       provider_ref: payment.providerRef || undefined,
@@ -518,12 +518,17 @@ export class PaymentsService {
       data: payments.map(p => ({
         id: p.id,
         booking_id: p.bookingId,
-        amount: Number(p.amount) / 100,
+        amount: Number(p.amount),
         currency: p.currency,
         status: p.status.context,
         provider_ref: p.providerRef || undefined,
         paid_at: p.status.context === 'PAID' ? p.updatedAt : undefined,
         created_at: p.createdAt,
+        booking: {
+          business: {
+            businessName: p.booking.business.businessName,
+          },
+        },
       })),
       meta: {
         total,
@@ -572,8 +577,8 @@ export class PaymentsService {
     const items = payment.booking.items.map(item => ({
       description: item.businessService?.service?.title || 'Service',
       quantity: 1,
-      unit_price: Number(item.price) / 100,
-      total: Number(item.price) / 100,
+      unit_price: Number(item.price),
+      total: Number(item.price),
     }));
 
     return {
@@ -591,9 +596,9 @@ export class PaymentsService {
         email: payment.booking.vehicle.client.user.email,
         phone: payment.booking.vehicle.client.user.phone || undefined,
       },
-      subtotal: Number(payment.booking.subTotal) / 100,
-      discount: Number(payment.booking.discount) / 100,
-      total: Number(payment.amount) / 100,
+      subtotal: Number(payment.booking.subTotal),
+      discount: Number(payment.booking.discount),
+      total: Number(payment.amount),
       payment_method: payment.paymentMethod.name,
       provider_ref: payment.providerRef || undefined,
       status: payment.status.context,
@@ -735,14 +740,14 @@ export class PaymentsService {
     return {
       data: payouts.map(p => ({
         id: p.id,
-        amount: Number(p.amount) / 100,
+        amount: Number(p.amount),
         status: p.status.context,
         processed_at: p.processedAt,
         created_at: p.createdAt,
         bookings: p.payoutBookings.map(pb => ({
           id: pb.booking.id,
           booking_code: `BK-${pb.booking.id.slice(0, 8).toUpperCase()}`,
-          amount: Number(pb.booking.totalPrice) / 100,
+          amount: Number(pb.booking.totalPrice),
         })),
       })),
       meta: {

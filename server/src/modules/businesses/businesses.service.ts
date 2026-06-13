@@ -131,6 +131,17 @@ export class BusinessesService {
     const coords = await this.getBusinessLocation(businessId);
     const currentStatus = business.statusHistory[0]?.status?.context || 'PENDING_REVIEW';
 
+    const images = await this.prisma.image.findMany({
+      where: {
+        entityId: businessId,
+        entityType: { in: ['BUSINESS_LOGO', 'BUSINESS_COVER', 'BUSINESS_GALLERY'] },
+      },
+    });
+
+    const logo_url = images.find(img => img.entityType === 'BUSINESS_LOGO')?.url || undefined;
+    const cover_url = images.find(img => img.entityType === 'BUSINESS_COVER')?.url || undefined;
+    const gallery = images.filter(img => img.entityType === 'BUSINESS_GALLERY').map(img => img.url);
+
     return {
       id: business.id,
       manager_id: business.managerId,
@@ -150,6 +161,9 @@ export class BusinessesService {
         status: doc.status?.context || 'PENDING',
         created_at: doc.createdAt,
       })),
+      logo_url,
+      cover_url,
+      gallery,
       created_at: business.createdAt,
       updated_at: business.updatedAt,
     };
@@ -842,7 +856,7 @@ export class BusinessesService {
         ST_Y(location::geometry) as latitude,
         ST_X(location::geometry) as longitude
       FROM businesses
-      WHERE id = ${businessId}
+      WHERE id = ${businessId}::uuid
     `;
     return result[0] || { latitude: 0, longitude: 0 };
   }
@@ -855,7 +869,7 @@ export class BusinessesService {
         ST_Y(location::geometry) as latitude,
         ST_X(location::geometry) as longitude
       FROM businesses
-      WHERE id = ANY(${ids})
+      WHERE id = ANY(${ids}::uuid[])
     `;
     const map = new Map<string, { latitude: number; longitude: number }>();
     for (const row of results) {

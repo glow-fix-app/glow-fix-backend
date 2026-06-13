@@ -10,7 +10,7 @@ export enum PaymentMethod {
 
 export class ProcessPaymentDto {
   @ApiProperty({ description: 'Booking ID' })
-  @IsUUID()
+  @IsString()
   booking_id: string;
 
   @ApiProperty({ enum: PaymentMethod, description: 'Payment method' })
