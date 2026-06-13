@@ -18,7 +18,7 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   const app = await NestFactory.create(AppModule, {
-    bufferLogs: true,
+    bufferLogs: false, // Must be false to see errors if it crashes before app.useLogger is called!
     rawBody: true,  // Important for Stripe webhook
   });
 
