@@ -22,6 +22,9 @@ async function bootstrap() {
     rawBody: true,  // Important for Stripe webhook
   });
 
+  // Flush buffered logs to our custom logger
+  app.useLogger(app.get(WinstonLoggerService));
+
   const configService = app.get(ConfigService);
   const port = configService.get<number>('app.port') || 3000;
   const nodeEnv = configService.get<string>('app.nodeEnv');
