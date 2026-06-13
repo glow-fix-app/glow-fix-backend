@@ -25,7 +25,7 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "clean": "turbo run clean && rm -rf node_modules",
-    "prepare": "if [ \"$NODE_ENV\" != \"production\" ]; then husky install; fi"
+    "prepare": "node -e \"if (process.env.NODE_ENV !== 'production') require('child_process').execSync('husky install')\""
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
