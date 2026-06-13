@@ -522,6 +522,7 @@ model Booking {
   loyaltyTransactions LoyaltyTransaction[]
   payoutBookings      PayoutBooking[]
   conversation        Conversation[]
+  disputes            Dispute[]
 
   @@map("bookings")
 }
@@ -652,10 +653,15 @@ model Payment {
   provider        String?
   providerRef     String?  @map("provider_ref")
   /// Amount charged in piastres
+  /// Amount charged in piastres
   amount          BigInt
   currency        String   @default("EGP") @db.Char(3)
+  /// When the payment was completed/paid
+  paidAt          DateTime? @map("paid_at") @db.Timestamptz
   statusId        String   @map("status_id") @db.Uuid
   idempotencyKey  String?  @unique @map("idempotency_key")
+  /// Reason for failure (if status is FAILED)
+  failureReason   String?  @map("failure_reason")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -664,8 +670,30 @@ model Payment {
   // RESTRICT: payment method / status lookup rows must not be deleted while referenced
   paymentMethod PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   status        Status        @relation(fields: [statusId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  disputes      Dispute[]
 
   @@map("payments")
+}
+
+/// A dispute raised by a client against a payment.
+model Dispute {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentId       String    @map("payment_id") @db.Uuid
+  bookingId       String    @map("booking_id") @db.Uuid
+  reason          String
+  description     String
+  photoUrls       String[]  @map("photo_urls")
+  desiredOutcome  String    @map("desired_outcome")
+  suggestedAmount Int?      @map("suggested_amount")
+  status          String    @default("PENDING")
+  resolution      String?
+  resolvedAt      DateTime? @map("resolved_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("disputes")
 }
 
 /// A payout settlement batch issued to a business owner.

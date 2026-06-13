@@ -1,3 +1,4 @@
+// modules/payments/dto/process-payment.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsUUID, IsInt, Min, IsOptional, IsEnum, IsBoolean, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -5,7 +6,6 @@ import { Type } from 'class-transformer';
 export enum PaymentMethod {
   CARD = 'CARD',
   CASH = 'CASH',
-  WALLET = 'WALLET',
 }
 
 export class ProcessPaymentDto {
@@ -17,15 +17,10 @@ export class ProcessPaymentDto {
   @IsEnum(PaymentMethod)
   payment_method: PaymentMethod;
 
-  @ApiPropertyOptional({ description: 'Payment provider (stripe, paymob, etc.)' })
+  @ApiPropertyOptional({ description: 'Stripe payment method ID (for card payments)' })
   @IsOptional()
   @IsString()
-  provider?: string;
-
-  @ApiPropertyOptional({ description: 'Payment provider token/card ID' })
-  @IsOptional()
-  @IsString()
-  provider_token?: string;
+  payment_method_id?: string;
 
   @ApiPropertyOptional({ description: 'Amount to pay (overrides calculated amount)' })
   @IsOptional()
@@ -45,27 +40,49 @@ export class ProcessPaymentDto {
   @Min(0)
   @Type(() => Number)
   points_to_redeem?: number;
+
+  @ApiPropertyOptional({ description: 'Save payment method for future use' })
+  @IsOptional()
+  @IsBoolean()
+  save_payment_method?: boolean;
 }
 
 export class ProcessPaymentResponseDto {
   @ApiProperty()
   success: boolean;
 
-  @ApiProperty()
-  payment_id: string;
+  @ApiPropertyOptional()
+  payment_id?: string;
 
-  @ApiProperty()
-  amount: number;
+  @ApiPropertyOptional()
+  amount?: number;
 
-  @ApiProperty()
-  loyalty_points_used: number;
+  @ApiPropertyOptional()
+  client_secret?: string;
 
-  @ApiProperty()
-  loyalty_points_earned: number;
+  @ApiPropertyOptional()
+  payment_intent_id?: string;
 
-  @ApiProperty()
-  receipt_url: string;
+  @ApiPropertyOptional()
+  loyalty_points_used?: number;
 
-  @ApiProperty()
-  message: string;
+  @ApiPropertyOptional()
+  loyalty_points_earned?: number;
+
+  @ApiPropertyOptional()
+  receipt_url?: string;
+
+  @ApiPropertyOptional()
+  message?: string;
+}
+
+export class ConfirmPaymentDto {
+  @ApiProperty({ description: 'Payment Intent ID from Stripe' })
+  @IsString()
+  payment_intent_id: string;
+
+  @ApiPropertyOptional({ description: 'Payment method ID' })
+  @IsOptional()
+  @IsString()
+  payment_method_id?: string;
 }

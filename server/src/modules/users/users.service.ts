@@ -40,7 +40,17 @@ export class UsersService {
   ) {}
 
   // ─── Get full profile (includes avatar resolution) ───
-  async getProfile(userId: string): Promise<UserProfile & { clientLocation: { latitude: number; longitude: number; city: string | null } | null }> {
+  async getProfile(
+    userId: string,
+  ): Promise<
+    UserProfile & {
+      clientLocation: {
+        latitude: number;
+        longitude: number;
+        city: string | null;
+      } | null;
+    }
+  > {
     const user = await this.prisma.user.findUnique({
       where: { id: userId, deletedAt: null },
       select: {
@@ -60,11 +70,17 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
 
     const avatarUrl = await this.avatarService.resolve(userId);
-    
+
     // For CLIENT role: fetch location from clients table. Always explicitly null if not set.
-    let clientLocation: { latitude: number; longitude: number; city: string | null } | null = null;
+    let clientLocation: {
+      latitude: number;
+      longitude: number;
+      city: string | null;
+    } | null = null;
     if (user.role === 'CLIENT') {
-      const locResult = await this.prisma.$queryRaw<Array<{ latitude: number; longitude: number; city: string | null }>>`
+      const locResult = await this.prisma.$queryRaw<
+        Array<{ latitude: number; longitude: number; city: string | null }>
+      >`
         SELECT 
           ST_Y(location::geometry) as latitude,
           ST_X(location::geometry) as longitude,
@@ -77,9 +93,13 @@ export class UsersService {
         // If we have coordinates but no city, reverse-geocode and cache it
         if (!city) {
           try {
-            city = await reverseGeocodeCity(locResult[0].latitude, locResult[0].longitude);
+            city = await reverseGeocodeCity(
+              locResult[0].latitude,
+              locResult[0].longitude,
+            );
             if (city) {
-              await this.prisma.$executeRaw`UPDATE clients SET city = ${city} WHERE user_id = ${userId}::uuid`;
+              await this.prisma
+                .$executeRaw`UPDATE clients SET city = ${city} WHERE user_id = ${userId}::uuid`;
             }
           } catch (err) {
             this.logger.warn(`Failed to auto-geocode client location: ${err}`);
@@ -110,7 +130,6 @@ export class UsersService {
       clientLocation,
     };
   }
-
 
   // ─── Get client profile with client-specific data ───
   async getClientProfile(userId: string): Promise<any> {
@@ -319,6 +338,56 @@ export class UsersService {
     };
   }
 
+  // async deleteUser(
+  //   id: string,
+  //   requesterId: string,
+  //   requesterRole: string,
+  // ): Promise<{ message: string }> {
+  //   // if (requesterId !== id && requesterRole !== 'ADMIN') {
+  //   //   throw new ForbiddenException('You are not allowed to delete this user');
+  //   // }
+
+  //   const existing = await this.prisma.user.findUnique({
+  //     where: { id, deletedAt: null },
+  //   });
+
+  //   if (!existing) {
+  //     throw new NotFoundException('User not found');
+  //   }
+
+  //   // Permanently delete the user and all related data
+  //   await this.prisma.$transaction([
+  //     // Delete sessions first (foreign key constraint)
+  //     this.prisma.userSession.deleteMany({
+  //       where: { userId: id },
+  //     }),
+  //     // // Delete OAuth accounts
+  //     // this.prisma.oAuthAccount.deleteMany({
+  //     //   where: { customerId: id },
+  //     // }),
+  //     // // Delete security events
+  //     // this.prisma.securityEvent.deleteMany({
+  //     //   where: { userId: id },
+  //     // }),
+  //     // // Delete referrals
+  //     // this.prisma.referral.deleteMany({
+  //     //   where: {
+  //     //     OR: [{ referrerId: id }, { refereeId: id }],
+  //     //   },
+  //     // }),
+  //     // Finally delete the customer
+  //     this.prisma.user.delete({
+  //       where: { id },
+  //     }),
+  //   ]);
+
+  //   this.logger.log('User permanently deleted', 'UsersService', {
+  //     targetId: id,
+  //     requesterId,
+  //   });
+
+  //   return { message: 'User permanently deleted successfully' };
+  // }
   // ─── Delete user (soft delete per schema) ───
   async deleteUser(
     id: string,
@@ -390,292 +459,53 @@ export class UsersService {
   }
 }
 
+// async deleteUser(
+//   id: string,
+//   requesterId: string,
+//   requesterRole: string,
+// ): Promise<{ message: string }> {
+//   // if (requesterId !== id && requesterRole !== 'ADMIN') {
+//   //   throw new ForbiddenException('You are not allowed to delete this user');
+//   // }
 
+//   const existing = await this.prisma.user.findUnique({
+//     where: { id, deletedAt: null },
+//   });
 
-// import {
-//   Injectable,
-//   NotFoundException,
-//   ConflictException,
-//   ForbiddenException,
-// } from '@nestjs/common';
-
-// import { PrismaService } from '../../core/prisma/prisma.service';
-// import { WinstonLoggerService } from '../../common/logger/winston-logger.service';
-// import { UpdateUserDto } from './dto/update-user.dto';
-// import { GetUsersQueryDto } from './dto/get-users-query.dto';
-// import { AvatarService }  from './avatar.service';
-// import { UserProfile } from './user.types';
-
-// // Shared select — passwordHash is never included
-// const USER_SELECT = {
-//   id: true,
-//   fullName: true,
-//   email: true,
-//   mobileNumber: true,
-//   profilePhotoUrl: true,
-//   emailVerified: true,
-//   mobileVerified: true,
-//   twoFactorEnabled: true,
-//   marketingConsent: true,
-//   loyaltyPoints: true,
-//   referralCode: true,
-//   createdAt: true,
-//   updatedAt: true,
-//   deletedAt: true,
-// } as const;
-
-// @Injectable()
-// export class UsersService {
-//   constructor(
-//     private readonly prisma: PrismaService,
-//     private readonly logger: WinstonLoggerService,
-//     private readonly avatarService:  AvatarService,
-//   ) {}
-
-//   async getProfile(userId: string): Promise<UserProfile> {
-//     const user = await this.prisma.user.findUnique({
-//       where: { id: userId, deletedAt: null },
-//       select: {
-//         id:               true,
-//         fullName:         true,
-//         email:            true,
-//         phone:            true,
-//         role:             true,
-//         emailVerified:    true,
-//         phoneVerified:    true,
-//         twoFactorEnabled: true,
-//         createdAt:        true,
-//       },
-//     });
- 
-//     if (!user) throw new NotFoundException('User not found');
- 
-//     // avatarUrl resolved here — Redis O(1) on warm cache, one DB query on miss
-//     const avatarUrl = await this.avatarService.resolve(userId);
- 
-//     return { ...user, avatarUrl };
-//   }
-//   // ─── Get own profile ───
-
-//   async getMe(id: string): Promise<Record<string, unknown>> {
-//     return this.getUser(id);
+//   if (!existing) {
+//     throw new NotFoundException('User not found');
 //   }
 
-//   // ─── Get single user by ID ───
-
-//   async getUser(id: string): Promise<Record<string, unknown>> {
-//     const customer = await this.prisma.user.findUnique({
-//       where: { id, deletedAt: null },
-//       select: USER_SELECT,
-//     });
-
-//     if (!customer) {
-//       throw new NotFoundException('User not found');
-//     }
-
-//     return customer;
-//   }
-
-//   // ─── Get all users — admin only ───
-
-//   async getAllUsers(query: GetUsersQueryDto): Promise<{
-//     data: Record<string, unknown>[];
-//     total: number;
-//     page: number;
-//     limit: number;
-//     totalPages: number;
-//   }> {
-//     const {
-//       page = 1,
-//       limit = 20,
-//       search,
-//       emailVerified,
-//       mobileVerified,
-//     } = query;
-//     const skip = (page - 1) * limit;
-
-//     const where = {
-//       deletedAt: null,
-//       ...(emailVerified !== undefined && { emailVerified }),
-//       ...(mobileVerified !== undefined && { mobileVerified }),
-//       ...(search && {
-//         OR: [
-//           { fullName: { contains: search, mode: 'insensitive' as const } },
-//           { email: { contains: search, mode: 'insensitive' as const } },
-//           { mobileNumber: { contains: search } },
-//         ],
-//       }),
-//     };
-
-//     const [data, total] = await Promise.all([
-//       this.prisma.user.findMany({
-//         where,
-//         select: USER_SELECT,
-//         orderBy: { createdAt: 'desc' },
-//         skip,
-//         take: limit,
-//       }),
-//       this.prisma.user.count({ where }),
-//     ]);
-
-//     return {
-//       data,
-//       total,
-//       page,
-//       limit,
-//       totalPages: Math.ceil(total / limit),
-//     };
-//   }
-
-//   // ─── Update user ───
-
-//   async updateUser(
-//     id: string,
-//     dto: UpdateUserDto,
-//     requesterId: string,
-//     requesterRole: string,
-//   ): Promise<Record<string, unknown>> {
-//     if (requesterId !== id && requesterRole !== 'ADMIN') {
-//       throw new ForbiddenException('You are not allowed to update this user');
-//     }
-
-//     const existing = await this.prisma.user.findUnique({
-//       where: { id, deletedAt: null },
-//     });
-
-//     if (!existing) {
-//       throw new NotFoundException('User not found');
-//     }
-
-//     // Uniqueness checks only when the field is actually changing
-//     if (dto.email && dto.email !== existing.email) {
-//       const emailTaken = await this.prisma.user.findUnique({
-//         where: { email: dto.email },
-//       });
-//       if (emailTaken) {
-//         throw new ConflictException('Email is already in use');
-//       }
-//     }
-
-//     if (dto.mobileNumber && dto.mobileNumber !== existing.phone) {
-//       const mobileTaken = await this.prisma.user.findUnique({
-//         where: { phone: dto.mobileNumber },
-//       });
-//       if (mobileTaken) {
-//         throw new ConflictException('Mobile number is already in use');
-//       }
-//     }
-
-//     const updated = await this.prisma.user.update({
+//   // Permanently delete the user and all related data
+//   await this.prisma.$transaction([
+//     // Delete sessions first (foreign key constraint)
+//     this.prisma.userSession.deleteMany({
+//       where: { userId: id },
+//     }),
+//     // // Delete OAuth accounts
+//     // this.prisma.oAuthAccount.deleteMany({
+//     //   where: { customerId: id },
+//     // }),
+//     // // Delete security events
+//     // this.prisma.securityEvent.deleteMany({
+//     //   where: { userId: id },
+//     // }),
+//     // // Delete referrals
+//     // this.prisma.referral.deleteMany({
+//     //   where: {
+//     //     OR: [{ referrerId: id }, { refereeId: id }],
+//     //   },
+//     // }),
+//     // Finally delete the customer
+//     this.prisma.user.delete({
 //       where: { id },
-//       data: {
-//         ...(dto.fullName && { fullName: dto.fullName }),
-//         ...(dto.email && {
-//           email: dto.email,
-//           emailVerified: false, // must re-verify after email change
-//         }),
-//         ...(dto.mobileNumber && {
-//           mobileNumber: dto.mobileNumber,
-//           mobileVerified: false, // must re-verify after mobile change
-//         }),
-//         ...(dto.profilePhotoUrl !== undefined && {
-//           profilePhotoUrl: dto.profilePhotoUrl,
-//         }),
-//         ...(dto.marketingConsent !== undefined && {
-//           marketingConsent: dto.marketingConsent,
-//         }),
-//       },
-//       select: USER_SELECT,
-//     });
+//     }),
+//   ]);
 
-//     this.logger.log('User updated', 'UsersService', {
-//       targetId: id,
-//       requesterId,
-//       changedFields: Object.keys(dto),
-//     });
+//   this.logger.log('User permanently deleted', 'UsersService', {
+//     targetId: id,
+//     requesterId,
+//   });
 
-//     return updated;
-//   }
-
-//   async deleteUser(
-//     id: string,
-//     requesterId: string,
-//     requesterRole: string,
-//   ): Promise<{ message: string }> {
-//     // if (requesterId !== id && requesterRole !== 'ADMIN') {
-//     //   throw new ForbiddenException('You are not allowed to delete this user');
-//     // }
-
-//     const existing = await this.prisma.user.findUnique({
-//       where: { id, deletedAt: null },
-//     });
-
-//     if (!existing) {
-//       throw new NotFoundException('User not found');
-//     }
-
-//     // Permanently delete the user and all related data
-//     await this.prisma.$transaction([
-//       // Delete sessions first (foreign key constraint)
-//       this.prisma.userSession.deleteMany({
-//         where: { userId: id },
-//       }),
-//       // // Delete OAuth accounts
-//       // this.prisma.oAuthAccount.deleteMany({
-//       //   where: { customerId: id },
-//       // }),
-//       // // Delete security events
-//       // this.prisma.securityEvent.deleteMany({
-//       //   where: { userId: id },
-//       // }),
-//       // // Delete referrals
-//       // this.prisma.referral.deleteMany({
-//       //   where: {
-//       //     OR: [{ referrerId: id }, { refereeId: id }],
-//       //   },
-//       // }),
-//       // Finally delete the customer
-//       this.prisma.user.delete({
-//         where: { id },
-//       }),
-//     ]);
-
-//     this.logger.log('User permanently deleted', 'UsersService', {
-//       targetId: id,
-//       requesterId,
-//     });
-
-//     return { message: 'User permanently deleted successfully' };
-//   }
-//   //   // ─── Soft delete ───
-
-//   //   async deleteUser(
-//   //     id: string,
-//   //     requesterId: string,
-//   //     requesterRole: string,
-//   //   ): Promise<{ message: string }> {
-//   //     if (requesterId !== id && requesterRole !== 'ADMIN') {
-//   //       throw new ForbiddenException('You are not allowed to delete this user');
-//   //     }
-
-//   //     const existing = await this.prisma.customer.findUnique({
-//   //       where: { id, deletedAt: null },
-//   //     });
-
-//   //     if (!existing) {
-//   //       throw new NotFoundException('User not found');
-//   //     }
-
-//   //     await this.prisma.customer.update({
-//   //       where: { id },
-//   //       data: { deletedAt: new Date() },
-//   //     });
-
-//   //     this.logger.log('User soft-deleted', 'UsersService', {
-//   //       targetId: id,
-//   //       requesterId,
-//   //     });
-
-//   //     return { message: 'User deleted successfully' };
-//   //   }
+//   return { message: 'User permanently deleted successfully' };
 // }

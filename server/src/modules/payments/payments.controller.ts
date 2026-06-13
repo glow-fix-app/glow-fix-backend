@@ -8,6 +8,9 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  Headers,
+  Req,
+  Res,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,10 +20,14 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
+import { Request, Response } from 'express';
 import { PaymentsService } from './payments.service';
-import { ProcessPaymentDto, ProcessPaymentResponseDto } from './dto/process-payment.dto';
-import { PaymentWebhookDto } from './dto/payment-webhook.dto';
-import { CreateDisputeDto, DisputeResponseDto } from './dto/dispute-payment.dto';
+import {
+  ProcessPaymentDto,
+  ProcessPaymentResponseDto,
+  ConfirmPaymentDto,
+} from './dto/process-payment.dto';
+import { CreateDisputeDto } from './dto/dispute-payment.dto';
 import { PaymentResponseDto, ReceiptResponseDto } from './dto/payment-response.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
@@ -43,6 +50,17 @@ export class PaymentsController {
     @Body() dto: ProcessPaymentDto,
   ): Promise<ProcessPaymentResponseDto> {
     return this.paymentsService.processPayment(user.id, dto);
+  }
+
+  @Post('confirm')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirm payment after Stripe confirmation' })
+  @ApiResponse({ status: 200, description: 'Payment confirmed', type: ProcessPaymentResponseDto })
+  async confirmPayment(
+    @CurrentUser() user: any,
+    @Body() dto: ConfirmPaymentDto,
+  ): Promise<ProcessPaymentResponseDto> {
+    return this.paymentsService.confirmPayment(user.id, dto);
   }
 
   @Get()
@@ -99,17 +117,20 @@ export class PaymentsController {
     return this.paymentsService.createDispute(user.id, dto);
   }
 
-  // ==================== WEBHOOK (Public) ====================
+  // ==================== STRIPE WEBHOOK (Public) ====================
 
-  @Post('webhook/:provider')
+  @Post('webhook/stripe')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Payment provider webhook endpoint' })
-  async handleWebhook(
-    @Param('provider') provider: string,
-    @Body() payload: any,
+  @ApiOperation({ summary: 'Stripe webhook endpoint' })
+  async handleStripeWebhook(
+    @Req() req: Request,
+    @Headers('stripe-signature') signature: string,
   ): Promise<{ received: boolean }> {
-    return this.paymentsService.handleWebhook(provider, payload);
+    const payload = req.body;
+    // Express raw body is needed for signature verification
+    const rawPayload = (req as any).rawBody || JSON.stringify(payload);
+    return this.paymentsService.handleStripeWebhook(Buffer.from(rawPayload), signature);
   }
 
   // ==================== BUSINESS/MANAGER ENDPOINTS ====================

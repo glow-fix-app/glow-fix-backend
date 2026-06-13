@@ -11,6 +11,7 @@ import { HttpExceptionFilter  } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { WinstonLoggerService } from './common/logger/winston-logger.service';
+import { raw } from 'express';
 //import { CorsOptionsDelegate } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 async function bootstrap() {
@@ -18,6 +19,7 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    rawBody: true,  // Important for Stripe webhook
   });
 
   const configService = app.get(ConfigService);
@@ -27,6 +29,9 @@ async function bootstrap() {
     configService.get<string[]>('app.allowedOrigins') || [];
   const isProduction = nodeEnv === 'production';
 
+  // Enable raw body for Stripe webhook endpoint
+  app.use('/api/v1/payments/webhook/stripe', raw({ type: 'application/json' }));
+  
   // ─── Security Middleware ───
   app.use(
     helmet({
