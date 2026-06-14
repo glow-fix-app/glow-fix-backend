@@ -88,13 +88,25 @@ export class ReviewsService {
 
     this.logger.log(`Review created for booking ${dto.booking_id} by user ${userId}`);
 
-    // Send notification to business
+    // Send event
     this.eventEmitter.emit('review.created', {
       bookingId: dto.booking_id,
       businessId: booking.businessId,
       businessName: booking.business.businessName,
       rating: dto.rating,
     });
+
+    // Send notification to business manager
+    if (booking.business.managerId) {
+      await this.notificationsService.createNotification({
+        recipientUserId: booking.business.managerId,
+        actorUserId: userId,
+        typeCode: 'NEW_REVIEW',
+        title: 'New Review Received',
+        body: `You received a ${dto.rating}-star review for a completed booking.`,
+        actionUrl: '/provider/reviews',
+      });
+    }
 
     return {
       id: review.id,

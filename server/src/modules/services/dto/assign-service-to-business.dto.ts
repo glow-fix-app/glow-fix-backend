@@ -1,11 +1,11 @@
 // (Manager assigns price & duration)
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsUUID, IsInt, Min, IsOptional, IsBoolean, IsPositive } from 'class-validator';
+import { IsString, IsInt, Min, IsOptional, IsBoolean, IsPositive } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AssignServiceToBusinessDto {
   @ApiProperty({ description: 'Service ID from catalog' })
-  @IsUUID()
+  @IsString()
   service_id: string;
 
   @ApiProperty({ description: 'Price in EGP (e.g., 120 for 120 EGP)', example: 120 })
