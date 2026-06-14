@@ -7,6 +7,7 @@ import { StorageService } from '../../core/storage/storage.service';
 import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
 import { ConversationCreateType } from './dto/create-conversation.dto';
+import { decryptMessage } from '../../core/utils/encryption.util';
 
 describe('ChatService', () => {
   let service: ChatService;
@@ -438,11 +439,15 @@ describe('ChatService', () => {
           senderUserId: 'client-1',
           senderRole: ParticipantRole.CLIENT,
           type: 'TEXT',
-          body: 'Hello there',
+          body: expect.any(String),
           statusId: 'status-sent',
         }),
       }),
     );
+
+    const messageCreateArgs = prisma.message.create.mock.calls[0][0];
+    const encryptedBody = messageCreateArgs.data.body;
+    expect(decryptMessage(encryptedBody)).toBe('Hello there');
   });
 
   it('send message updates conversation.updatedAt', async () => {

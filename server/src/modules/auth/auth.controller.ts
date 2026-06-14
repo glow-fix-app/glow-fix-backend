@@ -322,6 +322,9 @@ export class AuthController {
   async resetPassword(
     @Body() dto: ResetPasswordDto,
   ): Promise<{ message: string }> {
+    if (dto.newPassword !== dto.confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
     return this.authService.resetPassword(dto);
   }
 
@@ -338,6 +341,7 @@ export class AuthController {
     }
 
     const result = await this.authService.changePassword(user.id, dto);
+    this.clearRefreshTokenCookie(res);
     return result;
   }
 

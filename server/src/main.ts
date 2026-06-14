@@ -12,6 +12,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { WinstonLoggerService } from './common/logger/winston-logger.service';
 import { raw } from 'express';
+import { RedisIoAdapter } from './core/redis/redis-io.adapter';
 //import { CorsOptionsDelegate } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 import { execSync } from 'child_process';
@@ -46,6 +47,11 @@ async function bootstrap() {
   const allowedOrigins =
     configService.get<string[]>('app.allowedOrigins') || [];
   const isProduction = nodeEnv === 'production';
+
+  // Configure Redis Socket.io Adapter
+  const redisIoAdapter = new RedisIoAdapter(app, configService);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
 
   // Enable raw body for Stripe webhook endpoint
   app.use('/api/v1/payments/webhook/stripe', raw({ type: 'application/json' }));

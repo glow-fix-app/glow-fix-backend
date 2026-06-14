@@ -140,6 +140,7 @@ async function main() {
     { code: 'DIAGNOSIS_SENT', label: 'Diagnosis Report Ready' },
     { code: 'PAYMENT_RECEIVED', label: 'Payment Received' },
     { code: 'NEW_REVIEW', label: 'New Review Received' },
+    { code: 'NEW_REVIEW_REPLY', label: 'Manager Replied to Review' },
     { code: 'PAYOUT_PROCESSED', label: 'Payout Processed' },
     { code: 'LOYALTY_POINTS_EARNED', label: 'Loyalty Points Earned' },
     { code: 'LOYALTY_POINTS_REDEEMED', label: 'Points Redeemed' },
@@ -667,20 +668,20 @@ async function main() {
   }
 
   // Business 1 services
-  const bs1ExpressWash = await upsertBusinessService(business1.id, expressWash.id, 12000, 30);
-  const bs1FullDetail = await upsertBusinessService(business1.id, fullDetail.id, 32000, 120);
-  const bs1CeramicWax = await upsertBusinessService(business1.id, ceramicWax.id, 48000, 180);
+  const bs1ExpressWash = await upsertBusinessService(business1.id, expressWash.id, 120.0, 30);
+  const bs1FullDetail = await upsertBusinessService(business1.id, fullDetail.id, 320.0, 120);
+  const bs1CeramicWax = await upsertBusinessService(business1.id, ceramicWax.id, 480.0, 180);
   const bs1Diagnostic = await upsertBusinessService(business1.id, diagnosticCheck.id, 0, 45);
 
   // Business 2 services
-  const bs2OilChange = await upsertBusinessService(business2.id, oilChange.id, 25000, 45);
-  const bs2BrakeService = await upsertBusinessService(business2.id, brakeService.id, 45000, 90);
-  const bs2ACRepair = await upsertBusinessService(business2.id, acRepair.id, 28000, 60);
+  const bs2OilChange = await upsertBusinessService(business2.id, oilChange.id, 250.0, 45);
+  const bs2BrakeService = await upsertBusinessService(business2.id, brakeService.id, 450.0, 90);
+  const bs2ACRepair = await upsertBusinessService(business2.id, acRepair.id, 280.0, 60);
   const bs2Diagnostic = await upsertBusinessService(business2.id, diagnosticCheck.id, 0, 45);
 
   // Business 3 services
-  const bs3ExpressWash = await upsertBusinessService(business3.id, expressWash.id, 8000, 20);
-  const bs3Interior = await upsertBusinessService(business3.id, interiorCleaning.id, 15000, 45);
+  const bs3ExpressWash = await upsertBusinessService(business3.id, expressWash.id, 80.0, 20);
+  const bs3Interior = await upsertBusinessService(business3.id, interiorCleaning.id, 150.0, 45);
 
   console.log('✅ Business services created');
 
@@ -711,33 +712,36 @@ async function main() {
   // Booking 1 - Completed (Mahmoud -> Shine & Co. - Full Detail)
   const booking1 = await prisma.booking.create({
     data: {
+      id: 'BKG-111111',
       vehicleId: vehicle1.id,
       businessId: business1.id,
       scheduledAt: pastDate(7),
       expectedDeliveryAt: pastDate(7),
-      subTotal: 32000,
+      subTotal: 320.0,
       discount: 0,
-      commission: 3200,
-      totalPrice: 32000,
+      commission: 32.0,
+      totalPrice: 320.0,
     },
   });
 
   // Booking 2 - Confirmed Upcoming (Mahmoud -> Shine & Co. - Ceramic Wax)
   const booking2 = await prisma.booking.create({
     data: {
+      id: 'BKG-222222',
       vehicleId: vehicle1.id,
       businessId: business1.id,
       scheduledAt: futureDate(2),
-      subTotal: 48000,
-      discount: 4800, // 10% loyalty discount
-      commission: 4800,
-      totalPrice: 43200,
+      subTotal: 480.0,
+      discount: 48.0, // 10% loyalty discount
+      commission: 48.0,
+      totalPrice: 432.0,
     },
   });
 
   // Booking 3 - In Progress (Sara -> Garage 37 - Diagnostic)
   const booking3 = await prisma.booking.create({
     data: {
+      id: 'BKG-333333',
       vehicleId: vehicle3.id,
       businessId: business2.id,
       scheduledAt: pastDate(1),
@@ -751,26 +755,28 @@ async function main() {
   // Booking 4 - Pending (Karim -> Aqua Bay - Express Wash)
   const booking4 = await prisma.booking.create({
     data: {
+      id: 'BKG-444444',
       vehicleId: vehicle4.id,
       businessId: business3.id,
       scheduledAt: futureDate(3),
-      subTotal: 8000,
+      subTotal: 80.0,
       discount: 0,
-      commission: 800,
-      totalPrice: 8000,
+      commission: 8.0,
+      totalPrice: 80.0,
     },
   });
 
   // Booking 5 - Cancelled (Mahmoud -> Garage 37 - Brake Service)
   const booking5 = await prisma.booking.create({
     data: {
+      id: 'BKG-555555',
       vehicleId: vehicle2.id,
       businessId: business2.id,
       scheduledAt: pastDate(10),
-      subTotal: 45000,
+      subTotal: 450.0,
       discount: 0,
-      commission: 4500,
-      totalPrice: 45000,
+      commission: 45.0,
+      totalPrice: 450.0,
     },
   });
 
@@ -834,11 +840,11 @@ async function main() {
 
   await prisma.bookingItem.createMany({
     data: [
-      { bookingId: booking1.id, businessServiceId: bs1FullDetail.id, price: 32000 },
-      { bookingId: booking2.id, businessServiceId: bs1CeramicWax.id, price: 48000 },
+      { bookingId: booking1.id, businessServiceId: bs1FullDetail.id, price: 320.0 },
+      { bookingId: booking2.id, businessServiceId: bs1CeramicWax.id, price: 480.0 },
       { bookingId: booking3.id, businessServiceId: bs2Diagnostic.id, price: 0 },
-      { bookingId: booking4.id, businessServiceId: bs3ExpressWash.id, price: 8000 },
-      { bookingId: booking5.id, businessServiceId: bs2BrakeService.id, price: 45000 },
+      { bookingId: booking4.id, businessServiceId: bs3ExpressWash.id, price: 80.0 },
+      { bookingId: booking5.id, businessServiceId: bs2BrakeService.id, price: 450.0 },
     ],
   });
 
@@ -897,7 +903,7 @@ async function main() {
       paymentMethodId: paymentMethodMap['CREDIT_CARD'],
       provider: 'stripe',
       providerRef: 'pi_completed_001',
-      amount: 32000,
+      amount: 320.0,
       currency: 'EGP',
       statusId: statusMap['PAID'],
       idempotencyKey: 'idem_001',
@@ -914,7 +920,7 @@ async function main() {
       paymentMethodId: paymentMethodMap['CREDIT_CARD'],
       provider: 'stripe',
       providerRef: 'pi_pending_002',
-      amount: 43200,
+      amount: 432.0,
       currency: 'EGP',
       statusId: statusMap['PAYMENT_PENDING'],
       idempotencyKey: 'idem_002',
@@ -931,7 +937,7 @@ async function main() {
   const payout1 = await prisma.payout.create({
     data: {
       businessId: business1.id,
-      amount: 28800, // 32000 - 3200 commission
+      amount: 288.0, // 320 - 32 commission
       statusId: statusMap['PAYOUT_PROCESSED'],
       processedAt: pastDate(5),
     },

@@ -15,6 +15,7 @@ import {
   ReportSummaryDto,
 } from './dto/report-response.dto';
 import { DIAGNOSTIC_EVENTS } from './diagnostic-reports.events';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class DiagnosticReportsService {
@@ -56,28 +57,22 @@ export class DiagnosticReportsService {
       throw new ForbiddenException('You do not own this business');
     }
 
-    const latestStatus = booking.statusHistory[0]?.status?.context;
-    if (latestStatus !== 'VEHICLE_RECEIVED') {
-      throw new BadRequestException(
-        `Cannot create diagnostic report. Booking status must be 'VEHICLE_RECEIVED'. Current status: ${latestStatus}`,
-      );
-    }
+    const validUntil = new Date();
+    validUntil.setHours(validUntil.getHours() + (dto.valid_hours || 72));
 
+    // If a report already exists, delete its nested records first, then update
     const existingReport = await this.prisma.diagnosticReport.findUnique({
       where: { bookingId: dto.booking_id },
     });
 
     if (existingReport) {
-      throw new BadRequestException(
-        'A diagnostic report already exists for this booking',
-      );
+      await this.prisma.reportFinding.deleteMany({ where: { reportId: existingReport.id } });
+      await this.prisma.recommendedRepair.deleteMany({ where: { reportId: existingReport.id } });
     }
 
-    const validUntil = new Date();
-    validUntil.setHours(validUntil.getHours() + (dto.valid_hours || 72));
-
-    const report = await this.prisma.diagnosticReport.create({
-      data: {
+    const report = await this.prisma.diagnosticReport.upsert({
+      where: { bookingId: dto.booking_id },
+      create: {
         bookingId: dto.booking_id,
         summary: dto.summary,
         validUntil,
@@ -94,7 +89,29 @@ export class DiagnosticReportsService {
             businessServiceId: r.business_service_id,
             title: r.title,
             description: r.description,
-            priceCents: r.price ? r.price * 100 : undefined,
+            price: r.price ? new Prisma.Decimal(r.price.toString()) : undefined,
+            durationMinutes: r.duration_minutes,
+            isSelected: false,
+          })),
+        },
+      },
+      update: {
+        summary: dto.summary,
+        validUntil,
+        estimatedDuration: dto.estimated_duration,
+        findings: {
+          create: dto.findings.map((f) => ({
+            title: f.title,
+            description: f.description,
+            priority: f.priority,
+          })),
+        },
+        recommendedRepairs: {
+          create: dto.recommended_repairs.map((r) => ({
+            businessServiceId: r.business_service_id,
+            title: r.title,
+            description: r.description,
+            price: r.price ? new Prisma.Decimal(r.price.toString()) : undefined,
             durationMinutes: r.duration_minutes,
             isSelected: false,
           })),
@@ -305,7 +322,7 @@ export class DiagnosticReportsService {
           businessServiceId: r.business_service_id,
           title: r.title,
           description: r.description,
-          priceCents: r.price ? r.price * 100 : undefined,
+          price: r.price ? new Prisma.Decimal(r.price.toString()) : undefined,
           durationMinutes: r.duration_minutes,
           isSelected: false,
         })),
@@ -384,7 +401,7 @@ export class DiagnosticReportsService {
     ).length;
 
     const totalCost = report.recommendedRepairs.reduce(
-      (sum, r) => sum + (r.priceCents ? Number(r.priceCents) : 0),
+      (sum, r) => sum + (r.price ? Number(r.price) : 0),
       0,
     );
 
@@ -397,7 +414,7 @@ export class DiagnosticReportsService {
       warning_count: warningCount,
       info_count: infoCount,
       total_repairs: report.recommendedRepairs.length,
-      total_cost: totalCost / 100,
+      total_cost: totalCost,
       client_action: report.clientAction || undefined,
       created_at: report.createdAt,
     };
@@ -457,9 +474,9 @@ export class DiagnosticReportsService {
       total_repairs: report.recommendedRepairs.length,
       total_cost:
         report.recommendedRepairs.reduce(
-          (sum, r) => sum + (r.priceCents ? Number(r.priceCents) : 0),
+          (sum, r) => sum + (r.price ? Number(r.price) : 0),
           0,
-        ) / 100,
+        ),
       client_action: report.clientAction || undefined,
       created_at: report.createdAt,
     }));
@@ -479,7 +496,7 @@ export class DiagnosticReportsService {
 
   private mapToResponseDto(report: any): DiagnosticReportResponseDto {
     const totalCost = report.recommendedRepairs.reduce(
-      (sum: number, r: any) => sum + (r.priceCents ? Number(r.priceCents) : 0),
+      (sum: number, r: any) => sum + (r.price ? Number(r.price) : 0),
       0,
     );
 
@@ -503,11 +520,11 @@ export class DiagnosticReportsService {
         business_service_id: r.businessServiceId,
         title: r.title || 'Repair Service',
         description: r.description || undefined,
-        price: r.priceCents ? Number(r.priceCents) / 100 : 0,
+        price: r.price ? Number(r.price) : 0,
         duration_minutes: r.durationMinutes || 60,
         is_selected: r.isSelected || false,
       })),
-      total_repair_cost: totalCost / 100,
+      total_repair_cost: totalCost,
       created_at: report.createdAt,
       updated_at: report.updatedAt,
     };

@@ -92,7 +92,7 @@ export class PaymentsService {
     const loyaltyConfig = await this.prisma.loyaltyConfig.findFirst();
 
     // Calculate total amount and loyalty discount
-    let totalAmount = Number(booking.totalPrice) / 100;
+    let totalAmount = Number(booking.totalPrice);
     let loyaltyDiscount = 0;
     let pointsUsed = 0;
 
@@ -120,7 +120,7 @@ export class PaymentsService {
 
     // Override with manual amount if provided
     if (dto.amount && dto.amount > 0) {
-      if (dto.amount > Number(booking.totalPrice) / 100) {
+      if (dto.amount > Number(booking.totalPrice)) {
         throw new BadRequestException('Payment amount cannot exceed booking total');
       }
       totalAmount = dto.amount;
@@ -148,7 +148,7 @@ export class PaymentsService {
         bookingId: dto.booking_id,
         paymentMethodId: paymentMethod.id,
         provider: 'stripe',
-        amount: Math.round(totalAmount * 100),
+        amount: totalAmount,
         currency: 'EGP',
         statusId: pendingStatus?.id || '',
         idempotencyKey: randomUUID(),
@@ -287,7 +287,7 @@ export class PaymentsService {
     }
 
     if (paymentIntent.status === 'succeeded') {
-      const amount = Number(payment.amount) / 100;
+      const amount = Number(payment.amount);
       return this.finalizePayment(
         payment.id,
         dto.payment_intent_id,
@@ -340,7 +340,7 @@ export class PaymentsService {
 
     return {
       eligible: true,
-      discountAmount: Math.round(discountAmount * 100) / 100,
+      discountAmount,
       pointsUsed: pointsToUse,
     };
   }
@@ -432,14 +432,14 @@ export class PaymentsService {
       }
 
       // Create payout for provider
-      const grossAmount = Number(payment.booking.totalPrice) / 100;
+      const grossAmount = Number(payment.booking.totalPrice);
       const platformFee = (grossAmount * this.PLATFORM_FEE_PERCENT) / 100;
       const netAmount = grossAmount - platformFee;
 
       const payout = await tx.payout.create({
         data: {
           businessId: payment.booking.business.id,
-          amount: Math.round(netAmount * 100),
+          amount: netAmount,
           statusId: payoutPendingStatus?.id || '',
         },
       });
@@ -534,7 +534,7 @@ export class PaymentsService {
         data: {
           recipientUserId: userId,
           typeId: notificationType.id,
-          title: 'Payment Successful! 💰',
+          title: 'Payment Successful! ≡ƒÆ░',
           body: message,
           actionUrl: `/payments/success?booking=${bookingCode}`,
           sentAt: new Date(),
@@ -574,7 +574,7 @@ export class PaymentsService {
         data: {
           recipientUserId: managerId,
           typeId: notificationType.id,
-          title: 'Payment Received! 💵',
+          title: 'Payment Received! ≡ƒÆ╡',
           body: `You received EGP ${amount.toFixed(2)} for booking ${bookingCode}. Platform fee: EGP ${platformFee.toFixed(2)}. Net: EGP ${netAmount.toFixed(2)}`,
           actionUrl: `/business/dashboard/payments`,
           sentAt: new Date(),
@@ -652,7 +652,7 @@ export class PaymentsService {
         data: {
           recipientUserId: userId,
           typeId: notificationType.id,
-          title: 'Payment Failed ❌',
+          title: 'Payment Failed Γ¥î',
           body: `Your payment could not be processed. Reason: ${reason}. Please try again or contact support.`,
           actionUrl: `/payments/retry`,
           sentAt: new Date(),
@@ -703,7 +703,7 @@ export class PaymentsService {
     });
 
     if (payment && payment.status?.context !== 'PAID') {
-      const amount = Number(payment.amount) / 100;
+      const amount = Number(payment.amount);
       await this.finalizePayment(payment.id, paymentIntent.id, 0, 0, payment.bookingId, amount);
       this.logger.log(`Payment succeeded for booking: ${payment.bookingId}`);
     }
@@ -752,7 +752,7 @@ export class PaymentsService {
 
       if (updatedPayment) {
         const clientUser = updatedPayment.booking.vehicle.client.user;
-        await this.sendRefundNotification(clientUser.id, Number(payment.amount) / 100);
+        await this.sendRefundNotification(clientUser.id, Number(payment.amount));
       }
 
       this.logger.log(`Payment refunded: ${payment.id}`);
@@ -778,7 +778,7 @@ export class PaymentsService {
         data: {
           recipientUserId: userId,
           typeId: notificationType.id,
-          title: 'Refund Processed 💸',
+          title: 'Refund Processed ≡ƒÆ╕',
           body: `A refund of EGP ${amount.toFixed(2)} has been processed to your original payment method.`,
           actionUrl: `/payments/refunds`,
           sentAt: new Date(),
@@ -880,7 +880,7 @@ export class PaymentsService {
         data: {
           recipientUserId: managerId,
           typeId: notificationType.id,
-          title: 'Payment Dispute ⚠️',
+          title: 'Payment Dispute ΓÜá∩╕Å',
           body: `A dispute has been filed for payment. Reason: ${reason}. Please review.`,
           actionUrl: `/admin/disputes/${disputeId}`,
           sentAt: new Date(),
@@ -932,14 +932,14 @@ export class PaymentsService {
     return {
       data: payouts.map(p => ({
         id: p.id,
-        amount: Number(p.amount) / 100,
+        amount: Number(p.amount),
         status: p.status.context,
         processed_at: p.processedAt,
         created_at: p.createdAt,
         bookings: p.payoutBookings.map(pb => ({
           id: pb.booking.id,
           booking_code: `BK-${pb.booking.id.slice(0, 8).toUpperCase()}`,
-          amount: Number(pb.booking.totalPrice) / 100,
+          amount: Number(pb.booking.totalPrice),
         })),
       })),
       meta: {
@@ -987,7 +987,7 @@ export class PaymentsService {
     return {
       id: payment.id,
       booking_id: payment.bookingId,
-      amount: Number(payment.amount) / 100,
+      amount: Number(payment.amount),
       currency: payment.currency,
       status: payment.status.context,
       provider_ref: payment.providerRef || undefined,
@@ -1028,7 +1028,7 @@ export class PaymentsService {
     return {
       id: payment.id,
       booking_id: payment.bookingId,
-      amount: Number(payment.amount) / 100,
+      amount: Number(payment.amount),
       currency: payment.currency,
       status: payment.status.context,
       provider_ref: payment.providerRef || undefined,
@@ -1085,7 +1085,7 @@ export class PaymentsService {
       data: payments.map(p => ({
         id: p.id,
         booking_id: p.bookingId,
-        amount: Number(p.amount) / 100,
+        amount: Number(p.amount),
         currency: p.currency,
         status: p.status.context,
         provider_ref: p.providerRef || undefined,
@@ -1139,8 +1139,8 @@ export class PaymentsService {
     const items = payment.booking.items.map(item => ({
       description: item.businessService?.service?.title || 'Service',
       quantity: 1,
-      unit_price: Number(item.price) / 100,
-      total: Number(item.price) / 100,
+      unit_price: Number(item.price),
+      total: Number(item.price),
     }));
 
     return {
@@ -1158,9 +1158,9 @@ export class PaymentsService {
         email: payment.booking.vehicle.client.user.email,
         phone: payment.booking.vehicle.client.user.phone || undefined,
       },
-      subtotal: Number(payment.booking.subTotal) / 100,
-      discount: Number(payment.booking.discount) / 100,
-      total: Number(payment.amount) / 100,
+      subtotal: Number(payment.booking.subTotal),
+      discount: Number(payment.booking.discount),
+      total: Number(payment.amount),
       payment_method: payment.paymentMethod.name,
       provider_ref: payment.providerRef || undefined,
       status: payment.status.context,

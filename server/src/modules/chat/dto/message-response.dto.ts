@@ -15,6 +15,9 @@ export class PaginatedMetaDto {
 
   @ApiProperty({ description: 'Total number of pages' })
   totalPages!: number;
+
+  @ApiProperty({ description: 'Cursor for fetching previous page', required: false })
+  cursor?: string | null;
 }
 
 export class MessageListResponseDto {

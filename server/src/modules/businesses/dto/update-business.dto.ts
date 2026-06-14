@@ -38,6 +38,11 @@ export class UpdateBusinessDto {
   @IsEmail()
   contact_email?: string;
 
+  @ApiPropertyOptional({ example: 'Premium car wash and detailing service provider.' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
   @ApiPropertyOptional({ type: [OperatingHoursInputDto] })
   @IsOptional()
   @IsArray()
