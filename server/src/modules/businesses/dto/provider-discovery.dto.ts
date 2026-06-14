@@ -25,6 +25,12 @@ export class ProviderFiltersDto {
   @IsEnum(ServiceType)
   service?: ServiceType;
 
+  @ApiPropertyOptional({ description: 'Categories filter', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categories?: string[];
+
   @ApiPropertyOptional({ description: 'Location names', type: [String] })
   @IsOptional()
   @IsArray()

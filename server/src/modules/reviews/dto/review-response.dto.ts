@@ -22,6 +22,12 @@ export class ReviewResponseDto {
   @ApiPropertyOptional()
   comment?: string;
 
+  @ApiPropertyOptional()
+  reply?: string;
+
+  @ApiPropertyOptional()
+  replied_at?: Date;
+
   @ApiProperty()
   created_at: Date;
 

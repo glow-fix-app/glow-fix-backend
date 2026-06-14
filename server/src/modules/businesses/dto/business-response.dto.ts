@@ -28,6 +28,9 @@ export class BusinessResponseDto {
   @ApiPropertyOptional()
   contact_email?: string;
 
+  @ApiPropertyOptional()
+  description?: string;
+
   @ApiProperty()
   current_status: string;
 

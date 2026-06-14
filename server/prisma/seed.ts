@@ -141,6 +141,7 @@ async function main() {
     { code: 'DIAGNOSIS_SENT', label: 'Diagnosis Report Ready' },
     { code: 'PAYMENT_RECEIVED', label: 'Payment Received' },
     { code: 'NEW_REVIEW', label: 'New Review Received' },
+    { code: 'NEW_REVIEW_REPLY', label: 'Manager Replied to Review' },
     { code: 'PAYOUT_PROCESSED', label: 'Payout Processed' },
     { code: 'LOYALTY_POINTS_EARNED', label: 'Loyalty Points Earned' },
     { code: 'LOYALTY_POINTS_REDEEMED', label: 'Points Redeemed' },
