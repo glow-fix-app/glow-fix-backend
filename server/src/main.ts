@@ -14,8 +14,23 @@ import { WinstonLoggerService } from './common/logger/winston-logger.service';
 import { raw } from 'express';
 //import { CorsOptionsDelegate } from '@nestjs/common/interfaces/external/cors-options.interface';
 
+import { execSync } from 'child_process';
+import * as path from 'path';
+
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+
+  if (process.env.NODE_ENV === 'production') {
+    logger.log('Running Prisma migrations...');
+    try {
+      const schemaPath = path.resolve(__dirname, '../../prisma/schema.prisma');
+      execSync(`npx prisma migrate deploy --schema=${schemaPath}`, { stdio: 'inherit' });
+      logger.log('Prisma migrations completed successfully.');
+    } catch (error) {
+      logger.error('Failed to run Prisma migrations', error);
+      // We don't exit here so the app can start and maybe give more logs, but it could fail anyway
+    }
+  }
 
   const app = await NestFactory.create(AppModule, {
     bufferLogs: false, // Must be false to see errors if it crashes before app.useLogger is called!
