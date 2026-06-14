@@ -85,7 +85,7 @@ export class DiagnosticReportsController {
   async getReportByBookingId(
     @CurrentUser() user: any,
     @Param('bookingId') bookingId: string,
-  ): Promise<DiagnosticReportResponseDto> {
+  ): Promise<DiagnosticReportResponseDto | null> {
     return this.diagnosticReportsService.getReportByBookingId(
       bookingId,
       user.id,
@@ -104,7 +104,7 @@ export class DiagnosticReportsController {
   async getReportSummary(
     @CurrentUser() user: any,
     @Param('bookingId') bookingId: string,
-  ): Promise<ReportSummaryDto> {
+  ): Promise<ReportSummaryDto | null> {
     return this.diagnosticReportsService.getReportSummary(
       bookingId,
       user.id,

@@ -81,7 +81,7 @@ export class PaymentsService {
 
     // Check if booking is in payable state
     const bookingStatus = await this.getBookingStatus(booking.id);
-    const payableStatuses = ['READY_FOR_PICKUP', 'COMPLETED'];
+    const payableStatuses = ['ACCEPTED'];
     if (!payableStatuses.includes(bookingStatus)) {
       throw new BadRequestException(`Booking cannot be paid in status: ${bookingStatus}`);
     }
@@ -353,9 +353,9 @@ export class PaymentsService {
     bookingId: string,
     amount: number,
   ): Promise<ProcessPaymentResponseDto> {
-    const [paidStatus, completedStatus, payoutPendingStatus, config] = await Promise.all([
+    const [paidStatus, confirmedStatus, payoutPendingStatus, config] = await Promise.all([
       this.prisma.status.findFirst({ where: { context: 'PAID' } }),
-      this.prisma.status.findFirst({ where: { context: 'COMPLETED' } }),
+      this.prisma.status.findFirst({ where: { context: 'CONFIRMED' } }),
       this.prisma.status.findFirst({ where: { context: 'PAYOUT_PENDING' } }),
       this.prisma.loyaltyConfig.findFirst(),
     ]);
@@ -421,12 +421,12 @@ export class PaymentsService {
         });
       }
 
-      // Update booking status to COMPLETED
-      if (completedStatus) {
+      // Update booking status to CONFIRMED
+      if (confirmedStatus) {
         await tx.bookingStatus.create({
           data: {
             bookingId,
-            statusId: completedStatus.id,
+            statusId: confirmedStatus.id,
           },
         });
       }

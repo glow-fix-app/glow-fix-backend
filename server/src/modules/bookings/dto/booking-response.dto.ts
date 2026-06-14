@@ -102,6 +102,12 @@ export class BookingBusinessResponseDto {
 
   @ApiProperty()
   managerId: string;
+
+  @ApiPropertyOptional()
+  latitude?: number;
+
+  @ApiPropertyOptional()
+  longitude?: number;
 }
 
 export class BookingResponseDto {
@@ -110,6 +116,9 @@ export class BookingResponseDto {
 
   @ApiPropertyOptional()
   client_name?: string | null;
+
+  @ApiPropertyOptional()
+  client_avatar?: string | null;
 
   @ApiProperty()
   vehicle_id: string;

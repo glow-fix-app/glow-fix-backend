@@ -376,6 +376,16 @@ export class BookingsService {
       throw new NotFoundException('Booking not found');
     }
 
+    const businessLoc: any[] = await this.prisma.$queryRaw`
+      SELECT ST_X(location::geometry) as longitude, ST_Y(location::geometry) as latitude
+      FROM businesses
+      WHERE id = ${booking.businessId}::uuid
+    `;
+    if (businessLoc.length > 0) {
+      (booking.business as any).latitude = businessLoc[0].latitude;
+      (booking.business as any).longitude = businessLoc[0].longitude;
+    }
+
     const images = await this.getBookingImages(booking.id);
     return this.formatBooking(booking, images);
   }
@@ -646,10 +656,28 @@ export class BookingsService {
       this.prisma.booking.count({ where })
     ]);
 
+    // Batch resolve client avatars
+    const userIds = bookings
+      .map((b) => b.vehicle?.client?.user?.id)
+      .filter(Boolean) as string[];
+
+    const avatars = userIds.length > 0
+      ? await this.prisma.image.findMany({
+          where: {
+            entityType: 'USER_AVATAR',
+            entityId: { in: userIds }
+          },
+          select: { entityId: true, url: true }
+        })
+      : [];
+    const avatarMap = new Map<string, string>(avatars.map((a) => [a.entityId, a.url]));
+
     const formatted = await Promise.all(
       bookings.map(async (b) => {
         const images = await this.getBookingImages(b.id);
-        return this.formatBooking(b, images);
+        const uId = b.vehicle?.client?.user?.id;
+        const avatarUrl = uId ? (avatarMap.get(uId) || null) : null;
+        return this.formatBooking(b, images, avatarUrl);
       })
     );
 
@@ -705,7 +733,8 @@ export class BookingsService {
     }
 
     const images = await this.getBookingImages(booking.id);
-    return this.formatBooking(booking, images);
+    const avatarUrl = await this.getUserAvatarByVehicleId(booking.vehicleId);
+    return this.formatBooking(booking, images, avatarUrl);
   }
 
   async reviewBookingByManager(userId: string, bookingId: string, dto: ReviewBookingDto): Promise<BookingResponseDto> {
@@ -759,10 +788,10 @@ export class BookingsService {
         this.logger.error(`Notification failed: ${(err as any).message}`);
       }
     } else {
-      // 2. ACCEPT transitions status to CONFIRMED
+      // 2. ACCEPT transitions status to ACCEPTED
       updatedBooking = await this.prisma.$transaction(async (tx) => {
-        const confirmedStatus = await tx.status.findFirst({ where: { context: 'CONFIRMED' } });
-        if (!confirmedStatus) throw new Error('CONFIRMED status missing');
+        const acceptedStatus = await tx.status.findFirst({ where: { context: 'ACCEPTED' } });
+        if (!acceptedStatus) throw new Error('ACCEPTED status missing');
 
         // Update items/prices if provided
         if (dto.items && dto.items.length > 0) {
@@ -806,7 +835,7 @@ export class BookingsService {
         await tx.bookingStatus.create({
           data: {
             bookingId,
-            statusId: confirmedStatus.id
+            statusId: acceptedStatus.id
           }
         });
 
@@ -854,7 +883,8 @@ export class BookingsService {
     }
 
     const images = await this.getBookingImages(bookingId);
-    return this.formatBooking(updatedBooking, images);
+    const avatarUrl = await this.getUserAvatarByVehicleId(updatedBooking.vehicleId);
+    return this.formatBooking(updatedBooking, images, avatarUrl);
   }
 
   async updateBookingStatusByManager(userId: string, bookingId: string, dto: UpdateBookingStatusDto): Promise<BookingResponseDto> {
@@ -865,6 +895,9 @@ export class BookingsService {
         statusHistory: {
           include: { status: true },
           orderBy: { createdAt: 'asc' }
+        },
+        payment: {
+          include: { status: true }
         }
       }
     });
@@ -875,6 +908,17 @@ export class BookingsService {
 
     const currentStatus = this.getLatestStatusContext(booking.statusHistory);
     const targetStatus = dto.status === 'READY' ? 'READY_FOR_PICKUP' : dto.status;
+
+    if (targetStatus === 'CONFIRMED' || targetStatus === 'ACCEPTED') {
+      throw new BadRequestException('Booking cannot be manually changed to ACCEPTED or CONFIRMED.');
+    }
+
+    if (targetStatus === 'COMPLETED') {
+      const paymentStatus = booking.payment?.status?.context;
+      if (paymentStatus !== 'PAID') {
+        throw new BadRequestException('Booking cannot be marked as COMPLETED until payment is fully paid.');
+      }
+    }
 
     // State machine check
     this.validateStateTransition(currentStatus, targetStatus);
@@ -925,14 +969,26 @@ export class BookingsService {
             body: `Thank you for choosing us! Booking ${ref} is now completed.`,
             actionUrl: `/client/bookings/${bookingId}`
           });
+          await this.notificationsService.createNotification({
+            recipientUserId: clientUserId,
+            actorUserId: userId,
+            typeCode: 'NEW_REVIEW',
+            title: 'Rate Your Service',
+            body: `Please take a moment to rate and review your completed booking ${ref}.`,
+            actionUrl: `/client/bookings/${bookingId}`
+          });
           break;
       }
     } catch (err) {
       this.logger.error(`Notification failed: ${(err as any).message}`);
     }
 
+    if (!updatedBooking) {
+      throw new NotFoundException('Updated booking not found');
+    }
     const images = await this.getBookingImages(bookingId);
-    return this.formatBooking(updatedBooking, images);
+    const avatarUrl = await this.getUserAvatarByVehicleId(updatedBooking.vehicleId);
+    return this.formatBooking(updatedBooking, images, avatarUrl);
   }
 
   async rescheduleBookingByManager(userId: string, bookingId: string, dto: RescheduleBookingDto): Promise<BookingResponseDto> {
@@ -1003,7 +1059,8 @@ export class BookingsService {
     }
 
     const images = await this.getBookingImages(bookingId);
-    return this.formatBooking(updatedBooking, images);
+    const avatarUrl = await this.getUserAvatarByVehicleId(updatedBooking.vehicleId);
+    return this.formatBooking(updatedBooking, images, avatarUrl);
   }
 
   async cancelBookingByManager(userId: string, bookingId: string, dto: CancelBookingDto): Promise<BookingResponseDto> {
@@ -1053,8 +1110,12 @@ export class BookingsService {
       this.logger.error(`Notification failed: ${(err as any).message}`);
     }
 
+    if (!updatedBooking) {
+      throw new NotFoundException('Updated booking not found');
+    }
     const images = await this.getBookingImages(bookingId);
-    return this.formatBooking(updatedBooking, images);
+    const avatarUrl = await this.getUserAvatarByVehicleId(updatedBooking.vehicleId);
+    return this.formatBooking(updatedBooking, images, avatarUrl);
   }
 
 
@@ -1340,7 +1401,8 @@ export class BookingsService {
 
   private validateStateTransition(current: string, target: string): void {
     const transitions: Record<string, string[]> = {
-      PENDING: ['CONFIRMED', 'REJECTED', 'CANCELLED'],
+      PENDING: ['ACCEPTED', 'REJECTED', 'CANCELLED'],
+      ACCEPTED: ['CONFIRMED', 'CANCELLED'],
       CONFIRMED: ['VEHICLE_RECEIVED', 'IN_PROGRESS', 'READY_FOR_PICKUP', 'COMPLETED', 'CANCELLED'],
       VEHICLE_RECEIVED: ['IN_PROGRESS', 'READY_FOR_PICKUP', 'COMPLETED', 'CANCELLED'],
       DIAGNOSIS_SENT: ['IN_PROGRESS', 'READY_FOR_PICKUP', 'COMPLETED', 'CANCELLED'],
@@ -1439,16 +1501,44 @@ export class BookingsService {
     return images.map(img => img.url);
   }
 
-  private formatBooking(booking: any, images: string[] = []): BookingResponseDto {
+  private async getUserAvatarByVehicleId(vehicleId: string | undefined): Promise<string | null> {
+    if (!vehicleId) return null;
+    const vehicle = await this.prisma.clientVehicle.findUnique({
+      where: { id: vehicleId },
+      select: {
+        client: {
+          select: {
+            userId: true
+          }
+        }
+      }
+    });
+    const userId = vehicle?.client?.userId;
+    if (!userId) return null;
+
+    const avatarImg = await this.prisma.image.findFirst({
+      where: { entityType: 'USER_AVATAR', entityId: userId },
+      select: { url: true }
+    });
+    return avatarImg?.url || null;
+  }
+
+  private formatBooking(booking: any, images: string[] = [], clientAvatar: string | null = null): BookingResponseDto {
     const latestStatus = this.getLatestStatusContext(booking.statusHistory);
 
     const clientName =
       booking.vehicle?.client?.user?.fullName ||
       null;
 
+    const resolvedAvatar = 
+      clientAvatar ||
+      booking.vehicle?.client?.user?.profileImageUrl ||
+      null;
+
     return {
       id: booking.id,
       client_name: clientName,
+      client_avatar: resolvedAvatar,
       vehicle_id: booking.vehicleId,
       business_id: booking.businessId,
       scheduled_at: booking.scheduledAt,
@@ -1504,6 +1594,8 @@ export class BookingsService {
         businessName: booking.business.businessName,
         address: booking.business.address,
         managerId: booking.business.managerId,
+        latitude: booking.business.latitude ?? undefined,
+        longitude: booking.business.longitude ?? undefined,
       },
       images,
       diagnostic_report: booking.diagnosticReport || undefined,

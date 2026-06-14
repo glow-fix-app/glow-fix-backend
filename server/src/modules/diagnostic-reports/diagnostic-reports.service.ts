@@ -162,7 +162,7 @@ export class DiagnosticReportsService {
     bookingId: string,
     userId: string,
     userRole: string,
-  ): Promise<DiagnosticReportResponseDto> {
+  ): Promise<DiagnosticReportResponseDto | null> {
     const report = await this.prisma.diagnosticReport.findUnique({
       where: { bookingId },
       include: {
@@ -182,9 +182,7 @@ export class DiagnosticReportsService {
     });
 
     if (!report) {
-      throw new NotFoundException(
-        'No diagnostic report found for this booking',
-      );
+      return null;
     }
 
     const isClient = report.booking.vehicle.client.userId === userId;
@@ -357,7 +355,7 @@ export class DiagnosticReportsService {
     bookingId: string,
     userId: string,
     userRole: string,
-  ): Promise<ReportSummaryDto> {
+  ): Promise<ReportSummaryDto | null> {
     const report = await this.prisma.diagnosticReport.findUnique({
       where: { bookingId },
       include: {
@@ -377,9 +375,7 @@ export class DiagnosticReportsService {
     });
 
     if (!report) {
-      throw new NotFoundException(
-        'No diagnostic report found for this booking',
-      );
+      return null;
     }
 
     const isClient = report.booking.vehicle.client.userId === userId;

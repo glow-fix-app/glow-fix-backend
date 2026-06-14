@@ -64,6 +64,7 @@ async function main() {
     { context: 'DOC_REJECTED' },
     // Booking statuses
     { context: 'PENDING' },
+    { context: 'ACCEPTED' },
     { context: 'CONFIRMED' },
     { context: 'VEHICLE_RECEIVED' },
     { context: 'IN_PROGRESS' },
