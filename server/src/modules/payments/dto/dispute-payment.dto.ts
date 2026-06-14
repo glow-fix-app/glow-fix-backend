@@ -46,32 +46,3 @@ export class CreateDisputeDto {
   @Type(() => Number)
   suggested_amount?: number;
 }
-
-export class DisputeResponseDto {
-  @ApiProperty()
-  id: string;
-
-  @ApiProperty()
-  payment_id: string;
-
-  @ApiProperty()
-  booking_id: string;
-
-  @ApiProperty()
-  reason: string;
-
-  @ApiProperty()
-  description: string;
-
-  @ApiProperty({ enum: ['PENDING', 'INVESTIGATING', 'RESOLVED', 'REJECTED'] })
-  status: string;
-
-  @ApiPropertyOptional()
-  resolution?: string;
-
-  @ApiPropertyOptional()
-  resolved_at?: Date;
-
-  @ApiProperty()
-  created_at: Date;
-}

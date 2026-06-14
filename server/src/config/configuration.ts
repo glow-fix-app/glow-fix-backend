@@ -11,9 +11,9 @@ export default () => ({
     url: process.env.DATABASE_URL,
   },
   redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379', 10),
-    password: process.env.REDIS_PASSWORD || undefined,
+    host: process.env.REDIS_HOST || process.env.REDISHOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || process.env.REDISPORT || '6379', 10),
+    password: process.env.REDIS_PASSWORD || process.env.REDISPASSWORD || undefined,
     db: parseInt(process.env.REDIS_DB || '0', 10),
     tls: process.env.REDIS_TLS || 'false',
   },
@@ -53,10 +53,11 @@ export default () => ({
   },
   mail: {
     host: process.env.SMTP_HOST || 'localhost',
-    port: parseInt(process.env.SMTP_PORT || '1025', 10),
+    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    secure: process.env.SMTP_SECURE === 'true',
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
-    from: process.env.MAIL_FROM || 'noreply@glowfix.local',
+    from: process.env.MAIL_FROM || 'noreply@glowfix.com',
   },
   google: {
     oauthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID,

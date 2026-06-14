@@ -3,20 +3,19 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
-  ConflictException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { randomUUID } from 'crypto';
+import { StripeProvider } from './providers/stripe.provider';
 import {
   ProcessPaymentDto,
   PaymentMethod,
   ProcessPaymentResponseDto,
+  ConfirmPaymentDto,
 } from './dto/process-payment.dto';
-import { PaymentWebhookDto } from './dto/payment-webhook.dto';
-import { CreateDisputeDto, DisputeReason, DesiredOutcome } from './dto/dispute-payment.dto';
-import { ProcessPayoutDto } from './dto/payout.dto';
+import { CreateDisputeDto } from './dto/dispute-payment.dto';
 import { PaymentResponseDto, ReceiptResponseDto } from './dto/payment-response.dto';
 
 @Injectable()
@@ -27,7 +26,13 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly stripeProvider: StripeProvider,
   ) {}
+
+  // Helper to generate booking code
+  private generateBookingCode(bookingId: string): string {
+    return `BK-${bookingId.slice(0, 8).toUpperCase()}`;
+  }
 
   // ==================== PAYMENT PROCESSING ====================
 
@@ -81,23 +86,36 @@ export class PaymentsService {
       throw new BadRequestException(`Booking cannot be paid in status: ${bookingStatus}`);
     }
 
+    // Get client loyalty points balance
+    const clientId = booking.vehicle.client.id;
+    const pointsBalance = await this.getClientPointsBalance(clientId);
+    const loyaltyConfig = await this.prisma.loyaltyConfig.findFirst();
+
     // Calculate total amount and loyalty discount
     let totalAmount = Number(booking.totalPrice);
     let loyaltyDiscount = 0;
     let pointsUsed = 0;
 
-    if (dto.redeem_points) {
-      const redemptionResult = await this.calculateLoyaltyRedemption(
-        booking.vehicle.client.userId,
+    // Check if client wants to redeem points and has enough points
+    if (dto.redeem_points && pointsBalance >= 100 && loyaltyConfig?.isActive) {
+      const redemptionDetails = await this.calculateLoyaltyRedemption(
+        userId,
         totalAmount,
         dto.points_to_redeem,
+        pointsBalance,
+        loyaltyConfig,
       );
 
-      if (redemptionResult.eligible && redemptionResult.discountAmount > 0) {
-        loyaltyDiscount = redemptionResult.discountAmount;
+      if (redemptionDetails.eligible && redemptionDetails.discountAmount > 0) {
+        loyaltyDiscount = redemptionDetails.discountAmount;
         totalAmount = totalAmount - loyaltyDiscount;
-        pointsUsed = redemptionResult.pointsUsed;
+        pointsUsed = redemptionDetails.pointsUsed;
       }
+    }
+
+    // Ensure total amount is not negative
+    if (totalAmount < 0) {
+      totalAmount = 0;
     }
 
     // Override with manual amount if provided
@@ -108,13 +126,15 @@ export class PaymentsService {
       totalAmount = dto.amount;
     }
 
-    // Get payment method
-    const paymentMethod = await this.prisma.paymentMethod.findUnique({
+    // Get payment method or create if doesn't exist
+    let paymentMethod = await this.prisma.paymentMethod.findUnique({
       where: { name: dto.payment_method },
     });
 
     if (!paymentMethod) {
-      throw new BadRequestException('Invalid payment method');
+      paymentMethod = await this.prisma.paymentMethod.create({
+        data: { name: dto.payment_method, isEnabled: true },
+      });
     }
 
     // Get PENDING status
@@ -127,7 +147,7 @@ export class PaymentsService {
       data: {
         bookingId: dto.booking_id,
         paymentMethodId: paymentMethod.id,
-        provider: dto.provider,
+        provider: dto.provider || 'stripe',
         amount: totalAmount,
         currency: 'EGP',
         statusId: pendingStatus?.id || '',
@@ -135,102 +155,180 @@ export class PaymentsService {
       },
     });
 
+    const customerName = booking.vehicle.client.user.fullName;
+    const customerEmail = booking.vehicle.client.user.email;
+    const customerPhone = booking.vehicle.client.user.phone || '';
+
     // Process based on payment method
-    let paymentResult;
     switch (dto.payment_method) {
       case PaymentMethod.CARD:
-        paymentResult = await this.processCardPayment(payment, dto.provider_token);
-        break;
+        return this.processCardPayment(payment, {
+          amount: totalAmount,
+          currency: 'EGP',
+          customerEmail,
+          customerName,
+          customerPhone,
+          bookingId: booking.id,
+          savePaymentMethod: dto.save_payment_method,
+          paymentMethodId: dto.payment_method_id,
+          pointsUsed,
+          loyaltyDiscount,
+        });
+
       case PaymentMethod.CASH:
-        paymentResult = await this.processCashPayment(payment);
-        break;
-      case PaymentMethod.WALLET:
-        paymentResult = await this.processWalletPayment(booking.vehicle.client.userId, payment);
-        break;
+        return this.processCashPayment(payment, booking.id, loyaltyDiscount, pointsUsed, totalAmount);
+
       default:
         throw new BadRequestException('Unsupported payment method');
     }
-
-    if (paymentResult.success && paymentResult.provider_ref) {
-      return this.finalizePayment(
-        payment.id,
-        paymentResult.provider_ref,
-        loyaltyDiscount,
-        pointsUsed,
-        booking.id,
-      );
-    }
-
-    await this.handleFailedPayment(payment.id, paymentResult.error ?? 'Payment failed');
-    throw new BadRequestException(paymentResult.error || 'Payment failed');
   }
 
   private async processCardPayment(
     payment: any,
-    providerToken?: string,
-  ): Promise<{ success: boolean; provider_ref?: string; error?: string }> {
-    if (!providerToken) {
-      return { success: false, error: 'Card token is required' };
+    options: {
+      amount: number;
+      currency: string;
+      customerEmail: string;
+      customerName: string;
+      customerPhone: string;
+      bookingId: string;
+      savePaymentMethod?: boolean;
+      paymentMethodId?: string;
+      pointsUsed: number;
+      loyaltyDiscount: number;
+    },
+  ): Promise<ProcessPaymentResponseDto> {
+    try {
+      const paymentIntent = await this.stripeProvider.createPaymentIntent({
+        amount: options.amount,
+        currency: options.currency,
+        customerEmail: options.customerEmail,
+        customerName: options.customerName,
+        customerPhone: options.customerPhone,
+        bookingId: options.bookingId,
+        metadata: {
+          payment_id: payment.id,
+          points_used: options.pointsUsed.toString(),
+          loyalty_discount: options.loyaltyDiscount.toString(),
+        },
+      });
+
+      // Update payment with Stripe intent ID
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          providerRef: paymentIntent.payment_intent_id,
+        },
+      });
+
+      return {
+        success: true,
+        payment_id: payment.id,
+        amount: options.amount,
+        client_secret: paymentIntent.client_secret,
+        payment_intent_id: paymentIntent.payment_intent_id,
+        loyalty_points_used: options.pointsUsed,
+        loyalty_points_earned: 0,
+        message: 'Payment intent created. Confirm payment on client side.',
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      await this.handleFailedPayment(payment.id, message);
+      throw new BadRequestException(message);
+    }
+  }
+
+  private async processCashPayment(
+    payment: any,
+    bookingId: string,
+    loyaltyDiscount: number,
+    pointsUsed: number,
+    totalAmount: number,
+  ): Promise<ProcessPaymentResponseDto> {
+    return this.finalizePayment(
+      payment.id,
+      `cash_${payment.id.slice(0, 8)}`,
+      loyaltyDiscount,
+      pointsUsed,
+      bookingId,
+      totalAmount,
+    );
+  }
+
+  async confirmPayment(
+    userId: string,
+    dto: ConfirmPaymentDto,
+  ): Promise<ProcessPaymentResponseDto> {
+    const paymentIntent = await this.stripeProvider.retrievePaymentIntent(
+      dto.payment_intent_id,
+    );
+
+    const payment = await this.prisma.payment.findFirst({
+      where: { providerRef: dto.payment_intent_id },
+      include: {
+        booking: {
+          include: {
+            vehicle: {
+              include: {
+                client: { include: { user: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
     }
 
+    if (payment.booking.vehicle.client.userId !== userId) {
+      throw new ForbiddenException('You do not own this booking');
+    }
     this.logger.log(`Processing card payment ${payment.id} for ${Number(payment.amount)} EGP`);
 
-    // TODO: Integrate with Stripe/Paymob
-    return {
-      success: true,
-      provider_ref: `txn_${Date.now()}_${payment.id.slice(0, 8)}`,
-    };
+    if (paymentIntent.status === 'succeeded') {
+      const amount = Number(payment.amount) / 100;
+      return this.finalizePayment(
+        payment.id,
+        dto.payment_intent_id,
+        0,
+        0,
+        payment.bookingId,
+        amount,
+      );
+    } else if (paymentIntent.status === 'requires_payment_method') {
+      throw new BadRequestException('Payment requires payment method');
+    } else if (paymentIntent.status === 'requires_confirmation') {
+      throw new BadRequestException('Payment requires confirmation');
+    } else {
+      throw new BadRequestException(`Payment status: ${paymentIntent.status}`);
+    }
   }
 
-  private async processCashPayment(payment: any): Promise<{ success: boolean; provider_ref?: string; error?: string }> {
-    return {
-      success: true,
-      provider_ref: `cash_${payment.id.slice(0, 8)}`,
-    };
-  }
-
-  private async processWalletPayment(
-    userId: string,
-    payment: any,
-  ): Promise<{ success: boolean; provider_ref?: string; error?: string }> {
-    // TODO: Implement wallet balance check
-    return {
-      success: true,
-      provider_ref: `wallet_${payment.id.slice(0, 8)}`,
-    };
+  private async getClientPointsBalance(clientId: string): Promise<number> {
+    const balanceResult = await this.prisma.loyaltyTransaction.aggregate({
+      where: { clientId },
+      _sum: { points: true },
+    });
+    return balanceResult._sum.points || 0;
   }
 
   private async calculateLoyaltyRedemption(
     userId: string,
     totalAmount: number,
-    pointsToRedeem?: number,
+    pointsToRedeem: number | undefined,
+    pointsBalance: number,
+    config: any,
   ): Promise<{ eligible: boolean; discountAmount: number; pointsUsed: number }> {
-    // Get loyalty config
-    const config = await this.prisma.loyaltyConfig.findFirst();
-
     if (!config || !config.isActive) {
       return { eligible: false, discountAmount: 0, pointsUsed: 0 };
     }
 
-    // Get client points balance
-    const client = await this.prisma.client.findUnique({
-      where: { userId },
-    });
-
-    if (!client) {
-      return { eligible: false, discountAmount: 0, pointsUsed: 0 };
-    }
-
-    const balanceResult = await this.prisma.loyaltyTransaction.aggregate({
-      where: { clientId: client.id },
-      _sum: { points: true },
-    });
-    const pointsBalance = balanceResult._sum.points || 0;
-
     const maxDiscountPercent = config.maxRedeemPct;
     const maxDiscountAmount = (totalAmount * maxDiscountPercent) / 100;
     const pointsPerEGP = 1 / Number(config.egpPerPoint);
-    const maxPointsForDiscount = maxDiscountAmount * pointsPerEGP;
+    const maxPointsForDiscount = Math.floor(maxDiscountAmount * pointsPerEGP);
 
     let pointsToUse = pointsToRedeem || Math.min(pointsBalance, maxPointsForDiscount);
     pointsToUse = Math.min(pointsToUse, pointsBalance, maxPointsForDiscount);
@@ -243,7 +341,7 @@ export class PaymentsService {
 
     return {
       eligible: true,
-      discountAmount,
+      discountAmount: Math.round(discountAmount * 100) / 100,
       pointsUsed: pointsToUse,
     };
   }
@@ -254,121 +352,254 @@ export class PaymentsService {
     loyaltyDiscount: number,
     pointsUsed: number,
     bookingId: string,
+    amount: number,
   ): Promise<ProcessPaymentResponseDto> {
-    const paidStatus = await this.prisma.status.findFirst({
-      where: { context: 'PAID' },
-    });
+    const [paidStatus, completedStatus, payoutPendingStatus, config] = await Promise.all([
+      this.prisma.status.findFirst({ where: { context: 'PAID' } }),
+      this.prisma.status.findFirst({ where: { context: 'COMPLETED' } }),
+      this.prisma.status.findFirst({ where: { context: 'PAYOUT_PENDING' } }),
+      this.prisma.loyaltyConfig.findFirst(),
+    ]);
 
-    const payment = await this.prisma.payment.update({
-      where: { id: paymentId },
-      data: {
-        providerRef,
-        statusId: paidStatus?.id || '',
-      },
-      include: {
-        booking: {
-          include: {
-            business: true,
-            vehicle: {
-              include: {
-                client: { include: { user: true } },
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.update({
+        where: { id: paymentId },
+        data: {
+          providerRef,
+          statusId: paidStatus?.id || '',
+          paidAt: new Date(),
+        },
+        include: {
+          booking: {
+            include: {
+              business: true,
+              vehicle: {
+                include: {
+                  client: { include: { user: true } },
+                },
+              },
+              items: {
+                include: {
+                  businessService: {
+                    include: { service: true },
+                  },
+                },
               },
             },
           },
         },
-      },
-    });
+      });
 
-    let pointsEarned = 0;
-    const clientId = payment.booking.vehicle.client.id;
+      let pointsEarned = 0;
+      const clientId = payment.booking.vehicle.client.id;
+      const clientUser = payment.booking.vehicle.client.user;
+      const bookingCode = this.generateBookingCode(bookingId);
 
-    // Award loyalty points
-    if (Number(payment.amount) > 0) {
-      const config = await this.prisma.loyaltyConfig.findFirst();
-      if (config && config.isActive) {
-        pointsEarned = Math.floor((Number(payment.amount) / 100) * config.pointsPer100Egp);
-        await this.prisma.loyaltyTransaction.create({
+      // Award loyalty points
+      if (amount > 0 && config?.isActive) {
+        pointsEarned = Math.floor((amount / 100) * config.pointsPer100Egp);
+        await tx.loyaltyTransaction.create({
           data: {
             clientId,
             bookingId,
             type: 'EARNED',
             points: pointsEarned,
-            reason: `Earned ${pointsEarned} points from booking`,
+            reason: `Earned ${pointsEarned} points from booking (${amount} EGP)`,
           },
         });
       }
-    }
 
-    // Record points redemption
-    if (pointsUsed > 0) {
-      await this.prisma.loyaltyTransaction.create({
+      // Record points redemption
+      if (pointsUsed > 0) {
+        await tx.loyaltyTransaction.create({
+          data: {
+            clientId,
+            bookingId,
+            type: 'REDEEMED',
+            points: -pointsUsed,
+            reason: `Redeemed ${pointsUsed} points for EGP ${loyaltyDiscount.toFixed(2)} discount`,
+          },
+        });
+      }
+
+      // Update booking status to COMPLETED
+      if (completedStatus) {
+        await tx.bookingStatus.create({
+          data: {
+            bookingId,
+            statusId: completedStatus.id,
+          },
+        });
+      }
+
+      // Create payout for provider
+      const grossAmount = Number(payment.booking.totalPrice) / 100;
+      const platformFee = (grossAmount * this.PLATFORM_FEE_PERCENT) / 100;
+      const netAmount = grossAmount - platformFee;
+
+      const payout = await tx.payout.create({
         data: {
-          clientId,
-          bookingId,
-          type: 'REDEEMED',
-          points: -pointsUsed,
-          reason: `Redeemed ${pointsUsed} points for EGP ${loyaltyDiscount.toFixed(2)} discount`,
+          businessId: payment.booking.business.id,
+          amount: Math.round(netAmount * 100),
+          statusId: payoutPendingStatus?.id || '',
         },
       });
-    }
 
-    // Update booking status to COMPLETED
-    const completedStatus = await this.prisma.status.findFirst({
-      where: { context: 'COMPLETED' },
-    });
-
-    if (completedStatus) {
-      await this.prisma.bookingStatus.create({
+      await tx.payoutBooking.create({
         data: {
+          payoutId: payout.id,
           bookingId,
-          statusId: completedStatus.id,
         },
       });
-    }
 
-    // Create payout for provider
-    const grossAmount = Number(payment.booking.totalPrice);
-    const platformFee = (grossAmount * this.PLATFORM_FEE_PERCENT) / 100;
-    const netAmount = grossAmount - platformFee;
+      this.logger.log(`Payment finalized: ${paymentId}, payout created: ${payout.id}`);
 
-    const payoutPendingStatus = await this.prisma.status.findFirst({
-      where: { context: 'PAYOUT_PENDING' },
-    });
+      // Send notifications
+      await this.sendPaymentSuccessNotification(
+        clientUser.id,
+        clientUser.fullName,
+        bookingCode,
+        amount,
+        pointsEarned,
+        pointsUsed,
+        loyaltyDiscount,
+      );
 
-    const payout = await this.prisma.payout.create({
-      data: {
-        businessId: payment.booking.business.id,
-        amount: netAmount,
-        statusId: payoutPendingStatus?.id || '',
-      },
-    });
+      await this.sendPaymentReceivedNotification(
+        payment.booking.business.managerId,
+        payment.booking.business.businessName,
+        bookingCode,
+        amount,
+        platformFee,
+        netAmount,
+      );
 
-    await this.prisma.payoutBooking.create({
-      data: {
-        payoutId: payout.id,
+      this.eventEmitter.emit('payment.completed', {
         bookingId,
-      },
+        paymentId,
+        amount,
+        loyaltyPointsEarned: pointsEarned,
+        loyaltyPointsUsed: pointsUsed,
+        customerEmail: clientUser.email,
+        customerName: clientUser.fullName,
+        businessId: payment.booking.business.id,
+        businessName: payment.booking.business.businessName,
+      });
+
+      return {
+        success: true,
+        payment_id: payment.id,
+        amount,
+        loyalty_points_used: pointsUsed,
+        loyalty_points_earned: pointsEarned,
+        receipt_url: `/api/v1/payments/${payment.id}/receipt`,
+        message: this.getSuccessMessage(pointsUsed, pointsEarned, loyaltyDiscount),
+      };
     });
+  }
 
-    this.logger.log(`Payment finalized: ${paymentId}, payout created: ${payout.id}`);
+  private async sendPaymentSuccessNotification(
+    userId: string,
+    userName: string,
+    bookingCode: string,
+    amount: number,
+    pointsEarned: number,
+    pointsUsed: number,
+    discountAmount: number,
+  ): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { code: 'PAYMENT_RECEIVED' },
+      });
 
-    this.eventEmitter.emit('payment.completed', {
-      bookingId,
-      paymentId,
-      amount: Number(payment.amount),
-      loyaltyPointsEarned: pointsEarned,
-      loyaltyPointsUsed: pointsUsed,
-    });
 
-    return {
-      success: true,
-      payment_id: payment.id,
-      amount: Number(payment.amount),
-      loyalty_points_used: pointsUsed,
-      loyalty_points_earned: pointsEarned,
-      receipt_url: `/api/v1/payments/${payment.id}/receipt`,
-      message: 'Payment processed successfully',
-    };
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            code: 'PAYMENT_RECEIVED',
+            label: 'Payment Received',
+          },
+        });
+      }
+
+      let message = `Your payment of EGP ${amount.toFixed(2)} for booking ${bookingCode} was successful.`;
+      
+      if (pointsUsed > 0) {
+        message += ` You redeemed ${pointsUsed} points and saved EGP ${discountAmount.toFixed(2)}!`;
+      }
+      
+      if (pointsEarned > 0) {
+        message += ` You earned ${pointsEarned} loyalty points.`;
+      }
+
+      await this.prisma.notification.create({
+        data: {
+          recipientUserId: userId,
+          typeId: notificationType.id,
+          title: 'Payment Successful! 💰',
+          body: message,
+          actionUrl: `/payments/success?booking=${bookingCode}`,
+          sentAt: new Date(),
+        },
+      });
+
+      this.logger.log(`Payment success notification sent to user ${userId}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.error(`Failed to send payment notification: ${errorMessage}`);
+    }
+  }
+
+  private async sendPaymentReceivedNotification(
+    managerId: string,
+    businessName: string,
+    bookingCode: string,
+    amount: number,
+    platformFee: number,
+    netAmount: number,
+  ): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { code: 'PAYOUT_PROCESSED' },
+      });
+
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            code: 'PAYOUT_PROCESSED',
+            label: 'Payout Processed',
+          },
+        });
+      }
+
+      await this.prisma.notification.create({
+        data: {
+          recipientUserId: managerId,
+          typeId: notificationType.id,
+          title: 'Payment Received! 💵',
+          body: `You received EGP ${amount.toFixed(2)} for booking ${bookingCode}. Platform fee: EGP ${platformFee.toFixed(2)}. Net: EGP ${netAmount.toFixed(2)}`,
+          actionUrl: `/business/dashboard/payments`,
+          sentAt: new Date(),
+        },
+      });
+
+      this.logger.log(`Payment received notification sent to manager ${managerId}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.error(`Failed to send business payment notification: ${errorMessage}`);
+    }
+  }
+
+  private getSuccessMessage(pointsUsed: number, pointsEarned: number, discountAmount: number): string {
+    if (pointsUsed > 0 && pointsEarned > 0) {
+      return `Payment successful! You redeemed ${pointsUsed} points (saved EGP ${discountAmount.toFixed(2)}) and earned ${pointsEarned} new points!`;
+    } else if (pointsUsed > 0) {
+      return `Payment successful! You redeemed ${pointsUsed} points and saved EGP ${discountAmount.toFixed(2)}!`;
+    } else if (pointsEarned > 0) {
+      return `Payment successful! You earned ${pointsEarned} loyalty points!`;
+    }
+    return 'Payment processed successfully!';
+    return 'Payment processed successfully!';
   }
 
   private async handleFailedPayment(paymentId: string, reason: string): Promise<void> {
@@ -380,13 +611,10 @@ export class PaymentsService {
       where: { id: paymentId },
       data: {
         statusId: failedStatus?.id || '',
+        failureReason: reason,
       },
     });
-  }
 
-  // ==================== PAYMENT QUERIES ====================
-
-  async getPayment(paymentId: string, userId: string, userRole: string): Promise<PaymentResponseDto> {
     const payment = await this.prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
@@ -397,106 +625,127 @@ export class PaymentsService {
                 client: { include: { user: true } },
               },
             },
-            business: true,
           },
         },
-        status: true,
-        paymentMethod: true,
       },
     });
 
-    if (!payment) {
-      throw new NotFoundException('Payment not found');
+    if (payment) {
+      const clientUser = payment.booking.vehicle.client.user;
+      await this.sendPaymentFailureNotification(clientUser.id, reason);
     }
 
-    const isClient = payment.booking.vehicle.client.userId === userId;
-    const isManager = payment.booking.business.managerId === userId;
-    const isAdmin = userRole === 'ADMIN';
-
-    if (!isClient && !isManager && !isAdmin) {
-      throw new ForbiddenException('Access denied');
-    }
-
-    return {
-      id: payment.id,
-      booking_id: payment.bookingId,
-      amount: Number(payment.amount),
-      currency: payment.currency,
-      status: payment.status.context,
-      provider_ref: payment.providerRef || undefined,
-      paid_at: payment.status.context === 'PAID' ? payment.updatedAt : undefined,
-      created_at: payment.createdAt,
-    };
   }
 
-  async getBookingPayment(bookingId: string, userId: string): Promise<PaymentResponseDto | null> {
-    const payment = await this.prisma.payment.findUnique({
-      where: { bookingId },
-      include: {
-        booking: {
-          include: {
-            vehicle: {
-              include: {
-                client: { include: { user: true } },
-              },
-            },
-            business: true,
+  private async sendPaymentFailureNotification(userId: string, reason: string): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { code: 'PAYMENT_FAILED' },
+      });
+
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            code: 'PAYMENT_FAILED',
+            label: 'Payment Failed',
           },
+        });
+      }
+
+      await this.prisma.notification.create({
+        data: {
+          recipientUserId: userId,
+          typeId: notificationType.id,
+          title: 'Payment Failed ❌',
+          body: `Your payment could not be processed. Reason: ${reason}. Please try again or contact support.`,
+          actionUrl: `/payments/retry`,
+          sentAt: new Date(),
         },
-        status: true,
-      },
-    });
-
-    if (!payment) {
-      return null;
+      });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.error(`Failed to send payment failure notification: ${errorMessage}`);
     }
 
-    const isClient = payment.booking.vehicle.client.userId === userId;
-    const isManager = payment.booking.business.managerId === userId;
-
-    if (!isClient && !isManager) {
-      throw new ForbiddenException('Access denied');
-    }
-
-    return {
-      id: payment.id,
-      booking_id: payment.bookingId,
-      amount: Number(payment.amount),
-      currency: payment.currency,
-      status: payment.status.context,
-      provider_ref: payment.providerRef || undefined,
-      paid_at: payment.status.context === 'PAID' ? payment.updatedAt : undefined,
-      created_at: payment.createdAt,
-    };
   }
 
-  async getUserPayments(
-    userId: string,
-    page: number = 1,
-    limit: number = 20,
-  ): Promise<{ data: PaymentResponseDto[]; meta: any }> {
-    const skip = (page - 1) * limit;
-    const take = Math.min(limit, 50);
+  // ==================== STRIPE WEBHOOK ====================
 
-    const client = await this.prisma.client.findUnique({
-      where: { userId },
-    });
+  async handleStripeWebhook(payload: Buffer, signature: string): Promise<{ received: boolean }> {
+    let event;
 
-    if (!client) {
-      return { data: [], meta: { total: 0, page, limit, total_pages: 0 } };
+    try {
+      event = this.stripeProvider.verifyWebhookSignature(payload, signature);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Webhook signature verification failed: ${message}`);
+      return { received: false };
     }
 
-    const [payments, total] = await Promise.all([
-      this.prisma.payment.findMany({
-        where: {
-          booking: {
-            vehicle: { clientId: client.id },
-          },
-        },
+    this.logger.log(`Processing Stripe webhook: ${event.type}`);
+
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        await this.handlePaymentIntentSucceeded(event.data.object);
+        break;
+      case 'payment_intent.payment_failed':
+        await this.handlePaymentIntentFailed(event.data.object);
+        break;
+      case 'charge.refunded':
+        await this.handleChargeRefunded(event.data.object);
+        break;
+      default:
+        this.logger.log(`Unhandled event type: ${event.type}`);
+    }
+
+    return { received: true };
+  }
+
+  private async handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
+    const payment = await this.prisma.payment.findFirst({
+      where: { providerRef: paymentIntent.id },
+      include: { status: true },
+    });
+
+    if (payment && payment.status?.context !== 'PAID') {
+      const amount = Number(payment.amount) / 100;
+      await this.finalizePayment(payment.id, paymentIntent.id, 0, 0, payment.bookingId, amount);
+      this.logger.log(`Payment succeeded for booking: ${payment.bookingId}`);
+    }
+  }
+
+  private async handlePaymentIntentFailed(paymentIntent: any): Promise<void> {
+    const payment = await this.prisma.payment.findFirst({
+      where: { providerRef: paymentIntent.id },
+    });
+
+    if (payment) {
+      await this.handleFailedPayment(payment.id, paymentIntent.last_payment_error?.message || 'Payment failed');
+      this.logger.warn(`Payment failed for booking: ${payment.bookingId}`);
+    }
+  }
+
+  private async handleChargeRefunded(charge: any): Promise<void> {
+    const payment = await this.prisma.payment.findFirst({
+      where: { providerRef: charge.payment_intent },
+    });
+
+    if (payment) {
+      const refundedStatus = await this.prisma.status.findFirst({
+        where: { context: 'REFUNDED' },
+      });
+
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: { statusId: refundedStatus?.id || '' },
+      });
+
+      const updatedPayment = await this.prisma.payment.findUnique({
+        where: { id: payment.id },
         include: {
-          status: true,
           booking: {
             include: {
+<<<<<<< HEAD
               business: true,
             },
           },
@@ -555,19 +804,26 @@ export class PaymentsService {
               include: {
                 businessService: {
                   include: { service: true },
+=======
+              vehicle: {
+                include: {
+                  client: { include: { user: true } },
+>>>>>>> origin/main
                 },
               },
             },
           },
         },
-        paymentMethod: true,
-        status: true,
-      },
-    });
+      });
 
-    if (!payment) {
-      throw new NotFoundException('Payment not found');
+      if (updatedPayment) {
+        const clientUser = updatedPayment.booking.vehicle.client.user;
+        await this.sendRefundNotification(clientUser.id, Number(payment.amount) / 100);
+      }
+
+      this.logger.log(`Payment refunded: ${payment.id}`);
     }
+<<<<<<< HEAD
 
     const isClient = payment.booking.vehicle.client.userId === userId;
     if (!isClient) {
@@ -603,41 +859,39 @@ export class PaymentsService {
       provider_ref: payment.providerRef || undefined,
       status: payment.status.context,
     };
+=======
+>>>>>>> origin/main
   }
 
-  // ==================== WEBHOOK HANDLING ====================
+  private async sendRefundNotification(userId: string, amount: number): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { code: 'REFUND_PROCESSED' },
+      });
 
-  async handleWebhook(provider: string, payload: any): Promise<{ received: boolean }> {
-    this.logger.log(`Webhook received from ${provider}`);
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            code: 'REFUND_PROCESSED',
+            label: 'Refund Processed',
+          },
+        });
+      }
 
-    let providerRef: string;
-    let status: string;
-
-    switch (provider) {
-      case 'stripe':
-        providerRef = payload.data.object.id;
-        status = payload.type === 'payment_intent.succeeded' ? 'PAID' : 'FAILED';
-        break;
-      default:
-        this.logger.warn(`Unknown provider: ${provider}`);
-        return { received: true };
+      await this.prisma.notification.create({
+        data: {
+          recipientUserId: userId,
+          typeId: notificationType.id,
+          title: 'Refund Processed 💸',
+          body: `A refund of EGP ${amount.toFixed(2)} has been processed to your original payment method.`,
+          actionUrl: `/payments/refunds`,
+          sentAt: new Date(),
+        },
+      });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.error(`Failed to send refund notification: ${errorMessage}`);
     }
-
-    const payment = await this.prisma.payment.findFirst({
-      where: { providerRef },
-      include: { status: true },
-    });
-
-    if (!payment) {
-      this.logger.warn(`Payment not found for provider_ref: ${providerRef}`);
-      return { received: true };
-    }
-
-    if (status === 'PAID' && payment.status?.context !== 'PAID') {
-      await this.finalizePayment(payment.id, providerRef, 0, 0, payment.bookingId);
-    }
-
-    return { received: true };
   }
 
   // ==================== DISPUTES ====================
@@ -653,6 +907,7 @@ export class PaymentsService {
                 client: { include: { user: true } },
               },
             },
+            business: true,
           },
         },
         status: true,
@@ -682,22 +937,63 @@ export class PaymentsService {
     });
 
     // Create dispute record
-    const dispute = await this.prisma.$queryRaw<Array<{ id: string }>>`
-      INSERT INTO disputes (id, payment_id, booking_id, reason, description, photo_urls, desired_outcome, suggested_amount, status, created_at)
-      VALUES (gen_random_uuid(), ${dto.payment_id}::uuid, ${payment.bookingId}::uuid, ${dto.reason}, ${dto.description}, ${dto.photo_urls}, ${dto.desired_outcome}, ${dto.suggested_amount}, 'PENDING', NOW())
-      RETURNING id
-    `;
+    const dispute = await this.prisma.dispute.create({
+      data: {
+        paymentId: dto.payment_id,
+        bookingId: payment.bookingId,
+        reason: dto.reason,
+        description: dto.description,
+        photoUrls: dto.photo_urls || [],
+        desiredOutcome: dto.desired_outcome,
+        suggestedAmount: dto.suggested_amount ?? null,
+        status: 'PENDING',
+      },
+    });
+
+    // Send dispute notification
+    await this.sendDisputeNotification(payment.booking.business.managerId, dispute.id, dto.reason);
 
     this.eventEmitter.emit('payment.dispute_created', {
       paymentId: dto.payment_id,
       bookingId: payment.bookingId,
-      disputeId: dispute[0]?.id,
+      disputeId: dispute.id,
     });
 
     return {
       success: true,
-      dispute_id: dispute[0]?.id,
+      dispute_id: dispute.id,
     };
+  }
+
+  private async sendDisputeNotification(managerId: string, disputeId: string, reason: string): Promise<void> {
+    try {
+      let notificationType = await this.prisma.notificationType.findFirst({
+        where: { code: 'DISPUTE_CREATED' },
+      });
+
+      if (!notificationType) {
+        notificationType = await this.prisma.notificationType.create({
+          data: {
+            code: 'DISPUTE_CREATED',
+            label: 'Dispute Created',
+          },
+        });
+      }
+
+      await this.prisma.notification.create({
+        data: {
+          recipientUserId: managerId,
+          typeId: notificationType.id,
+          title: 'Payment Dispute ⚠️',
+          body: `A dispute has been filed for payment. Reason: ${reason}. Please review.`,
+          actionUrl: `/admin/disputes/${disputeId}`,
+          sentAt: new Date(),
+        },
+      });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.error(`Failed to send dispute notification: ${errorMessage}`);
+    }
   }
 
   // ==================== PAYOUT MANAGEMENT ====================
@@ -756,6 +1052,222 @@ export class PaymentsService {
         limit,
         total_pages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  // ==================== PAYMENT QUERIES ====================
+
+  async getPayment(paymentId: string, userId: string, userRole: string): Promise<PaymentResponseDto> {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        booking: {
+          include: {
+            vehicle: {
+              include: {
+                client: { include: { user: true } },
+              },
+            },
+            business: true,
+          },
+        },
+        status: true,
+        paymentMethod: true,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    const isClient = payment.booking.vehicle.client.userId === userId;
+    const isManager = payment.booking.business.managerId === userId;
+    const isAdmin = userRole === 'ADMIN';
+
+    if (!isClient && !isManager && !isAdmin) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return {
+      id: payment.id,
+      booking_id: payment.bookingId,
+      amount: Number(payment.amount) / 100,
+      currency: payment.currency,
+      status: payment.status.context,
+      provider_ref: payment.providerRef || undefined,
+      paid_at: payment.paidAt || undefined,
+      created_at: payment.createdAt,
+    };
+  }
+
+  async getBookingPayment(bookingId: string, userId: string): Promise<PaymentResponseDto | null> {
+    const payment = await this.prisma.payment.findUnique({
+      where: { bookingId },
+      include: {
+        booking: {
+          include: {
+            vehicle: {
+              include: {
+                client: { include: { user: true } },
+              },
+            },
+            business: true,
+          },
+        },
+        status: true,
+      },
+    });
+
+    if (!payment) {
+      return null;
+    }
+
+    const isClient = payment.booking.vehicle.client.userId === userId;
+    const isManager = payment.booking.business.managerId === userId;
+
+    if (!isClient && !isManager) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return {
+      id: payment.id,
+      booking_id: payment.bookingId,
+      amount: Number(payment.amount) / 100,
+      currency: payment.currency,
+      status: payment.status.context,
+      provider_ref: payment.providerRef || undefined,
+      paid_at: payment.paidAt || undefined,
+      created_at: payment.createdAt,
+    };
+  }
+
+  async getUserPayments(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<{ data: PaymentResponseDto[]; meta: any }> {
+    const skip = (page - 1) * limit;
+    const take = Math.min(limit, 50);
+
+    const client = await this.prisma.client.findUnique({
+      where: { userId },
+    });
+
+    if (!client) {
+      return { data: [], meta: { total: 0, page, limit, total_pages: 0 } };
+    }
+
+    const [payments, total] = await Promise.all([
+      this.prisma.payment.findMany({
+        where: {
+          booking: {
+            vehicle: { clientId: client.id },
+          },
+        },
+        include: {
+          status: true,
+          booking: {
+            include: {
+              business: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.payment.count({
+        where: {
+          booking: {
+            vehicle: { clientId: client.id },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      data: payments.map(p => ({
+        id: p.id,
+        booking_id: p.bookingId,
+        amount: Number(p.amount) / 100,
+        currency: p.currency,
+        status: p.status.context,
+        provider_ref: p.providerRef || undefined,
+        paid_at: p.paidAt || undefined,
+        created_at: p.createdAt,
+      })),
+      meta: {
+        total,
+        page,
+        limit,
+        total_pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getReceipt(paymentId: string, userId: string): Promise<ReceiptResponseDto> {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        booking: {
+          include: {
+            business: true,
+            vehicle: {
+              include: {
+                client: { include: { user: true } },
+              },
+            },
+            items: {
+              include: {
+                businessService: {
+                  include: { service: true },
+                },
+              },
+            },
+          },
+        },
+        paymentMethod: true,
+        status: true,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    const isClient = payment.booking.vehicle.client.userId === userId;
+    if (!isClient) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const items = payment.booking.items.map(item => ({
+      description: item.businessService?.service?.title || 'Service',
+      quantity: 1,
+      unit_price: Number(item.price) / 100,
+      total: Number(item.price) / 100,
+    }));
+
+    return {
+      receipt_number: `RCP-${payment.id.slice(0, 8).toUpperCase()}`,
+      booking_code: `BK-${payment.bookingId.slice(0, 8).toUpperCase()}`,
+      date: payment.paidAt || payment.createdAt,
+      from: {
+        name: payment.booking.business.businessName,
+        address: payment.booking.business.address,
+        phone: payment.booking.business.contactPhone || undefined,
+        email: payment.booking.business.contactEmail || undefined,
+      },
+      billed_to: {
+        name: payment.booking.vehicle.client.user.fullName,
+        email: payment.booking.vehicle.client.user.email,
+        phone: payment.booking.vehicle.client.user.phone || undefined,
+      },
+      subtotal: Number(payment.booking.subTotal) / 100,
+      discount: Number(payment.booking.discount) / 100,
+      total: Number(payment.amount) / 100,
+      payment_method: payment.paymentMethod.name,
+      provider_ref: payment.providerRef || undefined,
+      status: payment.status.context,
     };
   }
 

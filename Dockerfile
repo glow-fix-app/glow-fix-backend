@@ -2,14 +2,23 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+# Install OpenSSL which is required by Prisma on Alpine
+RUN apk add --no-cache openssl
 
+# Copy the entire monorepo
 COPY . .
 
-RUN npx prisma generate
+# Install all dependencies (including devDependencies required for turbo build)
+RUN npm ci
+
+# Build the project (Turbo will build server and all packages. This includes prisma generate via prebuild)
 RUN npm run build
 
-EXPOSE 3000
+# Set production environment
+ENV NODE_ENV=production
 
-CMD ["node", "dist/main.js"]
+# Clean up dev dependencies to reduce image size
+RUN npm prune --omit=dev
+
+# Start the server (run from the server workspace)
+CMD ["npm", "run", "start:prod", "-w", "@glow-fix/api"]

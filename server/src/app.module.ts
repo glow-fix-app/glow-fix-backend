@@ -36,6 +36,7 @@ import { BusinessesModule } from './modules/businesses/businesses.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { RolesGuard } from './common/guards/roles.guard';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -78,7 +79,8 @@ import { RolesGuard } from './common/guards/roles.guard';
     DiagnosticReportsModule,
     ChatModule,
     PaymentsModule,
-    BookingsModule
+    BookingsModule,
+    AnalyticsModule,
   ],
   providers: [
     JwtAuthGuard,
