@@ -114,57 +114,56 @@ async function bootstrap() {
     new TransformInterceptor(),
   );
 
-  // ─── Swagger (non-production only) ───
-  if (!isProduction) {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle('Glow Fix API')
-      .setDescription(
-        `
-        ## Car Wash Management System — REST API
-        
-        ### Authentication
-        Use Bearer token in Authorization header:
-        \`Authorization: Bearer <access_token>\`
-        
-        ### Versioning
-        All endpoints are prefixed with \`/api/v1/\`
-        `,
-      )
-      .setVersion('1.0.0')
-      .addBearerAuth(
-        {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: 'Enter your JWT access token',
-        },
-        'access-token',
-      )
-      .addTag('Auth', 'Authentication & authorization')
-      .addTag('Customers', 'Customer profile management')
-      .addTag('Vehicles', 'Customer vehicle management')
-      .addTag('Bookings', 'Service booking management')
-      .addTag('Staff', 'Staff operations')
-      .addTag('Admin', 'Admin management')
-      .addTag('Health', 'Health checks')
-      .addServer(`http://localhost:${port}`, 'Local Development')
-      .build();
-
-    const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup('api/docs', app, document, {
-      swaggerOptions: {
-        persistAuthorization: true, // remember token on page refresh
-        tagsSorter: 'alpha',
-        operationsSorter: 'alpha',
-        docExpansion: 'none', // collapse all by default
+  // ─── Swagger API Documentation ───
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Glow Fix API')
+    .setDescription(
+      `
+      ## Car Wash Management System — REST API
+      
+      ### Authentication
+      Use Bearer token in Authorization header:
+      \`Authorization: Bearer <access_token>\`
+      
+      ### Versioning
+      All endpoints are prefixed with \`/api/v1/\`
+      `,
+    )
+    .setVersion('1.0.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Enter your JWT access token',
       },
-      customSiteTitle: 'Glow Fix API Docs',
-    });
+      'access-token',
+    )
+    .addTag('Auth', 'Authentication & authorization')
+    .addTag('Customers', 'Customer profile management')
+    .addTag('Vehicles', 'Customer vehicle management')
+    .addTag('Bookings', 'Service booking management')
+    .addTag('Staff', 'Staff operations')
+    .addTag('Admin', 'Admin management')
+    .addTag('Health', 'Health checks')
+    .addServer(`http://localhost:${port}`, 'Local Development')
+    .addServer('https://glow-fixapi-production.up.railway.app', 'Production')
+    .build();
 
-    logger.log(
-      `📚 Swagger docs available at http://localhost:${port}/api/docs`,
-    );
-  }
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true, // remember token on page refresh
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
+      docExpansion: 'none', // collapse all by default
+    },
+    customSiteTitle: 'Glow Fix API Docs',
+  });
+
+  logger.log(
+    `📚 Swagger docs available at http://localhost:${port}/api/docs`,
+  );
 
   // ─── Graceful Shutdown ───
   app.enableShutdownHooks();
