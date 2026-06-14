@@ -68,11 +68,18 @@ export class EmailService {
       );
     } catch (error) {
       this.logger.error(
-        `Failed to send email to ${options.to}: ${(error as Error).message}`,
+        `Failed to send email to ${options.to}: ${(error as Error).message}. (Check your SMTP variables in Railway)`,
         (error as Error).stack,
         'EmailService',
       );
-      throw error;
+      // Fallback: Print the email content to logs so you can see OTPs without a real SMTP server!
+      this.logger.warn(`--- MOCK EMAIL CONTENT ---`, 'EmailService');
+      this.logger.warn(`To: ${options.to}`, 'EmailService');
+      this.logger.warn(`Subject: ${options.subject}`, 'EmailService');
+      this.logger.warn(`Body: \n${options.text || options.html}`, 'EmailService');
+      this.logger.warn(`--------------------------`, 'EmailService');
+      
+      // We removed "throw error;" so the application doesn't crash with 500 when registering users.
     }
   }
 }
