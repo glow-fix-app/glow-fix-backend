@@ -6,7 +6,8 @@ import { AuthService } from '../auth.service';
 import { MfaService } from '../mfa.service';
 import { SessionService } from '../session.service';
 import { OtpPurpose } from '../dto/verify-otp.dto';
-import { UserRole, JwtPayload } from '@glow-fix/types';
+import { UserRole } from '@glow-fix/types';
+import { AuthUser } from '../types/auth.types';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -15,7 +16,9 @@ describe('AuthController', () => {
   let sessionService: jest.Mocked<SessionService>;
 
   const mockAuthService = {
-    register: jest.fn(),
+    registerClient: jest.fn(),
+    registerManager: jest.fn(),
+    registerAdmin: jest.fn(),
     verifyOtp: jest.fn(),
     resendOtp: jest.fn(),
     login: jest.fn(),
@@ -64,14 +67,12 @@ describe('AuthController', () => {
     return res as Response;
   }
 
-  const mockUser: JwtPayload = {
-    sub: 'user-id',
+  const mockUser: AuthUser = {
+    id: 'user-id',
+    email: 'john@example.com',
+    fullName: 'John Doe',
+    role: 'CLIENT',
     sessionId: 'session-id',
-    role: UserRole.CUSTOMER,
-    permissions: [],
-    deviceFingerprint: 'fp123',
-    iat: 0,
-    exp: 0,
   };
 
   beforeEach(async () => {
@@ -92,7 +93,7 @@ describe('AuthController', () => {
     jest.clearAllMocks();
   });
 
-  describe('POST /auth/register', () => {
+  describe('POST /auth/register/client', () => {
     const validDto = {
       fullName: 'John Doe',
       email: 'john@example.com',
@@ -102,23 +103,23 @@ describe('AuthController', () => {
     };
 
     it('should register successfully', async () => {
-      mockAuthService.register.mockResolvedValue({
+      mockAuthService.registerClient.mockResolvedValue({
         message: 'Registration successful',
         requiresOtp: true,
       });
 
-      const result = await controller.register(validDto, mockReq());
+      const result = await controller.registerClient(validDto, mockReq());
 
       expect(result.requiresOtp).toBe(true);
-      expect(mockAuthService.register).toHaveBeenCalledWith(validDto, '127.0.0.1', 'test-agent');
+      expect(mockAuthService.registerClient).toHaveBeenCalledWith(validDto, '127.0.0.1', 'test-agent');
     });
 
     it('should throw BadRequestException if passwords do not match', async () => {
       await expect(
-        controller.register({ ...validDto, confirmPassword: 'DifferentPass1!' }, mockReq()),
+        controller.registerClient({ ...validDto, confirmPassword: 'DifferentPass1!' }, mockReq()),
       ).rejects.toThrow(BadRequestException);
 
-      expect(mockAuthService.register).not.toHaveBeenCalled();
+      expect(mockAuthService.registerClient).not.toHaveBeenCalled();
     });
   });
 
@@ -248,8 +249,7 @@ describe('AuthController', () => {
       mockAuthService.resetPassword.mockResolvedValue({ message: 'Password reset successfully. Please log in again.' });
 
       const result = await controller.resetPassword({
-        identifier: 'john@example.com',
-        otp: '123456',
+        resetToken: 'valid-reset-token',
         newPassword: 'NewStr0ng!Pass',
         confirmPassword: 'NewStr0ng!Pass',
       });
@@ -260,8 +260,7 @@ describe('AuthController', () => {
     it('should throw BadRequestException if passwords do not match', async () => {
       await expect(
         controller.resetPassword({
-          identifier: 'john@example.com',
-          otp: '123456',
+          resetToken: 'valid-reset-token',
           newPassword: 'NewStr0ng!Pass',
           confirmPassword: 'DifferentPass1!',
         }),

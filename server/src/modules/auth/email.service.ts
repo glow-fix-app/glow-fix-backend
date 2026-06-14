@@ -20,21 +20,31 @@ export class EmailService {
     private readonly configService: ConfigService,
     private readonly logger: WinstonLoggerService,
   ) {
+    const service = this.configService.get<string>('mail.service');
     const host = this.configService.get<string>('mail.host');
     const port = this.configService.get<number>('mail.port');
     const secure = this.configService.get<boolean>('mail.secure');
     const user = this.configService.get<string>('mail.user');
     const pass = this.configService.get<string>('mail.pass');
 
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: user && pass ? { user, pass } : undefined,
-    });
+    const transportOptions: any = service
+      ? {
+          service,
+          auth: user && pass ? { user, pass } : undefined,
+        }
+      : {
+          host,
+          port,
+          secure,
+          auth: user && pass ? { user, pass } : undefined,
+        };
+
+    this.transporter = nodemailer.createTransport(transportOptions);
 
     this.logger.log(
-      `EmailService → SMTP ${host}:${port} (${user ? 'authenticated' : 'no auth'})`,
+      service
+        ? `EmailService → Service ${service} (${user ? 'authenticated' : 'no auth'})`
+        : `EmailService → SMTP ${host}:${port} (${user ? 'authenticated' : 'no auth'})`,
       'EmailService',
     );
   }

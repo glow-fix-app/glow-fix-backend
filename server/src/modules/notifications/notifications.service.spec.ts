@@ -23,6 +23,7 @@ describe('NotificationsService', () => {
     emitNotificationCreated: jest.Mock;
     emitNotificationRead: jest.Mock;
     emitNotificationReadAll: jest.Mock;
+    emitNotificationDeleted: jest.Mock;
   };
 
   const sanitizedActor = {
@@ -94,6 +95,7 @@ describe('NotificationsService', () => {
       emitNotificationCreated: jest.fn(),
       emitNotificationRead: jest.fn(),
       emitNotificationReadAll: jest.fn(),
+      emitNotificationDeleted: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -205,6 +207,10 @@ describe('NotificationsService', () => {
     expect(prisma.notification.delete).toHaveBeenCalledWith({
       where: { id: 'notification-1' },
     });
+    expect(gateway.emitNotificationDeleted).toHaveBeenCalledWith(
+      'recipient-1',
+      { id: 'notification-1' },
+    );
   });
 
   it('createNotification returns sanitized payload', async () => {

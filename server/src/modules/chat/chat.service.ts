@@ -54,20 +54,26 @@ export class ChatService {
 
   // ── Status lookup (cached per process lifetime) ──
 
-  private readonly statusCache = new Map<string, string>();
+  private readonly statusCache = new Map<string, Promise<string>>();
 
   async getStatusId(context: string, name: string): Promise<string> {
     const cacheKey = `${context}:${name}`;
-    const cached = this.statusCache.get(cacheKey);
-    if (cached) return cached;
-
-    let status = await this.prisma.status.findFirst({ where: { context: name } });
-    if (!status) {
-      status = await this.prisma.status.create({ data: { context: name } });
+    let cachedPromise = this.statusCache.get(cacheKey);
+    
+    if (cachedPromise) {
+      return cachedPromise;
     }
 
-    this.statusCache.set(cacheKey, status.id);
-    return status.id;
+    cachedPromise = (async () => {
+      let status = await this.prisma.status.findFirst({ where: { context: name } });
+      if (!status) {
+        status = await this.prisma.status.create({ data: { context: name } });
+      }
+      return status.id;
+    })();
+
+    this.statusCache.set(cacheKey, cachedPromise);
+    return cachedPromise;
   }
 
   // ── Conversations ────────────────────────────────
@@ -113,24 +119,29 @@ export class ChatService {
     await this.assertParticipant(conversationId, userId);
 
     const where = { conversationId };
+
     const [records, total] = await this.prisma.$transaction([
       this.prisma.message.findMany({
         where,
         select: chatMessageSelect,
         orderBy: { createdAt: 'desc' },
-        skip: (query.page - 1) * query.limit,
         take: query.limit,
+        ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : query.page > 1 ? { skip: (query.page - 1) * query.limit } : {}),
       }),
       this.prisma.message.count({ where }),
     ]);
 
+    const data = records.reverse().map(presentMessage);
+    const nextCursor = records.length > 0 ? records[0].id : null; // First element in the fetched batch (which is oldest because we reversed it, wait... findMany returns DESC, so first element is newest in the batch, last is oldest. We reverse it, so first is oldest, last is newest. So the oldest in the batch is records[records.length - 1] BEFORE reverse. AFTER reverse it is data[0]. The next cursor to fetch older messages should be data[0].id)
+
     return {
-      data: records.reverse().map(presentMessage),
+      data,
       meta: {
         page: query.page,
         limit: query.limit,
         total,
         totalPages: Math.max(1, Math.ceil(total / query.limit)),
+        cursor: data.length > 0 ? data[0].id : null,
       },
     };
   }

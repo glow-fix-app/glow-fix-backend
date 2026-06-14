@@ -52,11 +52,12 @@ export default () => ({
     whatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER,
   },
   mail: {
+    service: process.env.EMAIL_SERVICE || '',
     host: process.env.SMTP_HOST || 'localhost',
     port: parseInt(process.env.SMTP_PORT || '587', 10),
     secure: process.env.SMTP_SECURE === 'true',
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.EMAIL_USER || process.env.SMTP_USER,
+    pass: process.env.EMAIL_PASS || process.env.SMTP_PASS,
     from: process.env.MAIL_FROM || 'noreply@glowfix.com',
   },
   google: {

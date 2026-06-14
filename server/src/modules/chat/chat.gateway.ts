@@ -217,13 +217,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       throw new Error('Unauthorized');
     }
 
-    const session = await this.prisma.userSession.findUnique({
-      where: { id: payload.sessionId },
-      select: { id: true, expiresAt: true },
-    });
+    const sessionKey = `ws:session:${payload.sessionId}`;
+    const cachedSession = await this.redis.get(sessionKey);
 
-    if (!session || session.expiresAt <= new Date()) {
-      throw new Error('Session expired');
+    if (!cachedSession) {
+      const session = await this.prisma.userSession.findUnique({
+        where: { id: payload.sessionId },
+        select: { id: true, expiresAt: true },
+      });
+
+      if (!session || session.expiresAt <= new Date()) {
+        throw new Error('Session expired');
+      }
+
+      await this.redis.set(sessionKey, '1', 300); // Cache for 5 minutes
     }
 
     return { id: user.id, role: payload.role };

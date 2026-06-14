@@ -12,10 +12,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     private readonly logger: WinstonLoggerService,
   ) {
      // Initialize with default config (will be overridden in onModuleInit if needed)
+    const tlsConfig = this.configService.get<string | boolean>('redis.tls');
+    const tlsEnabled = tlsConfig === true || tlsConfig === 'true';
+
     this.client = new Redis({
       host: this.configService.get<string>('redis.host'),
       port: this.configService.get<number>('redis.port'),
       password: this.configService.get<string>('redis.password'),
+      tls: tlsEnabled ? {} : undefined,
       maxRetriesPerRequest: 3,
       retryStrategy: (times: number) => {
         if (times > 3) {
@@ -39,10 +43,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit(): Promise<void> {
+    const tlsConfig = this.configService.get<string | boolean>('redis.tls');
+    const tlsEnabled = tlsConfig === true || tlsConfig === 'true';
+
     this.client = new Redis({
       host: this.configService.get<string>('redis.host'),
       port: this.configService.get<number>('redis.port'),
       password: this.configService.get<string>('redis.password'),
+      tls: tlsEnabled ? {} : undefined,
       maxRetriesPerRequest: 3,
       retryStrategy: (times: number) => {
         if (times > 3) {

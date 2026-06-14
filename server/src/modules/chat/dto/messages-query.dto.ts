@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsInt, IsOptional, Min, IsString } from 'class-validator';
 
 export class MessagesQueryDto {
   @IsOptional()
@@ -13,4 +13,8 @@ export class MessagesQueryDto {
   @IsInt()
   @Min(1)
   limit = 30;
+
+  @IsOptional()
+  @IsString()
+  cursor?: string;
 }
