@@ -101,7 +101,8 @@ export class BookingsService {
     const setting = await this.prisma.setting.findFirst();
     const feePct = setting?.businessFeePct ? Number(setting.businessFeePct) : 10.0;
     const commission = (subTotal * feePct) / 100;
-    const totalPrice = subTotal; // subtotal minus discounts (initially 0)
+    const platformFee = setting?.clientPlatformFee ? Number(setting.clientPlatformFee) : 0;
+    const totalPrice = subTotal + platformFee; // subtotal + platform fee minus discounts (initially 0)
 
     // 6. DB transaction to create booking, booking items, status history
     const booking = await this.prisma.$transaction(async (tx) => {
@@ -122,6 +123,7 @@ export class BookingsService {
           expectedDeliveryAt: dto.expectedDeliveryAt ? new Date(dto.expectedDeliveryAt) : null,
           subTotal: new Prisma.Decimal(subTotal.toString()),
           discount: new Prisma.Decimal('0.00'),
+          platformFee: new Prisma.Decimal(platformFee.toString()),
           commission: new Prisma.Decimal(commission.toString()),
           totalPrice: new Prisma.Decimal(totalPrice.toString()),
           notes: dto.note ? { create: { body: dto.note } } : undefined,
@@ -818,7 +820,8 @@ export class BookingsService {
         const setting = await tx.setting.findFirst();
         const feePct = setting?.businessFeePct ? Number(setting.businessFeePct) : 10.0;
         const commission = (subTotal * feePct) / 100;
-        const totalPrice = subTotal; // subtotal minus discount (initially 0)
+        const platformFee = Number((booking as any).platformFee || 0);
+        const totalPrice = subTotal + platformFee; // subtotal + platform fee minus discount (initially 0)
 
         // Update booking finances and expected delivery
         await tx.booking.update({
@@ -838,6 +841,29 @@ export class BookingsService {
             statusId: acceptedStatus.id
           }
         });
+
+        // Initialize pending payment
+        const pendingPaymentStatus = await tx.status.findFirst({ where: { context: 'PAYMENT_PENDING' } });
+        let defaultPaymentMethod = await tx.paymentMethod.findFirst({ where: { name: 'CASH' } });
+        if (!defaultPaymentMethod) {
+          defaultPaymentMethod = await tx.paymentMethod.create({ data: { name: 'CASH', isEnabled: true } });
+        }
+        if (pendingPaymentStatus && defaultPaymentMethod) {
+          await tx.payment.upsert({
+            where: { bookingId },
+            create: {
+              bookingId,
+              amount: new Prisma.Decimal(totalPrice.toString()),
+              currency: 'EGP',
+              statusId: pendingPaymentStatus.id,
+              paymentMethodId: defaultPaymentMethod.id,
+              provider: 'system'
+            },
+            update: {
+              amount: new Prisma.Decimal(totalPrice.toString()),
+            }
+          });
+        }
 
         return tx.booking.findUnique({
           where: { id: bookingId },
@@ -870,7 +896,7 @@ export class BookingsService {
           actorUserId: userId,
           typeCode: 'BOOKING_CONFIRMED',
           title: 'Booking Request Approved',
-          body: `Your booking request ${booking.id.slice(0,8)} has been accepted by the provider!`,
+          body: `Your booking request ${booking.id.slice(0,8)} has been accepted by the provider! Please proceed to payment.`,
           actionUrl: `/client/bookings/${booking.id}`
         });
       } catch (err) {
@@ -961,6 +987,33 @@ export class BookingsService {
           });
           break;
         case 'COMPLETED':
+          // Award Loyalty Points only when fully completed
+          const config = await this.prisma.loyaltyConfig.findFirst();
+          if (booking.payment && Number(booking.payment.amount) > 0 && config?.isActive) {
+            const amount = Number(booking.payment.amount);
+            const pointsEarned = Math.floor((amount / 100) * config.pointsPer100Egp);
+            
+            await this.prisma.loyaltyTransaction.create({
+              data: {
+                clientId: booking.vehicle.clientId,
+                bookingId: booking.id,
+                type: 'EARNED',
+                points: pointsEarned,
+                reason: `Earned ${pointsEarned} points from booking (${amount} EGP)`,
+              },
+            });
+
+            // Notify user of earned points
+            await this.notificationsService.createNotification({
+              recipientUserId: clientUserId,
+              actorUserId: userId,
+              typeCode: 'POINTS_EARNED',
+              title: 'Loyalty Points Earned!',
+              body: `You just earned ${pointsEarned} points for completing Booking ${ref}!`,
+              actionUrl: `/client/loyalty`
+            });
+          }
+
           await this.notificationsService.createNotification({
             recipientUserId: clientUserId,
             actorUserId: userId,
@@ -1442,6 +1495,43 @@ export class BookingsService {
         }
       });
 
+      // Automatically handle payment cancellations and refunds
+      if (targetContext === 'CANCELLED') {
+        const payment = await tx.payment.findUnique({
+          where: { bookingId },
+          include: { status: true }
+        });
+        
+        if (payment && !['REFUNDED', 'CANCELLED'].includes(payment.status.context)) {
+          const newStatusContext = payment.status.context === 'PAID' ? 'REFUNDED' : 'CANCELLED';
+          const newPaymentStatus = await tx.status.findFirst({ where: { context: newStatusContext } });
+          
+          if (newPaymentStatus) {
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: { statusId: newPaymentStatus.id }
+            });
+            
+            // Refund loyalty points if they redeemed points
+            const pointsRedemption = await tx.loyaltyTransaction.findFirst({
+              where: { bookingId, type: 'REDEEMED' }
+            });
+            
+            if (pointsRedemption) {
+               await tx.loyaltyTransaction.create({
+                 data: {
+                   clientId: pointsRedemption.clientId,
+                   bookingId: bookingId,
+                   type: 'EARNED',
+                   points: Math.abs(Number(pointsRedemption.points)),
+                   reason: `Refunded points for cancelled booking ${bookingId.substring(0, 8)}`
+                 }
+               });
+            }
+          }
+        }
+      }
+
       // Execute callbacks/side effects
       if (additionalOperations) {
         await additionalOperations(tx, targetStatus);
@@ -1544,6 +1634,7 @@ export class BookingsService {
       scheduled_at: booking.scheduledAt,
       expected_delivery_at: booking.expectedDeliveryAt ?? undefined,
       sub_total: Number(booking.subTotal),
+      platform_fee: Number(booking.platformFee) || 0,
       discount: Number(booking.discount),
       commission: Number(booking.commission),
       total_price: Number(booking.totalPrice),

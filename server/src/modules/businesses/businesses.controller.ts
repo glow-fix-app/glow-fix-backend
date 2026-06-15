@@ -500,7 +500,7 @@ export class BusinessesController {
     );
   }
 
-  @Get(':businessId')
+  @Get('details/:businessId')
   @Public()
   @ApiOperation({ summary: 'Get business by ID (public)' })
   @ApiParam({ name: 'businessId', description: 'Business UUID' })

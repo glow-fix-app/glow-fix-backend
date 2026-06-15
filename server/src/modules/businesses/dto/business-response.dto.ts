@@ -31,6 +31,18 @@ export class BusinessResponseDto {
   @ApiPropertyOptional()
   description?: string;
 
+  @ApiPropertyOptional()
+  bank_name?: string;
+
+  @ApiPropertyOptional()
+  bank_account_name?: string;
+
+  @ApiPropertyOptional()
+  bank_account_number?: string;
+
+  @ApiPropertyOptional()
+  swift_iban?: string;
+
   @ApiProperty()
   current_status: string;
 

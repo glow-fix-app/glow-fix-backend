@@ -141,9 +141,10 @@ export class PaymentsService {
       where: { context: 'PAYMENT_PENDING' },
     });
 
-    // Create payment record
-    const payment = await this.prisma.payment.create({
-      data: {
+    // Create or update payment record
+    const payment = await this.prisma.payment.upsert({
+      where: { bookingId: dto.booking_id },
+      create: {
         bookingId: dto.booking_id,
         paymentMethodId: paymentMethod.id,
         provider: 'stripe',
@@ -152,6 +153,14 @@ export class PaymentsService {
         statusId: pendingStatus?.id || '',
         idempotencyKey: randomUUID(),
       },
+      update: {
+        paymentMethodId: paymentMethod.id,
+        provider: 'stripe',
+        amount: totalAmount,
+        currency: 'EGP',
+        statusId: pendingStatus?.id || '',
+        idempotencyKey: randomUUID(),
+      }
     });
 
     const customerName = booking.vehicle.client.user.fullName;
@@ -417,20 +426,6 @@ export class PaymentsService {
       const clientUser = payment.booking.vehicle.client.user;
       const bookingCode = this.generateBookingCode(bookingId);
 
-      // Award loyalty points
-      if (amount > 0 && config?.isActive) {
-        pointsEarned = Math.floor((amount / 100) * config.pointsPer100Egp);
-        await tx.loyaltyTransaction.create({
-          data: {
-            clientId,
-            bookingId,
-            type: 'EARNED',
-            points: pointsEarned,
-            reason: `Earned ${pointsEarned} points from booking (${amount} EGP)`,
-          },
-        });
-      }
-
       // Record points redemption
       if (pointsUsed > 0) {
         await tx.loyaltyTransaction.create({
@@ -451,6 +446,24 @@ export class PaymentsService {
             bookingId,
             statusId: confirmedStatus.id,
           },
+        });
+
+        // Send booking confirmed notification to client
+        let confNotifType = await tx.notificationType.findFirst({ where: { code: 'BOOKING_CONFIRMED' } });
+        if (!confNotifType) {
+          confNotifType = await tx.notificationType.create({
+            data: { code: 'BOOKING_CONFIRMED', label: 'Booking Confirmed' }
+          });
+        }
+        await tx.notification.create({
+          data: {
+            recipientUserId: clientUser.id,
+            typeId: confNotifType.id,
+            title: 'Booking Confirmed!',
+            body: `Your payment was successful and your booking ${bookingCode} has been officially confirmed!`,
+            actionUrl: `/client/bookings/${bookingId}`,
+            sentAt: new Date(),
+          }
         });
       }
 
@@ -1088,6 +1101,11 @@ export class PaymentsService {
           booking: {
             include: {
               business: true,
+              statusHistory: {
+                include: { status: true },
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
             },
           },
         },
@@ -1108,12 +1126,21 @@ export class PaymentsService {
       data: payments.map(p => ({
         id: p.id,
         booking_id: p.bookingId,
+        booking_code: p.bookingId.substring(0, 8).toUpperCase(),
+        booking_status: p.booking?.statusHistory?.[0]?.status?.context || 'UNKNOWN',
         amount: Number(p.amount),
         currency: p.currency,
         status: p.status.context,
         provider_ref: p.providerRef || undefined,
         paid_at: p.paidAt || undefined,
         created_at: p.createdAt,
+        booking: {
+          id: p.bookingId,
+          business: p.booking?.business ? {
+            id: p.booking.business.id,
+            businessName: p.booking.business.businessName,
+          } : undefined,
+        }
       })),
       meta: {
         total,

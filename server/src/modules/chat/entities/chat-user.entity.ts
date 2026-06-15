@@ -12,4 +12,7 @@ export class ChatUserEntity {
 
   @ApiProperty({ description: 'Role of the user' })
   role!: string;
+
+  @ApiProperty({ description: 'User avatar URL', required: false })
+  avatar_url?: string;
 }

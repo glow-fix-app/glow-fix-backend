@@ -147,14 +147,17 @@ export class AnalyticsService {
     // Get paid payments
     const payments = await this.prisma.payment.findMany({
       where: {
-        paidAt: { gte: start, lte: end },
+        OR: [
+          { paidAt: { gte: start, lte: end } },
+          { paidAt: null, createdAt: { gte: start, lte: end } }
+        ],
         status: { context: 'PAID' },
         ...(businessFilter.businessId ? { booking: { businessId: businessFilter.businessId } } : {}),
       },
       select: { amount: true },
     });
 
-    const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0) / 100;
+    const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0);
     const platformFees = totalRevenue * 0.1;
     const netRevenue = totalRevenue - platformFees;
 
@@ -192,7 +195,13 @@ export class AnalyticsService {
     };
     if (businessFilter.businessId) {
       // For manager, count clients who booked with this business
-      userWhere.bookings = { some: { businessId: businessFilter.businessId } };
+      userWhere.client = {
+        vehicles: {
+          some: {
+            bookings: { some: { businessId: businessFilter.businessId } }
+          }
+        }
+      };
     }
 
     const newUsers = await this.prisma.user.count({
@@ -290,7 +299,10 @@ export class AnalyticsService {
 
     const payments = await this.prisma.payment.findMany({
       where: {
-        paidAt: { gte: start, lte: end },
+        OR: [
+          { paidAt: { gte: start, lte: end } },
+          { paidAt: null, createdAt: { gte: start, lte: end } }
+        ],
         statusId: paidStatus?.id,
         ...(businessFilter.businessId ? { booking: { businessId: businessFilter.businessId } } : {}),
       },
@@ -308,8 +320,8 @@ export class AnalyticsService {
 
     for (const payment of payments) {
       let key: string;
-      const date = payment.paidAt!;
-      const amount = Number(payment.amount) / 100;
+      const date = payment.paidAt || payment.createdAt;
+      const amount = Number(payment.amount);
       const fee = amount * 0.1;
 
       switch (groupBy) {
@@ -378,14 +390,17 @@ export class AnalyticsService {
 
     const payments = await this.prisma.payment.findMany({
       where: {
-        paidAt: { gte: start, lte: end },
+        OR: [
+          { paidAt: { gte: start, lte: end } },
+          { paidAt: null, createdAt: { gte: start, lte: end } }
+        ],
         statusId: paidStatus?.id,
         ...(businessFilter.businessId ? { booking: { businessId: businessFilter.businessId } } : {}),
       },
       select: { amount: true, paidAt: true },
     });
 
-    const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0) / 100;
+    const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount), 0);
     const platformFees = totalRevenue * 0.1;
     const netRevenue = totalRevenue - platformFees;
 
@@ -402,14 +417,17 @@ export class AnalyticsService {
 
     const previousPayments = await this.prisma.payment.findMany({
       where: {
-        paidAt: { gte: previousStart, lte: previousEnd },
+        OR: [
+          { paidAt: { gte: previousStart, lte: previousEnd } },
+          { paidAt: null, createdAt: { gte: previousStart, lte: previousEnd } }
+        ],
         statusId: paidStatus?.id,
         ...(businessFilter.businessId ? { booking: { businessId: businessFilter.businessId } } : {}),
       },
       select: { amount: true },
     });
 
-    const previousRevenue = previousPayments.reduce((sum, p) => sum + Number(p.amount), 0) / 100;
+    const previousRevenue = previousPayments.reduce((sum, p) => sum + Number(p.amount), 0);
     const revenueGrowthPercent = previousRevenue > 0
       ? ((totalRevenue - previousRevenue) / previousRevenue) * 100
       : totalRevenue > 0 ? 100 : 0;
@@ -447,7 +465,10 @@ export class AnalyticsService {
 
     const payments = await this.prisma.payment.findMany({
       where: {
-        paidAt: { gte: start, lte: end },
+        OR: [
+          { paidAt: { gte: start, lte: end } },
+          { paidAt: null, createdAt: { gte: start, lte: end } }
+        ],
         statusId: paidStatus?.id,
         ...(businessFilter.businessId ? { booking: { businessId: businessFilter.businessId } } : {}),
       },
@@ -460,7 +481,7 @@ export class AnalyticsService {
 
     for (const payment of payments) {
       const methodName = payment.paymentMethod.name;
-      const amount = Number(payment.amount) / 100;
+      const amount = Number(payment.amount);
 
       const existing = methodStats.get(methodName) || { total_amount: 0, count: 0 };
       existing.total_amount += amount;
@@ -618,7 +639,7 @@ export class AnalyticsService {
         service_name: r.service_name,
         category_name: r.category_name,
         booking_count: Number(r.booking_count),
-        total_revenue: Number(r.total_revenue) / 100,
+        total_revenue: Number(r.total_revenue),
       })),
     };
   }
@@ -679,7 +700,7 @@ export class AnalyticsService {
           totalRevenue += Number(booking.totalPrice);
         }
       }
-      totalRevenue = totalRevenue / 100;
+      totalRevenue = totalRevenue;
       const platformFees = totalRevenue * 0.1;
 
       // Get reviews
@@ -799,7 +820,7 @@ export class AnalyticsService {
         totalRevenue += Number(booking.totalPrice);
       }
     }
-    totalRevenue = totalRevenue / 100;
+    totalRevenue = totalRevenue;
     const platformFees = totalRevenue * 0.1;
 
     const reviews = await this.prisma.review.findMany({
@@ -876,7 +897,10 @@ export class AnalyticsService {
 
     const payments = await this.prisma.payment.findMany({
       where: {
-        paidAt: { gte: start, lte: end },
+        OR: [
+          { paidAt: { gte: start, lte: end } },
+          { paidAt: null, createdAt: { gte: start, lte: end } }
+        ],
         statusId: paidStatus?.id,
         ...(businessFilter.businessId ? { booking: { businessId: businessFilter.businessId } } : {}),
       },
@@ -902,9 +926,9 @@ export class AnalyticsService {
       booking_code: `BK-${p.bookingId.slice(0, 8).toUpperCase()}`,
       customer_name: p.booking.vehicle.client.user.fullName,
       business_name: p.booking.business.businessName,
-      amount: Number(p.amount) / 100,
-      fee: (Number(p.amount) / 100) * 0.1,
-      net: (Number(p.amount) / 100) * 0.9,
+      amount: Number(p.amount),
+      fee: Number(p.amount) * 0.1,
+      net: Number(p.amount) * 0.9,
       payment_method: p.paymentMethod.name,
       status: p.status.context,
     }));

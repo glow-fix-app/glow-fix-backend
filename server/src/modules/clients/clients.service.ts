@@ -158,19 +158,31 @@ export class ClientsService {
     let pendingBookings = 0;
     let inProgressBookings = 0;
     let totalSpent = 0;
+    let totalRefunded = 0;
+    let paidBookings = 0;
 
     for (const booking of bookings) {
+      const isPaid = booking.payment?.status?.context === 'PAID';
+      const isRefunded = booking.payment?.status?.context === 'REFUNDED';
+
+      if (isPaid || isRefunded) {
+        paidBookings++;
+      }
+
       const latestStatus = booking.statusHistory[0]?.status?.context || 'PENDING';
       
       switch (latestStatus) {
         case 'COMPLETED':
           completedBookings++;
-          if (booking.payment?.status?.context === 'PAID') {
+          if (isPaid) {
             totalSpent += Number(booking.totalPrice);
           }
           break;
         case 'CANCELLED':
           cancelledBookings++;
+          if (isPaid || isRefunded) {
+            totalRefunded += Number(booking.totalPrice);
+          }
           break;
         case 'PENDING':
         case 'CONFIRMED':
@@ -203,12 +215,13 @@ export class ClientsService {
     });
 
     return {
-      total_bookings: bookings.length,
+      total_bookings: paidBookings,
       completed_bookings: completedBookings,
       cancelled_bookings: cancelledBookings,
       pending_bookings: pendingBookings,
       in_progress_bookings: inProgressBookings,
       total_spent: totalSpent,
+      total_refunded: totalRefunded,
       loyalty_points: loyaltyPoints,
       vehicles_count: vehiclesCount,
       member_since: user?.createdAt || new Date(),

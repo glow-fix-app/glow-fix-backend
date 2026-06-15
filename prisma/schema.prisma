@@ -203,6 +203,8 @@ model Setting {
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Platform commission percentage charged per booking (e.g., 10.00 = 10%)
   businessFeePct   Decimal  @map("business_fee_pct")
+  /// Flat platform fee charged to the client per booking
+  clientPlatformFee Decimal  @default(0) @map("client_platform_fee")
   /// Maximum minutes before scheduled_at that a booking can be cancelled
   maxCancelMinutes Int      @map("max_cancel_minutes")
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -370,6 +372,10 @@ model Business {
   contactPhone String?                              @map("contact_phone")
   contactEmail String?                              @map("contact_email")
   description  String?
+  bankName          String?                         @map("bank_name")
+  bankAccountName   String?                         @map("bank_account_name")
+  bankAccountNumber String?                         @map("bank_account_number")
+  swiftIban         String?                         @map("swift_iban")
   createdAt    DateTime                             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime                             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -503,6 +509,7 @@ model Booking {
   expectedDeliveryAt DateTime? @map("expected_delivery_at") @db.Timestamptz
   subTotal           Decimal   @default(0) @map("sub_total")
   discount           Decimal   @default(0)
+  platformFee        Decimal   @default(0) @map("platform_fee")
   commission         Decimal   @default(0)
   totalPrice         Decimal   @default(0) @map("total_price")
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
@@ -679,7 +686,7 @@ model Payment {
 model Dispute {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   paymentId       String    @map("payment_id") @db.Uuid
-  bookingId       String    @map("booking_id") @db.Uuid
+  bookingId       String    @map("booking_id")
   reason          String
   description     String
   photoUrls       String[]  @map("photo_urls")

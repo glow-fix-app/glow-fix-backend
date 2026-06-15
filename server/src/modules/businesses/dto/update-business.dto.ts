@@ -43,6 +43,26 @@ export class UpdateBusinessDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({ example: 'National Bank of Egypt' })
+  @IsOptional()
+  @IsString()
+  bank_name?: string;
+
+  @ApiPropertyOptional({ example: 'John Doe' })
+  @IsOptional()
+  @IsString()
+  bank_account_name?: string;
+
+  @ApiPropertyOptional({ example: '1234567890' })
+  @IsOptional()
+  @IsString()
+  bank_account_number?: string;
+
+  @ApiPropertyOptional({ example: 'EG12000300040005000600070008' })
+  @IsOptional()
+  @IsString()
+  swift_iban?: string;
+
   @ApiPropertyOptional({ type: [OperatingHoursInputDto] })
   @IsOptional()
   @IsArray()

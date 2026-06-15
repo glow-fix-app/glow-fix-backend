@@ -135,6 +135,9 @@ export class BookingResponseDto {
   @ApiProperty()
   sub_total: number;
 
+  @ApiPropertyOptional()
+  platform_fee?: number;
+
   @ApiProperty()
   discount: number;
 
