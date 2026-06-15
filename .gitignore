@@ -56,3 +56,4 @@ infrastructure/terraform/*.tfvars
 .vercel
 server/.env
 server/.env.local
+.env
