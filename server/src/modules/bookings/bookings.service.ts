@@ -81,7 +81,23 @@ export class BookingsService {
     }
 
     if (business.operatingHours && business.operatingHours.length > 0) {
-      const dayOfWeek = scheduledAt.getDay();
+      // Get the local day and time in Egypt
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Africa/Cairo',
+        weekday: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(scheduledAt);
+
+      const dayName = parts.find(p => p.type === 'weekday')?.value;
+      const hour = parts.find(p => p.type === 'hour')?.value;
+      const minute = parts.find(p => p.type === 'minute')?.value;
+      
+      const dayMap: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+      const dayOfWeek = dayName ? dayMap[dayName] : scheduledAt.getDay();
+      const timeString = hour && minute ? `${hour}:${minute}` : `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`;
+
       const hoursForDay = business.operatingHours.find(h => h.dayOfWeek === dayOfWeek);
       
       if (!hoursForDay || (!hoursForDay.openTime && !hoursForDay.closeTime)) {
@@ -89,7 +105,6 @@ export class BookingsService {
       }
 
       if (hoursForDay.openTime && hoursForDay.closeTime) {
-        const timeString = `${String(scheduledAt.getHours()).padStart(2, '0')}:${String(scheduledAt.getMinutes()).padStart(2, '0')}`;
         if (timeString < hoursForDay.openTime || timeString > hoursForDay.closeTime) {
           throw new BadRequestException(`The selected time is outside the provider's operating hours (${hoursForDay.openTime} - ${hoursForDay.closeTime})`);
         }
