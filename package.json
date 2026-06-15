@@ -49,5 +49,8 @@
     "express": "^5.2.1",
     "nodemailer": "^8.0.7",
     "serverless-http": "^4.0.0"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }
