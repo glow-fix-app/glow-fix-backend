@@ -449,10 +449,24 @@ export class ChatService {
   }
 
   private async createDirectConversation(input: CreateConversationInput): Promise<ConversationResponseDto> {
-    const explicitParticipantIds = [
+    require('fs').appendFileSync('chat_debug.log', JSON.stringify(input) + '\\n');
+    let explicitParticipantIds = [
       ...(input.targetUserId ? [input.targetUserId] : []),
       ...(input.participantUserIds ?? []),
     ];
+
+    if (input.type === ConversationCreateType.SUPPORT && explicitParticipantIds.length === 0) {
+      const admin = await this.prisma.user.findFirst({
+        where: { role: 'ADMIN', isActive: true, deletedAt: null },
+        select: { id: true },
+      });
+      require('fs').appendFileSync('chat_debug.log', 'Found admin: ' + (admin?.id || 'null') + '\\n');
+      if (admin) {
+        explicitParticipantIds = [admin.id];
+      }
+    }
+
+    require('fs').appendFileSync('chat_debug.log', 'explicitParticipantIds: ' + JSON.stringify(explicitParticipantIds) + '\\n');
 
     if (explicitParticipantIds.length === 0) {
       const msg =

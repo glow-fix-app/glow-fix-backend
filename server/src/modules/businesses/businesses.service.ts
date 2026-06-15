@@ -15,6 +15,7 @@ import { UpdateBusinessStatusDto, BusinessStatus } from './dto/business-status.d
 import { UploadBusinessDocumentDto, UpdateDocumentStatusDto, DocumentStatus } from './dto/business-document.dto';
 import { BusinessResponseDto, BusinessStatsDto, NearbyBusinessDto } from './dto/business-response.dto';
 import { reverseGeocodeCity } from '../../utils/geocode';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class BusinessesService {
@@ -24,6 +25,7 @@ export class BusinessesService {
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
     private readonly storage: StorageService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ==================== BUSINESS CRUD ====================
@@ -155,6 +157,10 @@ export class BusinessesService {
       contact_phone: business.contactPhone || undefined,
       contact_email: business.contactEmail || undefined,
       description: business.description || undefined,
+      bank_name: business.bankName || undefined,
+      bank_account_name: business.bankAccountName || undefined,
+      bank_account_number: business.bankAccountNumber || undefined,
+      swift_iban: business.swiftIban || undefined,
       current_status: currentStatus,
       operating_hours: business.operatingHours,
       documents: business.documents.map(doc => ({
@@ -214,6 +220,22 @@ export class BusinessesService {
     if (dto.description !== undefined) {
       sets.push(`description = $${paramIndex++}`);
       params.push(dto.description);
+    }
+    if (dto.bank_name !== undefined) {
+      sets.push(`bank_name = $${paramIndex++}`);
+      params.push(dto.bank_name);
+    }
+    if (dto.bank_account_name !== undefined) {
+      sets.push(`bank_account_name = $${paramIndex++}`);
+      params.push(dto.bank_account_name);
+    }
+    if (dto.bank_account_number !== undefined) {
+      sets.push(`bank_account_number = $${paramIndex++}`);
+      params.push(dto.bank_account_number);
+    }
+    if (dto.swift_iban !== undefined) {
+      sets.push(`swift_iban = $${paramIndex++}`);
+      params.push(dto.swift_iban);
     }
     if (dto.location) {
       sets.push(`location = ST_SetSRID(ST_MakePoint($${paramIndex++}, $${paramIndex++}), 4326)::geography`);
@@ -424,16 +446,18 @@ export class BusinessesService {
     });
 
     if (existingDoc) {
-      throw new ConflictException(`Document of type ${dto.type} already exists. Delete it first to upload a new one.`);
+      await this.prisma.businessDocument.delete({
+        where: { id: existingDoc.id },
+      });
     }
 
     let pendingStatus = await this.prisma.status.findFirst({
-      where: { context: 'PENDING' },
+      where: { context: 'PENDING_REVIEW' },
     });
 
     if (!pendingStatus) {
       pendingStatus = await this.prisma.status.create({
-        data: { context: 'PENDING' },
+        data: { context: 'PENDING_REVIEW' },
       });
     }
 
@@ -462,6 +486,27 @@ export class BusinessesService {
       managerId,
       documentType: dto.type,
     });
+
+    // Notify admins about the new document upload
+    const admins = await this.prisma.user.findMany({ where: { role: 'ADMIN', isActive: true, deletedAt: null } });
+    const business = await this.prisma.business.findUnique({ where: { id: businessId } });
+    
+    if (business) {
+      for (const admin of admins) {
+        try {
+          await this.notificationsService.createNotification({
+            recipientUserId: admin.id,
+            actorUserId: managerId,
+            typeCode: 'SYSTEM_ALERT',
+            title: 'Document Uploaded',
+            body: `Business "${business.businessName}" has uploaded a ${dto.type} document for review.`,
+            actionUrl: `/admin/businesses/${businessId}`,
+          });
+        } catch (err) {
+          this.logger.error(`Failed to send notification to admin ${admin.id}: ${(err as any).message || String(err)}`);
+        }
+      }
+    }
 
     return {
       id: document.id,
@@ -512,6 +557,78 @@ export class BusinessesService {
           reasonText: dto.rejection_reason,
         },
       });
+      
+      // Notify manager of rejection
+      await this.notificationsService.createNotification({
+        recipientUserId: document.business.managerId,
+        actorUserId: document.business.managerId, // System/Admin action
+        typeCode: 'SYSTEM_ALERT',
+        title: 'Document Rejected',
+        body: `Your document (${document.type}) was rejected. Reason: ${dto.rejection_reason}. Please re-upload it in the Settings.`,
+        actionUrl: `/provider/settings`,
+      });
+    } else if (dto.status === DocumentStatus.ACCEPTED) {
+      // Notify manager of approval
+      await this.notificationsService.createNotification({
+        recipientUserId: document.business.managerId,
+        actorUserId: document.business.managerId,
+        typeCode: 'SYSTEM_ALERT',
+        title: 'Document Approved',
+        body: `Your document (${document.type}) has been approved.`,
+        actionUrl: `/provider/settings`,
+      });
+
+      // Check if all 4 required documents are now approved
+      const allBusinessDocs = await this.prisma.businessDocument.findMany({
+        where: { businessId: document.businessId },
+        include: { status: true },
+      });
+
+      const requiredTypes = [
+        'BUSINESS_REGISTRATION',
+        'OWNER_ID',
+        'INSURANCE_CERTIFICATE',
+        'SERVICE_LICENSE',
+      ];
+
+      const approvedDocTypes = allBusinessDocs
+        .filter((d) => d.status.context === DocumentStatus.ACCEPTED)
+        .map((d) => d.type);
+
+      const allRequiredApproved = requiredTypes.every((type) =>
+        approvedDocTypes.includes(type),
+      );
+
+      if (allRequiredApproved) {
+        // Auto-approve the business
+        let approvedBusinessStatus = await this.prisma.status.findFirst({
+          where: { context: 'APPROVED' },
+        });
+
+        if (!approvedBusinessStatus) {
+          approvedBusinessStatus = await this.prisma.status.create({
+            data: { context: 'APPROVED' },
+          });
+        }
+
+        await this.prisma.businessStatus.create({
+          data: {
+            businessId: document.businessId,
+            statusId: approvedBusinessStatus.id,
+          },
+        });
+
+        await this.notificationsService.createNotification({
+          recipientUserId: document.business.managerId,
+          actorUserId: document.business.managerId,
+          typeCode: 'SYSTEM_ALERT',
+          title: 'Business Account Approved',
+          body: `Congratulations! All your verification documents have been approved. Your business account is now fully active.`,
+          actionUrl: `/provider/dashboard`,
+        });
+
+        this.logger.log(`Business ${document.businessId} auto-approved after all documents were approved.`);
+      }
     }
 
     this.logger.log(`Document status updated: ${documentId} -> ${dto.status}`);
