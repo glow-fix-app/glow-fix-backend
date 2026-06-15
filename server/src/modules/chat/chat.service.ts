@@ -78,14 +78,54 @@ export class ChatService {
 
   // ── Conversations ────────────────────────────────
 
+  private async attachAvatars(conversations: ConversationResponseDto[]): Promise<ConversationResponseDto[]> {
+    const userIds = new Set<string>();
+    for (const conv of conversations) {
+      for (const p of conv.participants) {
+        if (p.user) userIds.add(p.user.id);
+      }
+      if (conv.lastMessage?.sender) {
+        userIds.add(conv.lastMessage.sender.id);
+      }
+    }
+
+    if (userIds.size === 0) return conversations;
+
+    const avatars = await this.prisma.image.findMany({
+      where: {
+        entityType: 'USER_AVATAR',
+        entityId: { in: Array.from(userIds) },
+      },
+    });
+
+    const avatarMap = new Map<string, string>();
+    for (const img of avatars) {
+      avatarMap.set(img.entityId, img.url);
+    }
+
+    for (const conv of conversations) {
+      for (const p of conv.participants) {
+        if (p.user && avatarMap.has(p.user.id)) {
+          (p.user as any).avatar_url = avatarMap.get(p.user.id);
+        }
+      }
+      if (conv.lastMessage?.sender && avatarMap.has(conv.lastMessage.sender.id)) {
+        (conv.lastMessage.sender as any).avatar_url = avatarMap.get(conv.lastMessage.sender.id);
+      }
+    }
+
+    return conversations;
+  }
+
   async listConversations(userId: string): Promise<ConversationResponseDto[]> {
     const records = await this.prisma.conversation.findMany({
       where: { participants: { some: { userId, leftAt: null } } },
       select: chatConversationSelect,
       orderBy: { updatedAt: 'desc' },
     });
-
-    return records.map(presentConversation);
+    
+    const dtos = records.map(presentConversation);
+    return this.attachAvatars(dtos);
   }
 
   async getConversation(id: string, userId: string): Promise<ConversationResponseDto> {
@@ -98,7 +138,9 @@ export class ChatService {
       throw new ForbiddenException('Conversation not found or access denied');
     }
 
-    return presentConversation(record);
+    const dto = presentConversation(record);
+    const [attachedDto] = await this.attachAvatars([dto]);
+    return attachedDto;
   }
 
   async createConversation(input: CreateConversationInput): Promise<ConversationResponseDto> {
