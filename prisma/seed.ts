@@ -412,6 +412,7 @@ async function main() {
   console.log('\n📦 Creating auth providers...');
 
   await prisma.userAuthProvider.createMany({
+    skipDuplicates: true,
     data: [
       { userId: adminUser.id, provider: 'EMAIL', email: adminUser.email },
       { userId: manager1.id, provider: 'EMAIL', email: manager1.email },
@@ -523,17 +524,19 @@ async function main() {
   console.log('\n📦 Creating businesses...');
 
   async function upsertBusiness(id: string, managerId: string, businessName: string, address: string, city: string, contactPhone: string, contactEmail: string, lng: number, lat: number) {
-    let business = await prisma.business.findUnique({ where: { id } }).catch(() => null);
-    if (business) {
-      await prisma.$executeRaw`
-        UPDATE businesses SET manager_id = ${managerId}::uuid, business_name = ${businessName}, address = ${address}, city = ${city}, contact_phone = ${contactPhone}, contact_email = ${contactEmail}, location = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography WHERE id = ${id}::uuid
-      `;
-    } else {
-      await prisma.$executeRaw`
-        INSERT INTO businesses (id, manager_id, business_name, address, city, location, contact_phone, contact_email, created_at, updated_at)
-        VALUES (${id}::uuid, ${managerId}::uuid, ${businessName}, ${address}, ${city}, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${contactPhone}, ${contactEmail}, now(), now())
-      `;
-    }
+    await prisma.$executeRaw`
+      INSERT INTO businesses (id, manager_id, business_name, address, city, location, contact_phone, contact_email, created_at, updated_at)
+      VALUES (${id}::uuid, ${managerId}::uuid, ${businessName}, ${address}, ${city}, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${contactPhone}, ${contactEmail}, now(), now())
+      ON CONFLICT (id) DO UPDATE SET
+        manager_id = EXCLUDED.manager_id,
+        business_name = EXCLUDED.business_name,
+        address = EXCLUDED.address,
+        city = EXCLUDED.city,
+        location = EXCLUDED.location,
+        contact_phone = EXCLUDED.contact_phone,
+        contact_email = EXCLUDED.contact_email,
+        updated_at = now()
+    `;
     return prisma.business.findUniqueOrThrow({ where: { id } });
   }
 
@@ -566,6 +569,7 @@ async function main() {
   console.log('\n📦 Creating business status history...');
 
   await prisma.businessStatus.createMany({
+    skipDuplicates: true,
     data: [
       { businessId: business1.id, statusId: statusMap['PENDING_REVIEW'], createdAt: pastDate(20) },
       { businessId: business1.id, statusId: statusMap['APPROVED'], createdAt: pastDate(15) },
@@ -584,6 +588,7 @@ async function main() {
   console.log('\n📦 Creating business documents...');
 
   await prisma.businessDocument.createMany({
+    skipDuplicates: true,
     data: [
       {
         businessId: business1.id,
@@ -803,6 +808,7 @@ async function main() {
 
   // Booking 1 - Completed
   await prisma.bookingStatus.createMany({
+    skipDuplicates: true,
     data: [
       { bookingId: booking1.id, statusId: statusMap['PENDING'], createdAt: pastDate(8) },
       { bookingId: booking1.id, statusId: statusMap['CONFIRMED'], createdAt: pastDate(8) },
@@ -815,6 +821,7 @@ async function main() {
 
   // Booking 2 - Confirmed
   await prisma.bookingStatus.createMany({
+    skipDuplicates: true,
     data: [
       { bookingId: booking2.id, statusId: statusMap['PENDING'], createdAt: pastDate(3) },
       { bookingId: booking2.id, statusId: statusMap['CONFIRMED'], createdAt: pastDate(2) },
@@ -823,6 +830,7 @@ async function main() {
 
   // Booking 3 - In Progress
   await prisma.bookingStatus.createMany({
+    skipDuplicates: true,
     data: [
       { bookingId: booking3.id, statusId: statusMap['PENDING'], createdAt: pastDate(2) },
       { bookingId: booking3.id, statusId: statusMap['CONFIRMED'], createdAt: pastDate(2) },
@@ -838,6 +846,7 @@ async function main() {
 
   // Booking 5 - Cancelled
   await prisma.bookingStatus.createMany({
+    skipDuplicates: true,
     data: [
       { bookingId: booking5.id, statusId: statusMap['PENDING'], createdAt: pastDate(12) },
       { bookingId: booking5.id, statusId: statusMap['CONFIRMED'], createdAt: pastDate(11) },
@@ -853,6 +862,7 @@ async function main() {
   console.log('\n📦 Creating booking items...');
 
   await prisma.bookingItem.createMany({
+    skipDuplicates: true,
     data: [
       { bookingId: booking1.id, businessServiceId: bs1FullDetail.id, price: 320.0 },
       { bookingId: booking2.id, businessServiceId: bs1CeramicWax.id, price: 480.0 },
@@ -986,6 +996,7 @@ async function main() {
 
   // Findings
   await prisma.reportFinding.createMany({
+    skipDuplicates: true,
     data: [
       {
         reportId: report.id,
@@ -1010,6 +1021,7 @@ async function main() {
 
   // Recommended repairs
   await prisma.recommendedRepair.createMany({
+    skipDuplicates: true,
     data: [
       { reportId: report.id, businessServiceId: bs2BrakeService.id },
       { reportId: report.id, businessServiceId: bs2Diagnostic.id },
@@ -1084,6 +1096,7 @@ async function main() {
   console.log('\n📦 Creating notifications...');
 
   await prisma.notification.createMany({
+    skipDuplicates: true,
     data: [
       {
         recipientUserId: client1.id,
@@ -1151,6 +1164,7 @@ async function main() {
 
   // Participants
   await prisma.conversationParticipant.createMany({
+    skipDuplicates: true,
     data: [
       { conversationId: conversation.id, userId: client1.id, role: 'CLIENT' },
       { conversationId: conversation.id, userId: manager1.id, role: 'MANAGER' },
@@ -1159,6 +1173,7 @@ async function main() {
 
   // Messages
   await prisma.message.createMany({
+    skipDuplicates: true,
     data: [
       {
         conversationId: conversation.id,
@@ -1200,6 +1215,7 @@ async function main() {
 
   // Business gallery images
   await prisma.image.createMany({
+    skipDuplicates: true,
     data: [
       {
         url: 'https://cdn.glowfix.com/gallery/business1/shop-front.jpg',
@@ -1230,6 +1246,7 @@ async function main() {
   console.log('\n📦 Creating audit logs...');
 
   await prisma.auditLog.createMany({
+    skipDuplicates: true,
     data: [
       {
         actorId: adminUser.id,
