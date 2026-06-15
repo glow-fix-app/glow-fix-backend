@@ -422,7 +422,6 @@ async function main() {
       { userId: client2.id, provider: 'EMAIL', email: client2.email },
       { userId: client3.id, provider: 'EMAIL', email: client3.email },
     ],
-    skipDuplicates: true,
   });
 
   console.log('✅ Auth providers created');
