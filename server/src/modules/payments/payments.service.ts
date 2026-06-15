@@ -21,7 +21,6 @@ import { PaymentResponseDto, ReceiptResponseDto } from './dto/payment-response.d
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
-  private readonly PLATFORM_FEE_PERCENT = 10;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -81,7 +80,7 @@ export class PaymentsService {
 
     // Check if booking is in payable state
     const bookingStatus = await this.getBookingStatus(booking.id);
-    const payableStatuses = ['READY_FOR_PICKUP', 'COMPLETED'];
+    const payableStatuses = ['ACCEPTED'];
     if (!payableStatuses.includes(bookingStatus)) {
       throw new BadRequestException(`Booking cannot be paid in status: ${bookingStatus}`);
     }
@@ -211,6 +210,7 @@ export class PaymentsService {
           points_used: options.pointsUsed.toString(),
           loyalty_discount: options.loyaltyDiscount.toString(),
         },
+        idempotencyKey: payment.idempotencyKey,
       });
 
       // Update payment with Stripe intent ID
@@ -353,14 +353,37 @@ export class PaymentsService {
     bookingId: string,
     amount: number,
   ): Promise<ProcessPaymentResponseDto> {
-    const [paidStatus, completedStatus, payoutPendingStatus, config] = await Promise.all([
+    const [paidStatus, confirmedStatus, payoutPendingStatus, config] = await Promise.all([
       this.prisma.status.findFirst({ where: { context: 'PAID' } }),
-      this.prisma.status.findFirst({ where: { context: 'COMPLETED' } }),
+      this.prisma.status.findFirst({ where: { context: 'CONFIRMED' } }),
       this.prisma.status.findFirst({ where: { context: 'PAYOUT_PENDING' } }),
       this.prisma.loyaltyConfig.findFirst(),
     ]);
 
     return this.prisma.$transaction(async (tx) => {
+      // 1. Concurrency Lock: Lock the row and check status to prevent duplicate webhook processing
+      const paymentRows = await tx.$queryRaw<any[]>`
+        SELECT id, status_id FROM payments WHERE id = ${paymentId}::uuid FOR UPDATE
+      `;
+      if (!paymentRows || paymentRows.length === 0) {
+        throw new NotFoundException('Payment not found');
+      }
+      if (paidStatus && paymentRows[0].status_id === paidStatus.id) {
+        this.logger.warn(`Payment ${paymentId} was already finalized.`);
+        return {
+          success: true,
+          payment_id: paymentId,
+          amount,
+          loyalty_points_used: pointsUsed,
+          loyalty_points_earned: 0,
+          message: 'Payment already finalized',
+        };
+      }
+
+      // Fetch dynamic settings for Platform Fee
+      const settings = await tx.setting.findFirst();
+      const platformFeePercent = settings?.businessFeePct ? Number(settings.businessFeePct) : 10;
+
       const payment = await tx.payment.update({
         where: { id: paymentId },
         data: {
@@ -421,19 +444,19 @@ export class PaymentsService {
         });
       }
 
-      // Update booking status to COMPLETED
-      if (completedStatus) {
+      // Update booking status to CONFIRMED
+      if (confirmedStatus) {
         await tx.bookingStatus.create({
           data: {
             bookingId,
-            statusId: completedStatus.id,
+            statusId: confirmedStatus.id,
           },
         });
       }
 
       // Create payout for provider
       const grossAmount = Number(payment.booking.totalPrice);
-      const platformFee = (grossAmount * this.PLATFORM_FEE_PERCENT) / 100;
+      const platformFee = (grossAmount * platformFeePercent) / 100;
       const netAmount = grossAmount - platformFee;
 
       const payout = await tx.payout.create({

@@ -64,6 +64,7 @@ async function main() {
     { context: 'DOC_REJECTED' },
     // Booking statuses
     { context: 'PENDING' },
+    { context: 'ACCEPTED' },
     { context: 'CONFIRMED' },
     { context: 'VEHICLE_RECEIVED' },
     { context: 'IN_PROGRESS' },
@@ -710,8 +711,10 @@ async function main() {
   console.log('\n📦 Creating bookings...');
 
   // Booking 1 - Completed (Mahmoud -> Shine & Co. - Full Detail)
-  const booking1 = await prisma.booking.create({
-    data: {
+  const booking1 = await prisma.booking.upsert({
+    where: { id: 'BKG-111111' },
+    update: {},
+    create: {
       id: 'BKG-111111',
       vehicleId: vehicle1.id,
       businessId: business1.id,
@@ -725,8 +728,10 @@ async function main() {
   });
 
   // Booking 2 - Confirmed Upcoming (Mahmoud -> Shine & Co. - Ceramic Wax)
-  const booking2 = await prisma.booking.create({
-    data: {
+  const booking2 = await prisma.booking.upsert({
+    where: { id: 'BKG-222222' },
+    update: {},
+    create: {
       id: 'BKG-222222',
       vehicleId: vehicle1.id,
       businessId: business1.id,
@@ -739,8 +744,10 @@ async function main() {
   });
 
   // Booking 3 - In Progress (Sara -> Garage 37 - Diagnostic)
-  const booking3 = await prisma.booking.create({
-    data: {
+  const booking3 = await prisma.booking.upsert({
+    where: { id: 'BKG-333333' },
+    update: {},
+    create: {
       id: 'BKG-333333',
       vehicleId: vehicle3.id,
       businessId: business2.id,
@@ -753,30 +760,34 @@ async function main() {
   });
 
   // Booking 4 - Pending (Karim -> Aqua Bay - Express Wash)
-  const booking4 = await prisma.booking.create({
-    data: {
+  const booking4 = await prisma.booking.upsert({
+    where: { id: 'BKG-444444' },
+    update: {},
+    create: {
       id: 'BKG-444444',
       vehicleId: vehicle4.id,
       businessId: business3.id,
       scheduledAt: futureDate(3),
-      subTotal: 80.0,
+      subTotal: 150.0,
       discount: 0,
-      commission: 8.0,
-      totalPrice: 80.0,
+      commission: 15.0,
+      totalPrice: 150.0,
     },
   });
 
   // Booking 5 - Cancelled (Mahmoud -> Garage 37 - Brake Service)
-  const booking5 = await prisma.booking.create({
-    data: {
+  const booking5 = await prisma.booking.upsert({
+    where: { id: 'BKG-555555' },
+    update: {},
+    create: {
       id: 'BKG-555555',
       vehicleId: vehicle2.id,
       businessId: business2.id,
       scheduledAt: pastDate(10),
-      subTotal: 450.0,
+      subTotal: 200.0,
       discount: 0,
-      commission: 45.0,
-      totalPrice: 450.0,
+      commission: 20.0,
+      totalPrice: 200.0,
     },
   });
 

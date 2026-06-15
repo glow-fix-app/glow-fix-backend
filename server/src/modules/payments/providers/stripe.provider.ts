@@ -10,6 +10,7 @@ export interface StripePaymentIntentDto {
   customerPhone?: string;
   bookingId: string;
   metadata?: Record<string, string>;
+  idempotencyKey?: string;
 }
 
 export interface StripeRefundDto {
@@ -67,6 +68,8 @@ export class StripeProvider {
         },
         statement_descriptor: 'GlowFix Booking',
         statement_descriptor_suffix: 'Car Service',
+      }, {
+        idempotencyKey: dto.idempotencyKey,
       });
 
       this.logger.log(`Payment Intent created: ${paymentIntent.id} for booking ${dto.bookingId}`);

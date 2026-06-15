@@ -321,6 +321,7 @@ export class ProviderDiscoveryService {
     // Get business locations for providers
     const businessIds = filteredProviders.map((p) => p.id);
     const locationsMap = await this.getBusinessLocationsBatch(businessIds);
+    const logosMap = await this.getBusinessLogosBatch(businessIds);
 
     // Format response
     const formattedProviders: ProviderResponseDto[] = await Promise.all(
@@ -349,6 +350,7 @@ export class ProviderDiscoveryService {
           id: provider.id,
           business_name: provider.business_name,
           address: provider.address,
+          logo_url: logosMap.get(provider.id),
           city: provider.city ?? null,
           contact_phone: provider.contact_phone || undefined,
           contact_email: provider.contact_email || undefined,
@@ -636,6 +638,26 @@ export class ProviderDiscoveryService {
         latitude: Number(row.latitude),
         longitude: Number(row.longitude),
       });
+    }
+    return map;
+  }
+
+  /**
+   * Get business logos in batch
+   */
+  private async getBusinessLogosBatch(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+
+    const images = await this.prisma.image.findMany({
+      where: {
+        entityId: { in: ids },
+        entityType: 'BUSINESS_LOGO'
+      }
+    });
+
+    const map = new Map<string, string>();
+    for (const img of images) {
+      map.set(img.entityId, img.url);
     }
     return map;
   }

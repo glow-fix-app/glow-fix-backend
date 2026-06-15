@@ -162,10 +162,11 @@ export class ServiceDiscoveryService {
             return null;
           }
 
-          const [ratingSummary, isOpen, isVerified] = await Promise.all([
+          const [ratingSummary, isOpen, isVerified, businessLogo] = await Promise.all([
             this.getBusinessRatingSummary(bs.businessId),
             this.isBusinessOpen(bs.businessId, new Date()),
             this.isBusinessVerified(bs.businessId),
+            this.getBusinessLogo(bs.businessId),
           ]);
 
           const operatingHoursToday = this.getOperatingHoursToday(
@@ -205,6 +206,7 @@ export class ServiceDiscoveryService {
             total_reviews: ratingSummary.total_reviews,
             is_open: isOpen,
             is_verified: isVerified,
+            business_logo: businessLogo,
             operating_hours_today: operatingHoursToday,
           } as ServiceOfferDto;
         }),
@@ -530,10 +532,11 @@ export class ServiceDiscoveryService {
           }
         }
 
-        const [ratingSummary, isOpen, isVerified] = await Promise.all([
+        const [ratingSummary, isOpen, isVerified, businessLogo] = await Promise.all([
           this.getBusinessRatingSummary(bs.businessId),
           this.isBusinessOpen(bs.businessId, new Date()),
           this.isBusinessVerified(bs.businessId),
+          this.getBusinessLogo(bs.businessId),
         ]);
 
         const operatingHoursToday = this.getOperatingHoursToday(
@@ -553,6 +556,7 @@ export class ServiceDiscoveryService {
           total_reviews: ratingSummary.total_reviews,
           is_open: isOpen,
           is_verified: isVerified,
+          business_logo: businessLogo,
           operating_hours_today: operatingHoursToday,
         } as ServiceOfferDto;
       }),
@@ -716,6 +720,16 @@ export class ServiceDiscoveryService {
     });
 
     return count >= 2;
+  }
+
+  private async getBusinessLogo(businessId: string): Promise<string | undefined> {
+    const image = await this.prisma.image.findFirst({
+      where: {
+        entityId: businessId,
+        entityType: 'BUSINESS_LOGO',
+      },
+    });
+    return image?.url;
   }
 
   /**
