@@ -41,6 +41,9 @@ async function bootstrap() {
   // Enable raw body for Stripe webhook endpoint
   app.use('/api/v1/payments/webhook/stripe', raw({ type: 'application/json' }));
   
+  // ─── Trust Proxy for Railway / Reverse Proxies ───
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   // ─── Security Middleware ───
   app.use(
     helmet({
