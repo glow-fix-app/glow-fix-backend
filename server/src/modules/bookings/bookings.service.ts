@@ -221,7 +221,7 @@ export class BookingsService {
         }
       }
     });
-    });
+    }, { maxWait: 5000, timeout: 20000 });
 
     if (!booking) {
       throw new Error('Failed to retrieve newly created booking');
