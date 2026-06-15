@@ -49,13 +49,10 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       clientSecret: configService.get<string>('google.oauthClientSecret'),
       callbackURL: configService.get<string>('google.oauthCallbackUrl'),
       scope: ['email', 'profile'],
-      passReqToCallback: true,
-      proxy: true,
     });
   }
 
   async validate(
-    req: any,
     accessToken: string,
     refreshToken: string,
     profile: Profile,
