@@ -24,6 +24,9 @@ export class PaymentResponseDto {
 
   @ApiProperty()
   created_at: Date;
+
+  @ApiPropertyOptional()
+  booking?: any;
 }
 
 export class ReceiptResponseDto {

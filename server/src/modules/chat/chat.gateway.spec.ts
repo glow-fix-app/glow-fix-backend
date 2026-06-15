@@ -21,6 +21,10 @@ describe('ChatGateway', () => {
       dec: jest.Mock;
     };
   };
+  let redis: {
+    get: jest.Mock;
+    set: jest.Mock;
+  };
 
   const validPayload = {
     sub: 'user-1',
@@ -70,12 +74,17 @@ describe('ChatGateway', () => {
       },
     };
 
+    redis = {
+      get: jest.fn(),
+      set: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ChatGateway,
         { provide: PrismaService, useValue: prisma },
         { provide: TokenService, useValue: tokenService },
-        { provide: RedisService, useValue: {} },
+        { provide: RedisService, useValue: redis },
         { provide: ChatService, useValue: chatService },
         { provide: MetricsService, useValue: metrics },
       ],

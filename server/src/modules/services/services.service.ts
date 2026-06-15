@@ -336,7 +336,7 @@ export class ServicesService {
       data: {
         businessId: businessId,
         serviceId: dto.service_id,
-        price: dto.price * 100, // Store in cents (e.g., 120 EGP = 12000 cents)
+        price: dto.price, // Store in EGP directly (Decimal)
         averageDuration: dto.average_duration,
         isActive: dto.is_active ?? true,
       },
@@ -454,7 +454,7 @@ export class ServicesService {
       service_description: bs.service.description || undefined,
       category_id: bs.service.category.id,
       category_name: bs.service.category.name,
-      price: Number(bs.price) / 100, // Convert from cents to EGP
+      price: Number(bs.price), // Convert from Decimal to number
       average_duration: bs.averageDuration,
       is_active: bs.isActive,
       created_at: bs.createdAt,
@@ -490,7 +490,7 @@ export class ServicesService {
       service_description: businessService.service.description || undefined,
       category_id: businessService.service.category.id,
       category_name: businessService.service.category.name,
-      price: Number(businessService.price) / 100,
+      price: Number(businessService.price),
       average_duration: businessService.averageDuration,
       is_active: businessService.isActive,
       created_at: businessService.createdAt,
@@ -528,7 +528,7 @@ export class ServicesService {
     const updateData: any = {};
 
     if (dto.price !== undefined) {
-      updateData.price = dto.price * 100; // Convert to cents
+      updateData.price = dto.price;
     }
 
     if (dto.average_duration !== undefined) {
@@ -571,7 +571,7 @@ export class ServicesService {
       service_description: updated.service.description || undefined,
       category_id: updated.service.category.id,
       category_name: updated.service.category.name,
-      price: Number(updated.price) / 100,
+      price: Number(updated.price),
       average_duration: updated.averageDuration,
       is_active: updated.isActive,
       created_at: updated.createdAt,
@@ -713,7 +713,7 @@ export class ServicesService {
       title: bs.service.title,
       description: bs.service.description || undefined,
       category_name: bs.service.category.name,
-      price: Number(bs.price) / 100,
+      price: Number(bs.price),
       duration_minutes: bs.averageDuration,
     }));
   }
@@ -759,7 +759,7 @@ export class ServicesService {
       title: bs.service.title,
       description: bs.service.description || undefined,
       category_name: bs.service.category.name,
-      price: Number(bs.price) / 100,
+      price: Number(bs.price),
       duration_minutes: bs.averageDuration,
     }));
   }

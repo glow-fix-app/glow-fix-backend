@@ -176,6 +176,9 @@ export class ServiceOfferDto {
   is_verified: boolean;
 
   @ApiPropertyOptional()
+  business_logo?: string;
+
+  @ApiPropertyOptional()
   operating_hours_today?: string;
 }
 

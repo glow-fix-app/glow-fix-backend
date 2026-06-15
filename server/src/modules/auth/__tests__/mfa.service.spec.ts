@@ -25,6 +25,7 @@ describe('MfaService', () => {
   const mockPrisma = {
     user: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
       update: jest.fn(),
     },
   };
@@ -54,7 +55,7 @@ describe('MfaService', () => {
   describe('setupMfa', () => {
     it('should generate secret, QR code, backup codes, and store secret', async () => {
       const mockUser = { email: 'user@example.com' };
-      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.user.findFirst.mockResolvedValue(mockUser);
       (authenticator.generateSecret as jest.Mock).mockReturnValue('MOCK_SECRET');
       (authenticator.keyuri as jest.Mock).mockReturnValue('otpauth://totp/GlowFix:user@example.com?secret=MOCK_SECRET');
       (QRCode.toDataURL as jest.Mock).mockResolvedValue('data:image/png;base64,mockQRCode');
@@ -75,14 +76,14 @@ describe('MfaService', () => {
     });
 
     it('should throw when user not found', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue(null);
+      mockPrisma.user.findFirst.mockResolvedValue(null);
 
       await expect(service.setupMfa('user-id')).rejects.toThrow(BadRequestException);
     });
 
     it('should generate backup codes in correct format', async () => {
       const mockUser = { email: 'user@example.com' };
-      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      mockPrisma.user.findFirst.mockResolvedValue(mockUser);
       (authenticator.generateSecret as jest.Mock).mockReturnValue('MOCK_SECRET');
       (authenticator.keyuri as jest.Mock).mockReturnValue('otpauth://...');
       (QRCode.toDataURL as jest.Mock).mockResolvedValue('data:image/png;base64,code');

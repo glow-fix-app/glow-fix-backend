@@ -25,6 +25,12 @@ export class ProviderFiltersDto {
   @IsEnum(ServiceType)
   service?: ServiceType;
 
+  @ApiPropertyOptional({ description: 'Categories filter', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categories?: string[];
+
   @ApiPropertyOptional({ description: 'Location names', type: [String] })
   @IsOptional()
   @IsArray()
@@ -137,6 +143,9 @@ export class ProviderResponseDto {
 
   @ApiProperty({ description: 'Business address', example: '22 26th of July St, Zamalek, Cairo' })
   address: string;
+
+  @ApiPropertyOptional({ description: 'Business logo URL' })
+  logo_url?: string;
 
   @ApiPropertyOptional({ description: 'City derived from lat/lng at registration', example: 'Zamalek' })
   city?: string | null;

@@ -89,7 +89,7 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Get payment for a booking' })
   @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
   async getBookingPayment(
-    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @Param('bookingId') bookingId: string,
     @CurrentUser() user: any,
   ): Promise<PaymentResponseDto | null> {
     return this.paymentsService.getBookingPayment(bookingId, user.id);
@@ -129,7 +129,12 @@ export class PaymentsController {
   ): Promise<{ received: boolean }> {
     const payload = req.body;
     // Express raw body is needed for signature verification
-    const rawPayload = (req as any).rawBody || JSON.stringify(payload);
+    const rawPayload = (req as any).rawBody;
+    
+    if (!rawPayload) {
+      throw new Error('Webhook requires raw body parsing. Check your NestJS raw body configuration.');
+    }
+    
     return this.paymentsService.handleStripeWebhook(Buffer.from(rawPayload), signature);
   }
 

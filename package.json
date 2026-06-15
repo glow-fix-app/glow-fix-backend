@@ -24,6 +24,7 @@
     "db:studio": "turbo run db:studio --filter=@glow-fix/api",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
+    "start:ts": "npm run start:ts --workspace=@glow-fix/api",
     "clean": "turbo run clean && rm -rf node_modules",
     "prepare": "node -e \"if (process.env.NODE_ENV !== 'production') require('child_process').execSync('husky install')\""
   },

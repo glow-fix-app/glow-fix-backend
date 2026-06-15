@@ -118,22 +118,24 @@ export class ProviderDiscoveryService {
             'business_service_id', bs.id,
             'service_id', s.id,
             'service_name', s.title,
+            'category_name', c.name,
             'price', bs.price / 100,
             'duration_minutes', bs.average_duration
           )
         ), '[]'::json)
         FROM business_service bs
         JOIN services s ON bs.service_id = s.id
+        JOIN categories c ON s.category_id = c.id
         WHERE bs.business_id = b.id AND bs.is_active = true
       ) as offers
       FROM businesses b
       LEFT JOIN bookings bk ON b.id = bk.business_id
       LEFT JOIN reviews r ON bk.id = r.booking_id
-      WHERE EXISTS (
-        SELECT 1 FROM business_status bs 
+      WHERE (
+        SELECT status_id FROM business_status bs 
         WHERE bs.business_id = b.id 
-          AND bs.status_id = ${approvedStatusId}::uuid
-      )
+        ORDER BY created_at DESC LIMIT 1
+      ) = ${approvedStatusId}::uuid
     `;
 
     // Apply search filter
@@ -141,6 +143,30 @@ export class ProviderDiscoveryService {
       sql = Prisma.sql`
         ${sql}
         AND b.business_name ILIKE ${`%${search}%`}
+      `;
+    }
+
+    // Apply categories filter
+    let activeCategories = filters?.categories;
+    if (typeof activeCategories === 'string') {
+      activeCategories = [activeCategories];
+    }
+    
+    if (activeCategories && activeCategories.length > 0) {
+      const categoryConditions = activeCategories.map(
+        (cat) => Prisma.sql`
+          EXISTS (
+            SELECT 1 FROM business_service bs 
+            JOIN services s ON bs.service_id = s.id 
+            JOIN categories c ON s.category_id = c.id 
+            WHERE bs.business_id = b.id 
+            AND c.name = ${cat}
+          )
+        `
+      );
+      sql = Prisma.sql`
+        ${sql}
+        AND (${Prisma.join(categoryConditions, ' OR ')})
       `;
     }
 
@@ -295,6 +321,7 @@ export class ProviderDiscoveryService {
     // Get business locations for providers
     const businessIds = filteredProviders.map((p) => p.id);
     const locationsMap = await this.getBusinessLocationsBatch(businessIds);
+    const logosMap = await this.getBusinessLogosBatch(businessIds);
 
     // Format response
     const formattedProviders: ProviderResponseDto[] = await Promise.all(
@@ -323,6 +350,7 @@ export class ProviderDiscoveryService {
           id: provider.id,
           business_name: provider.business_name,
           address: provider.address,
+          logo_url: logosMap.get(provider.id),
           city: provider.city ?? null,
           contact_phone: provider.contact_phone || undefined,
           contact_email: provider.contact_email || undefined,
@@ -345,6 +373,7 @@ export class ProviderDiscoveryService {
             business_service_id: offer?.business_service_id,
             service_id: offer?.service_id,
             service_name: offer?.service_name || 'Service',
+            category_name: offer?.category_name,
             price: parseFloat(offer?.price || 0),
             duration_minutes: offer?.duration_minutes || 60,
           })),
@@ -418,11 +447,11 @@ export class ProviderDiscoveryService {
         END as service_type,
         COUNT(*) as count
       FROM businesses b
-      WHERE EXISTS (
-        SELECT 1 FROM business_status bs 
+      WHERE (
+        SELECT status_id FROM business_status bs 
         WHERE bs.business_id = b.id 
-          AND bs.status_id = ${approvedStatusId}::uuid
-      )
+        ORDER BY created_at DESC LIMIT 1
+      ) = ${approvedStatusId}::uuid
       GROUP BY service_type
     `;
 
@@ -445,11 +474,11 @@ export class ProviderDiscoveryService {
         FROM businesses b
         LEFT JOIN bookings bk ON b.id = bk.business_id
         LEFT JOIN reviews r ON bk.id = r.booking_id
-        WHERE EXISTS (
-          SELECT 1 FROM business_status bs 
+        WHERE (
+          SELECT status_id FROM business_status bs 
           WHERE bs.business_id = b.id 
-            AND bs.status_id = ${approvedStatusId}::uuid
-        )
+          ORDER BY created_at DESC LIMIT 1
+        ) = ${approvedStatusId}::uuid
         GROUP BY b.id
       ) sub
       GROUP BY rating_range
@@ -469,11 +498,11 @@ export class ProviderDiscoveryService {
           END as distance_range,
           COUNT(*) as count
         FROM businesses b
-        WHERE EXISTS (
-          SELECT 1 FROM business_status bs 
+        WHERE (
+          SELECT status_id FROM business_status bs 
           WHERE bs.business_id = b.id 
-            AND bs.status_id = ${approvedStatusId}::uuid
-        )
+          ORDER BY created_at DESC LIMIT 1
+        ) = ${approvedStatusId}::uuid
         GROUP BY distance_range
       `;
     }
@@ -487,11 +516,11 @@ export class ProviderDiscoveryService {
         COUNT(*) as count
       FROM businesses b
       WHERE b.city IS NOT NULL
-        AND EXISTS (
-          SELECT 1 FROM business_status bs 
+        AND (
+          SELECT status_id FROM business_status bs 
           WHERE bs.business_id = b.id 
-            AND bs.status_id = ${approvedStatusId}::uuid
-        )
+          ORDER BY created_at DESC LIMIT 1
+        ) = ${approvedStatusId}::uuid
       GROUP BY b.city
       ORDER BY count DESC, b.city ASC
     `;
@@ -609,6 +638,26 @@ export class ProviderDiscoveryService {
         latitude: Number(row.latitude),
         longitude: Number(row.longitude),
       });
+    }
+    return map;
+  }
+
+  /**
+   * Get business logos in batch
+   */
+  private async getBusinessLogosBatch(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+
+    const images = await this.prisma.image.findMany({
+      where: {
+        entityId: { in: ids },
+        entityType: 'BUSINESS_LOGO'
+      }
+    });
+
+    const map = new Map<string, string>();
+    for (const img of images) {
+      map.set(img.entityId, img.url);
     }
     return map;
   }

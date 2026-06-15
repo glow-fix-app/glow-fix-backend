@@ -47,7 +47,7 @@ export class BusinessesService {
     );
 
     const businesses = await this.prisma.$queryRaw<Array<{ id: string }>>`
-      INSERT INTO businesses (id, manager_id, business_name, address, city, location, contact_phone, contact_email, created_at, updated_at)
+      INSERT INTO businesses (id, manager_id, business_name, address, city, location, contact_phone, contact_email, description, created_at, updated_at)
       VALUES (
         gen_random_uuid(),
         ${managerId}::uuid,
@@ -57,6 +57,7 @@ export class BusinessesService {
         ST_SetSRID(ST_MakePoint(${dto.location.longitude}, ${dto.location.latitude}), 4326)::geography,
         ${dto.contact_phone},
         ${dto.contact_email},
+        ${dto.description || null},
         NOW(),
         NOW()
       )
@@ -131,6 +132,18 @@ export class BusinessesService {
     const coords = await this.getBusinessLocation(businessId);
     const currentStatus = business.statusHistory[0]?.status?.context || 'PENDING_REVIEW';
 
+    const images = await this.prisma.image.findMany({
+      where: {
+        entityId: businessId,
+        entityType: { in: ['BUSINESS_LOGO', 'BUSINESS_COVER', 'BUSINESS_GALLERY'] },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const logo_url = images.find(img => img.entityType === 'BUSINESS_LOGO')?.url || undefined;
+    const cover_url = images.find(img => img.entityType === 'BUSINESS_COVER')?.url || undefined;
+    const gallery = images.filter(img => img.entityType === 'BUSINESS_GALLERY').map(img => img.url);
+
     return {
       id: business.id,
       manager_id: business.managerId,
@@ -141,6 +154,7 @@ export class BusinessesService {
       longitude: coords.longitude,
       contact_phone: business.contactPhone || undefined,
       contact_email: business.contactEmail || undefined,
+      description: business.description || undefined,
       current_status: currentStatus,
       operating_hours: business.operatingHours,
       documents: business.documents.map(doc => ({
@@ -150,6 +164,9 @@ export class BusinessesService {
         status: doc.status?.context || 'PENDING',
         created_at: doc.createdAt,
       })),
+      logo_url,
+      cover_url,
+      gallery,
       created_at: business.createdAt,
       updated_at: business.updatedAt,
     };
@@ -194,6 +211,10 @@ export class BusinessesService {
       sets.push(`contact_email = $${paramIndex++}`);
       params.push(dto.contact_email);
     }
+    if (dto.description !== undefined) {
+      sets.push(`description = $${paramIndex++}`);
+      params.push(dto.description);
+    }
     if (dto.location) {
       sets.push(`location = ST_SetSRID(ST_MakePoint($${paramIndex++}, $${paramIndex++}), 4326)::geography`);
       params.push(dto.location.longitude, dto.location.latitude);
@@ -212,7 +233,7 @@ export class BusinessesService {
       sets.push(`updated_at = NOW()`);
       params.push(businessId);
       await this.prisma.$executeRawUnsafe(
-        `UPDATE businesses SET ${sets.join(', ')} WHERE id = $${paramIndex}`,
+        `UPDATE businesses SET ${sets.join(', ')} WHERE id = $${paramIndex}::uuid`,
         ...params,
       );
     }
@@ -842,7 +863,7 @@ export class BusinessesService {
         ST_Y(location::geometry) as latitude,
         ST_X(location::geometry) as longitude
       FROM businesses
-      WHERE id = ${businessId}
+      WHERE id = ${businessId}::uuid
     `;
     return result[0] || { latitude: 0, longitude: 0 };
   }
@@ -855,12 +876,139 @@ export class BusinessesService {
         ST_Y(location::geometry) as latitude,
         ST_X(location::geometry) as longitude
       FROM businesses
-      WHERE id = ANY(${ids})
+      WHERE id = ANY(${ids}::uuid[])
     `;
     const map = new Map<string, { latitude: number; longitude: number }>();
     for (const row of results) {
       map.set(row.id, { latitude: row.latitude, longitude: row.longitude });
     }
     return map;
+  }
+
+  async uploadBusinessImage(
+    managerId: string,
+    file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+    type: 'logo' | 'cover' | 'gallery',
+  ): Promise<BusinessResponseDto> {
+    const business = await this.getMyBusiness(managerId);
+
+    // Validate image format
+    const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      throw new BadRequestException('Unsupported file type. Allowed: JPEG, PNG, WebP, GIF');
+    }
+    const maxBytes = 10 * 1024 * 1024; // 10 MB limit
+    if (file.size > maxBytes) {
+      throw new BadRequestException('File size too large. Maximum is 10 MB.');
+    }
+
+    // Set resize parameters based on image type
+    let resizeOptions = {};
+    let entityType = '';
+    let folderName = `businesses/${business.id}`;
+
+    if (type === 'logo') {
+      resizeOptions = { width: 256, height: 256, quality: 85 };
+      entityType = 'BUSINESS_LOGO';
+      folderName += '/logo';
+    } else if (type === 'cover') {
+      resizeOptions = { width: 1200, height: 400, quality: 85 };
+      entityType = 'BUSINESS_COVER';
+      folderName += '/cover';
+    } else if (type === 'gallery') {
+      resizeOptions = { width: 1024, height: 768, quality: 85 };
+      entityType = 'BUSINESS_GALLERY';
+      folderName += '/gallery';
+    } else {
+      throw new BadRequestException('Invalid image type');
+    }
+
+    // Upload new image
+    const { storageKey, url } = await this.storage.uploadImage(
+      file.buffer,
+      folderName,
+      resizeOptions,
+    );
+
+    // For logo and cover, delete any existing first
+    if (type === 'logo' || type === 'cover') {
+      const existing = await this.prisma.image.findFirst({
+        where: {
+          entityType,
+          entityId: business.id,
+        },
+      });
+      if (existing) {
+        await this.prisma.image.delete({ where: { id: existing.id } });
+        if (existing.storageKey) {
+          await this.storage.deleteByKey(existing.storageKey);
+        }
+      }
+    }
+
+    // Save image to DB
+    await this.prisma.image.create({
+      data: {
+        url,
+        storageKey,
+        entityType,
+        entityId: business.id,
+      },
+    });
+
+    return this.getBusinessWithDetails(business.id);
+  }
+
+  async deleteGalleryImage(managerId: string, url: string): Promise<BusinessResponseDto> {
+    const business = await this.getMyBusiness(managerId);
+
+    const image = await this.prisma.image.findFirst({
+      where: {
+        entityId: business.id,
+        entityType: 'BUSINESS_GALLERY',
+        url,
+      },
+    });
+
+    if (!image) {
+      throw new NotFoundException('Gallery image not found');
+    }
+
+    await this.prisma.image.delete({ where: { id: image.id } });
+    if (image.storageKey) {
+      await this.storage.deleteByKey(image.storageKey);
+    }
+
+    return this.getBusinessWithDetails(business.id);
+  }
+
+  async reorderGallery(managerId: string, urls: string[]): Promise<BusinessResponseDto> {
+    const business = await this.getMyBusiness(managerId);
+
+    // Fetch all gallery images for this business
+    const images = await this.prisma.image.findMany({
+      where: {
+        entityId: business.id,
+        entityType: 'BUSINESS_GALLERY',
+      },
+    });
+
+    // Update their createdAt field sequentially based on the order of urls
+    const urlToIndex = new Map(urls.map((url, i) => [url, i]));
+    const baseTime = new Date();
+
+    for (const image of images) {
+      const index = urlToIndex.get(image.url);
+      if (index !== undefined) {
+        // Set distinct createdAt times so ordering is preserved
+        const newCreatedAt = new Date(baseTime.getTime() + index * 1000);
+        await this.prisma.image.update({
+          where: { id: image.id },
+          data: { createdAt: newCreatedAt },
+        });
+      }
+    }
+
+    return this.getBusinessWithDetails(business.id);
   }
 }

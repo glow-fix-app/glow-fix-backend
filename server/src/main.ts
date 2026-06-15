@@ -12,6 +12,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { WinstonLoggerService } from './common/logger/winston-logger.service';
 import { raw } from 'express';
+import { RedisIoAdapter } from './core/redis/redis-io.adapter';
 //import { CorsOptionsDelegate } from '@nestjs/common/interfaces/external/cors-options.interface';
 
 import { execSync } from 'child_process';
@@ -46,6 +47,11 @@ async function bootstrap() {
   const allowedOrigins =
     configService.get<string[]>('app.allowedOrigins') || [];
   const isProduction = nodeEnv === 'production';
+
+  // Configure Redis Socket.io Adapter
+  const redisIoAdapter = new RedisIoAdapter(app, configService);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
 
   // Enable raw body for Stripe webhook endpoint
   app.use('/api/v1/payments/webhook/stripe', raw({ type: 'application/json' }));
@@ -123,57 +129,56 @@ async function bootstrap() {
     new TransformInterceptor(),
   );
 
-  // ─── Swagger (non-production only) ───
-  if (!isProduction) {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle('Glow Fix API')
-      .setDescription(
-        `
-        ## Car Wash Management System — REST API
-        
-        ### Authentication
-        Use Bearer token in Authorization header:
-        \`Authorization: Bearer <access_token>\`
-        
-        ### Versioning
-        All endpoints are prefixed with \`/api/v1/\`
-        `,
-      )
-      .setVersion('1.0.0')
-      .addBearerAuth(
-        {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-          description: 'Enter your JWT access token',
-        },
-        'access-token',
-      )
-      .addTag('Auth', 'Authentication & authorization')
-      .addTag('Customers', 'Customer profile management')
-      .addTag('Vehicles', 'Customer vehicle management')
-      .addTag('Bookings', 'Service booking management')
-      .addTag('Staff', 'Staff operations')
-      .addTag('Admin', 'Admin management')
-      .addTag('Health', 'Health checks')
-      .addServer(`http://localhost:${port}`, 'Local Development')
-      .build();
-
-    const document = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup('api/docs', app, document, {
-      swaggerOptions: {
-        persistAuthorization: true, // remember token on page refresh
-        tagsSorter: 'alpha',
-        operationsSorter: 'alpha',
-        docExpansion: 'none', // collapse all by default
+  // ─── Swagger API Documentation ───
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Glow Fix API')
+    .setDescription(
+      `
+      ## Car Wash Management System — REST API
+      
+      ### Authentication
+      Use Bearer token in Authorization header:
+      \`Authorization: Bearer <access_token>\`
+      
+      ### Versioning
+      All endpoints are prefixed with \`/api/v1/\`
+      `,
+    )
+    .setVersion('1.0.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Enter your JWT access token',
       },
-      customSiteTitle: 'Glow Fix API Docs',
-    });
+      'access-token',
+    )
+    .addTag('Auth', 'Authentication & authorization')
+    .addTag('Customers', 'Customer profile management')
+    .addTag('Vehicles', 'Customer vehicle management')
+    .addTag('Bookings', 'Service booking management')
+    .addTag('Staff', 'Staff operations')
+    .addTag('Admin', 'Admin management')
+    .addTag('Health', 'Health checks')
+    .addServer(`http://localhost:${port}`, 'Local Development')
+    .addServer('https://glow-fixapi-production.up.railway.app', 'Production')
+    .build();
 
-    logger.log(
-      `📚 Swagger docs available at http://localhost:${port}/api/docs`,
-    );
-  }
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true, // remember token on page refresh
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
+      docExpansion: 'none', // collapse all by default
+    },
+    customSiteTitle: 'Glow Fix API Docs',
+  });
+
+  logger.log(
+    `📚 Swagger docs available at http://localhost:${port}/api/docs`,
+  );
 
   // ─── Graceful Shutdown ───
   app.enableShutdownHooks();

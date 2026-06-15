@@ -47,6 +47,9 @@ export const validationSchema = z.object({
   SMTP_HOST: z.string().default('localhost'),
   SMTP_PORT: z.coerce.number().default(1025),
   MAIL_FROM: z.string().email().default('noreply@glowfix.local'),
+  EMAIL_SERVICE: z.string().optional(),
+  EMAIL_USER: z.string().optional(),
+  EMAIL_PASS: z.string().optional(),
 
   // Google
   GOOGLE_OAUTH_CLIENT_ID: z.string().min(1, "GOOGLE_OAUTH_CLIENT_ID is required"),

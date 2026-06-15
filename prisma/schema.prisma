@@ -162,7 +162,7 @@ model Status {
 model RejectionReason {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   entityType String   @map("entity_type")
-  entityId   String   @map("entity_id") @db.Uuid
+  entityId   String   @map("entity_id")
   reasonText String   @map("reason_text")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
@@ -191,7 +191,7 @@ model Image {
   url        String
   storageKey String?  @map("storage_key")
   entityType String   @map("entity_type")
-  entityId   String   @map("entity_id") @db.Uuid
+  entityId   String   @map("entity_id")
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@index([entityType, entityId])
@@ -224,9 +224,9 @@ model User {
   phone            String?   @unique
   passwordHash     String?   @map("password_hash")
   emailVerified    Boolean   @default(false) @map("email_verified")
-  emailVerifiedAt   DateTime? @map("email_verified_at") @db.Timestamptz
+  emailVerifiedAt  DateTime? @map("email_verified_at") @db.Timestamptz
   phoneVerified    Boolean   @default(false) @map("phone_verified")
-  phoneVerifiedAt   DateTime? @map("phone_verified_at") @db.Timestamptz
+  phoneVerifiedAt  DateTime? @map("phone_verified_at") @db.Timestamptz
   twoFactorEnabled Boolean   @default(false) @map("two_factor_enabled")
   twoFactorSecret  String?   @map("two_factor_secret")
   isActive         Boolean   @default(true) @map("is_active")
@@ -286,7 +286,7 @@ model UserOtp {
   expiresAt DateTime   @map("expires_at") @db.Timestamptz
   usedAt    DateTime?  @map("used_at") @db.Timestamptz
   attempts  Int        @default(0) @db.SmallInt
-  used      Boolean  @default(false)
+  used      Boolean    @default(false)
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -317,14 +317,14 @@ model UserSession {
 
 /// Extended profile for users with role = CLIENT.
 model Client {
-  id        String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String                               @unique @map("user_id") @db.Uuid
+  id        String                                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String                                @unique @map("user_id") @db.Uuid
   /// Stored as PostGIS geography point. Null if the client hasn't set their location yet.
   /// Use Prisma.$queryRaw for spatial queries and updates.
   location  Unsupported("geography(Point,4326)")?
   city      String?
-  createdAt DateTime                             @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime                             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt DateTime                              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime                              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   vehicles            ClientVehicle[]
@@ -369,6 +369,7 @@ model Business {
   location     Unsupported("geography(Point,4326)")
   contactPhone String?                              @map("contact_phone")
   contactEmail String?                              @map("contact_email")
+  description  String?
   createdAt    DateTime                             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime                             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -470,8 +471,8 @@ model BusinessService {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   businessId      String   @map("business_id") @db.Uuid
   serviceId       String   @map("service_id") @db.Uuid
-  /// Price in smallest currency unit (e.g., piastres)
-  price           BigInt
+  /// Price in EGP
+  price           Decimal
   /// Estimated service time in minutes
   averageDuration Int      @map("average_duration")
   isActive        Boolean  @default(true) @map("is_active")
@@ -495,15 +496,15 @@ model BusinessService {
 /// Core booking record linking a client's vehicle to a business appointment.
 /// All financial fields are in piastres (smallest currency unit).
 model Booking {
-  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                 String    @id
   vehicleId          String    @map("vehicle_id") @db.Uuid
   businessId         String    @map("business_id") @db.Uuid
   scheduledAt        DateTime  @map("scheduled_at") @db.Timestamptz
   expectedDeliveryAt DateTime? @map("expected_delivery_at") @db.Timestamptz
-  subTotal           BigInt    @default(0) @map("sub_total")
-  discount           BigInt    @default(0)
-  commission         BigInt    @default(0)
-  totalPrice         BigInt    @default(0) @map("total_price")
+  subTotal           Decimal   @default(0) @map("sub_total")
+  discount           Decimal   @default(0)
+  commission         Decimal   @default(0)
+  totalPrice         Decimal   @default(0) @map("total_price")
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -530,7 +531,7 @@ model Booking {
 /// Append-only status history for a booking.
 model BookingStatus {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId String   @map("booking_id") @db.Uuid
+  bookingId String   @map("booking_id")
   statusId  String   @map("status_id") @db.Uuid
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
@@ -543,7 +544,7 @@ model BookingStatus {
 /// Records the cancellation of a booking. One booking can only be cancelled once.
 model BookingCancellation {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId   String   @unique @map("booking_id") @db.Uuid
+  bookingId   String   @unique @map("booking_id")
   cancelledBy String?  @map("cancelled_by") @db.Uuid
   cancelledAt DateTime @default(now()) @map("cancelled_at") @db.Timestamptz
   reason      String?
@@ -559,12 +560,12 @@ model BookingCancellation {
 /// Line items within a booking.
 /// Prices are captured as snapshots at booking time.
 model BookingItem {
-  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId         String          @map("booking_id") @db.Uuid
-  businessServiceId String          @map("business_service_id") @db.Uuid
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId         String   @map("booking_id")
+  businessServiceId String   @map("business_service_id") @db.Uuid
   /// Price snapshot at the time of booking
-  price             BigInt
-  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  price             Decimal
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   booking         Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   // RESTRICT: catalog entry must not be deleted while referenced by booking items (audit trail)
@@ -576,7 +577,7 @@ model BookingItem {
 /// Internal notes added by the manager or admin during a booking's lifecycle.
 model BookingNote {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId String   @map("booking_id") @db.Uuid
+  bookingId String   @map("booking_id")
   body      String
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
@@ -589,7 +590,7 @@ model BookingNote {
 /// Diagnostic inspection report created by the workshop after receiving the vehicle.
 model DiagnosticReport {
   id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId         String    @unique @map("booking_id") @db.Uuid
+  bookingId         String    @unique @map("booking_id")
   summary           String
   validUntil        DateTime? @map("valid_until") @db.Timestamptz
   estimatedDuration Int?      @map("estimated_duration")
@@ -627,8 +628,8 @@ model RecommendedRepair {
   businessServiceId String   @map("business_service_id") @db.Uuid
   title             String?
   description       String?
-  /// Price in piastres (smallest currency unit)
-  priceCents        BigInt   @default(0) @map("price_cents")
+  /// Price in EGP
+  price             Decimal  @default(0) @map("price")
   durationMinutes   Int?     @map("duration_minutes")
   isSelected        Boolean  @default(false) @map("is_selected")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -648,13 +649,12 @@ model RecommendedRepair {
 /// Records a payment made by a client for a booking.
 model Payment {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId       String   @unique @map("booking_id") @db.Uuid
+  bookingId       String   @unique @map("booking_id")
   paymentMethodId String   @map("payment_method_id") @db.Uuid
   provider        String?
   providerRef     String?  @map("provider_ref")
-  /// Amount charged in piastres
-  /// Amount charged in piastres
-  amount          BigInt
+  /// Amount charged in EGP
+  amount          Decimal
   currency        String   @default("EGP") @db.Char(3)
   /// When the payment was completed/paid
   paidAt          DateTime? @map("paid_at") @db.Timestamptz
@@ -700,8 +700,8 @@ model Dispute {
 model Payout {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   businessId  String    @map("business_id") @db.Uuid
-  /// Net payout amount in piastres (after platform fee)
-  amount      BigInt
+  /// Net payout amount in EGP (after platform fee)
+  amount      Decimal
   statusId    String    @map("status_id") @db.Uuid
   processedAt DateTime? @map("processed_at") @db.Timestamptz
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
@@ -719,7 +719,7 @@ model Payout {
 model PayoutBooking {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   payoutId  String   @map("payout_id") @db.Uuid
-  bookingId String   @map("booking_id") @db.Uuid
+  bookingId String   @map("booking_id")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   // CASCADE: payout junction rows are deleted when the payout is deleted
@@ -755,7 +755,7 @@ model LoyaltyConfig {
 model LoyaltyTransaction {
   id        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clientId  String                 @map("client_id") @db.Uuid
-  bookingId String?                @map("booking_id") @db.Uuid
+  bookingId String?                @map("booking_id")
   type      LoyaltyTransactionType
   /// Positive for EARNED, negative for REDEEMED
   points    Int
@@ -776,13 +776,15 @@ model LoyaltyTransaction {
 /// Post-service review submitted by the client after a booking is completed.
 model Review {
   id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId           String   @unique @map("booking_id") @db.Uuid
+  bookingId           String   @unique @map("booking_id")
   /// Overall rating (1–5)
   rating              Int      @db.SmallInt
   qualityRating       Int?     @map("quality_rating") @db.SmallInt
   punctualityRating   Int?     @map("punctuality_rating") @db.SmallInt
   communicationRating Int?     @map("communication_rating") @db.SmallInt
   comment             String?
+  reply               String?
+  repliedAt           DateTime? @map("replied_at") @db.Timestamptz
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -834,7 +836,7 @@ model Notification {
 /// A chat thread, optionally linked to a booking.
 model Conversation {
   id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId String?          @map("booking_id") @db.Uuid
+  bookingId String?          @map("booking_id")
   type      ConversationType @default(BOOKING)
   statusId  String           @map("status_id") @db.Uuid
   closedAt  DateTime?        @map("closed_at") @db.Timestamptz
@@ -903,7 +905,7 @@ model AuditLog {
   id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   actorId    String?       @map("actor_id") @db.Uuid
   entityType LogEntityType @map("entity_type")
-  entityId   String        @map("entity_id") @db.Uuid
+  entityId   String        @map("entity_id")
   action     LogAction
   /// State of the record before the change (null for CREATED)
   oldData    Json?         @map("old_data") @db.JsonB

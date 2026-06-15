@@ -28,6 +28,9 @@ export class BusinessResponseDto {
   @ApiPropertyOptional()
   contact_email?: string;
 
+  @ApiPropertyOptional()
+  description?: string;
+
   @ApiProperty()
   current_status: string;
 
@@ -39,6 +42,15 @@ export class BusinessResponseDto {
 
   @ApiProperty({ type: [Object] })
   documents: any[];
+
+  @ApiPropertyOptional()
+  logo_url?: string;
+
+  @ApiPropertyOptional()
+  cover_url?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  gallery?: string[];
 
   @ApiProperty()
   created_at: Date;

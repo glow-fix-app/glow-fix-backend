@@ -53,7 +53,7 @@ export class CreateRepairDto {
 
 export class CreateDiagnosticReportDto {
   @ApiProperty({ description: 'Booking ID' })
-  @IsUUID()
+  @IsString()
   booking_id: string;
 
   @ApiProperty({ description: 'Report summary' })

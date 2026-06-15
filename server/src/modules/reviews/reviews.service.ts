@@ -11,6 +11,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { ReviewResponseDto, ReviewWithUserDto, BusinessReviewsResponseDto, RatingSummaryDto } from './dto/review-response.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ReviewsService {
@@ -19,7 +20,8 @@ export class ReviewsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+    private readonly notificationsService: NotificationsService,
+  ) { }
 
   /**
    * Create a review for a completed booking
@@ -102,6 +104,8 @@ export class ReviewsService {
       punctuality_rating: review.punctualityRating ?? undefined,
       communication_rating: review.communicationRating ?? undefined,
       comment: review.comment ?? undefined,
+      reply: review.reply ?? undefined,
+      replied_at: review.repliedAt ?? undefined,
       created_at: review.createdAt,
       updated_at: review.updatedAt,
     };
@@ -152,6 +156,8 @@ export class ReviewsService {
       punctuality_rating: review.punctualityRating ?? undefined,
       communication_rating: review.communicationRating ?? undefined,
       comment: review.comment ?? undefined,
+      reply: review.reply ?? undefined,
+      replied_at: review.repliedAt ?? undefined,
       created_at: review.createdAt,
       updated_at: review.updatedAt,
       client_id: review.booking.vehicle.client.userId,
@@ -206,6 +212,8 @@ export class ReviewsService {
       punctuality_rating: review.punctualityRating ?? undefined,
       communication_rating: review.communicationRating ?? undefined,
       comment: review.comment ?? undefined,
+      reply: review.reply ?? undefined,
+      replied_at: review.repliedAt ?? undefined,
       created_at: review.createdAt,
       updated_at: review.updatedAt,
       client_id: review.booking.vehicle.client.userId,
@@ -223,6 +231,8 @@ export class ReviewsService {
     businessId: string,
     page: number = 1,
     limit: number = 20,
+    rating?: number,
+    sortBy?: string,
   ): Promise<BusinessReviewsResponseDto> {
     const business = await this.prisma.business.findUnique({
       where: { id: businessId },
@@ -235,11 +245,26 @@ export class ReviewsService {
     const skip = (page - 1) * limit;
     const take = Math.min(limit, 50);
 
+    const where: any = {
+      booking: { businessId },
+    };
+
+    if (rating !== undefined) {
+      where.rating = rating;
+    }
+
+    let orderBy: any = { createdAt: 'desc' };
+    if (sortBy === 'rating_desc') {
+      orderBy = { rating: 'desc' };
+    } else if (sortBy === 'rating_asc') {
+      orderBy = { rating: 'asc' };
+    } else if (sortBy === 'createdAt_asc') {
+      orderBy = { createdAt: 'asc' };
+    }
+
     const [reviews, totalReviews, ratingSummary] = await Promise.all([
       this.prisma.review.findMany({
-        where: {
-          booking: { businessId },
-        },
+        where,
         include: {
           booking: {
             include: {
@@ -253,12 +278,12 @@ export class ReviewsService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy,
         skip,
         take,
       }),
       this.prisma.review.count({
-        where: { booking: { businessId } },
+        where,
       }),
       this.getBusinessRatingSummary(businessId),
     ]);
@@ -271,6 +296,8 @@ export class ReviewsService {
       punctuality_rating: review.punctualityRating ?? undefined,
       communication_rating: review.communicationRating ?? undefined,
       comment: review.comment ?? undefined,
+      reply: review.reply ?? undefined,
+      replied_at: review.repliedAt ?? undefined,
       created_at: review.createdAt,
       updated_at: review.updatedAt,
       client_id: review.booking.vehicle.client.userId,
@@ -417,6 +444,8 @@ export class ReviewsService {
       punctuality_rating: review.punctualityRating ?? undefined,
       communication_rating: review.communicationRating ?? undefined,
       comment: review.comment ?? undefined,
+      reply: review.reply ?? undefined,
+      replied_at: review.repliedAt ?? undefined,
       created_at: review.createdAt,
       updated_at: review.updatedAt,
       client_id: review.booking.vehicle.client.userId,
@@ -470,7 +499,7 @@ export class ReviewsService {
     // Check if review is older than 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     if (review.createdAt < thirtyDaysAgo) {
       throw new BadRequestException('Reviews can only be updated within 30 days of creation');
     }
@@ -498,6 +527,8 @@ export class ReviewsService {
       punctuality_rating: updatedReview.punctualityRating ?? undefined,
       communication_rating: updatedReview.communicationRating ?? undefined,
       comment: updatedReview.comment ?? undefined,
+      reply: updatedReview.reply ?? undefined,
+      replied_at: updatedReview.repliedAt ?? undefined,
       created_at: updatedReview.createdAt,
       updated_at: updatedReview.updatedAt,
     };
@@ -632,5 +663,90 @@ export class ReviewsService {
     }
 
     return { can_review: true };
+  }
+
+  /**
+   * Add or update a reply to a review (manager only)
+   */
+  async addReviewReply(
+    managerUserId: string,
+    reviewId: string,
+    replyText: string,
+  ): Promise<ReviewResponseDto> {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      include: {
+        booking: {
+          include: {
+            business: true,
+            vehicle: {
+              include: {
+                client: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!review) {
+      throw new NotFoundException('Review not found');
+    }
+
+    // Verify ownership: the manager must own the business that received this review
+    if (review.booking.business.managerId !== managerUserId) {
+      throw new ForbiddenException('You can only reply to reviews for bookings on your own business');
+    }
+
+    const updatedReview = await this.prisma.review.update({
+      where: { id: reviewId },
+      data: {
+        reply: replyText,
+        repliedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    this.logger.log(`Manager ${managerUserId} replied to review ${reviewId}`);
+
+    // Notify the client that their review was replied to
+    try {
+      const recipientUserId = review.booking.vehicle.client.userId;
+
+      // Ensure the notification type exists in the database
+      await this.prisma.notificationType.upsert({
+        where: { code: 'NEW_REVIEW_REPLY' },
+        update: {},
+        create: {
+          code: 'NEW_REVIEW_REPLY',
+          label: 'Manager Replied to Review',
+        },
+      });
+
+      await this.notificationsService.createNotification({
+        recipientUserId,
+        actorUserId: managerUserId,
+        typeCode: 'NEW_REVIEW_REPLY',
+        title: 'New reply to your review',
+        body: `${review.booking.business.businessName} replied: "${replyText}"`,
+        actionUrl: `/client/bookings/${review.bookingId}`,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to send review reply notification: ${(err as Error).message}`);
+    }
+
+    return {
+      id: updatedReview.id,
+      booking_id: updatedReview.bookingId,
+      rating: updatedReview.rating,
+      quality_rating: updatedReview.qualityRating ?? undefined,
+      punctuality_rating: updatedReview.punctualityRating ?? undefined,
+      communication_rating: updatedReview.communicationRating ?? undefined,
+      comment: updatedReview.comment ?? undefined,
+      reply: updatedReview.reply ?? undefined,
+      replied_at: updatedReview.repliedAt ?? undefined,
+      created_at: updatedReview.createdAt,
+      updated_at: updatedReview.updatedAt,
+    };
   }
 }

@@ -102,8 +102,8 @@ export class ServiceDiscoveryService {
         businessServices: {
           where: {
             isActive: true,
-            ...(minPrice !== undefined && { price: { gte: minPrice * 100 } }),
-            ...(maxPrice !== undefined && { price: { lte: maxPrice * 100 } }),
+            ...(minPrice !== undefined && { price: { gte: minPrice } }),
+            ...(maxPrice !== undefined && { price: { lte: maxPrice } }),
           },
           include: {
             business: {
@@ -162,10 +162,11 @@ export class ServiceDiscoveryService {
             return null;
           }
 
-          const [ratingSummary, isOpen, isVerified] = await Promise.all([
+          const [ratingSummary, isOpen, isVerified, businessLogo] = await Promise.all([
             this.getBusinessRatingSummary(bs.businessId),
             this.isBusinessOpen(bs.businessId, new Date()),
             this.isBusinessVerified(bs.businessId),
+            this.getBusinessLogo(bs.businessId),
           ]);
 
           const operatingHoursToday = this.getOperatingHoursToday(
@@ -181,10 +182,12 @@ export class ServiceDiscoveryService {
           if (openNow && !isOpen) return null;
           if (verifiedOnly && !isVerified) return null;
 
-          // Apply location filter (by area name)
+          // Apply location filter using the real city column (matches discover page)
           if (selectedLocations.length > 0) {
-            const businessArea = this.extractLocationArea(bs.business.address);
-            const matchesLocation = selectedLocations.includes(businessArea);
+            const businessCity: string = (bs.business as any).city || this.extractCityFromAddress(bs.business.address);
+            const matchesLocation = selectedLocations.some(
+              (loc) => businessCity.toLowerCase().includes(loc.toLowerCase()) || loc.toLowerCase().includes(businessCity.toLowerCase()),
+            );
             const isNearYou =
               selectedLocations.includes('Near you') && distance <= 5;
             if (!matchesLocation && !isNearYou) return null;
@@ -197,12 +200,13 @@ export class ServiceDiscoveryService {
             business_address: bs.business.address,
             business_phone: bs.business.contactPhone || undefined,
             distance_km: Math.round(distance * 10) / 10,
-            price: Number(bs.price) / 100,
+            price: Number(bs.price),
             duration_minutes: bs.averageDuration,
             average_rating: ratingSummary.average_rating,
             total_reviews: ratingSummary.total_reviews,
             is_open: isOpen,
             is_verified: isVerified,
+            business_logo: businessLogo,
             operating_hours_today: operatingHoursToday,
           } as ServiceOfferDto;
         }),
@@ -316,8 +320,11 @@ export class ServiceDiscoveryService {
         const categoryName = service.category.name;
         categoryCount[categoryName] = (categoryCount[categoryName] || 0) + 1;
 
-        const locationArea = this.extractLocationArea(bs.business.address);
-        locationCount[locationArea] = (locationCount[locationArea] || 0) + 1;
+        // Use the real city column (same source as the discover page)
+        const city: string = (bs.business as any).city || this.extractCityFromAddress(bs.business.address);
+        if (city) {
+          locationCount[city] = (locationCount[city] || 0) + 1;
+        }
       }
     }
 
@@ -399,7 +406,7 @@ export class ServiceDiscoveryService {
 
       COUNT(DISTINCT bs.business_id)::int AS provider_count,
 
-      (MIN(bs.price) / 100.0)::float AS min_price,
+      MIN(bs.price)::float AS min_price,
 
       COALESCE(AVG(r.rating), 0)::float AS average_rating
 
@@ -525,10 +532,11 @@ export class ServiceDiscoveryService {
           }
         }
 
-        const [ratingSummary, isOpen, isVerified] = await Promise.all([
+        const [ratingSummary, isOpen, isVerified, businessLogo] = await Promise.all([
           this.getBusinessRatingSummary(bs.businessId),
           this.isBusinessOpen(bs.businessId, new Date()),
           this.isBusinessVerified(bs.businessId),
+          this.getBusinessLogo(bs.businessId),
         ]);
 
         const operatingHoursToday = this.getOperatingHoursToday(
@@ -542,12 +550,13 @@ export class ServiceDiscoveryService {
           business_address: bs.business.address,
           business_phone: bs.business.contactPhone || undefined,
           distance_km: Math.round(distance * 10) / 10,
-          price: Number(bs.price) / 100,
+          price: Number(bs.price),
           duration_minutes: bs.averageDuration,
           average_rating: ratingSummary.average_rating,
           total_reviews: ratingSummary.total_reviews,
           is_open: isOpen,
           is_verified: isVerified,
+          business_logo: businessLogo,
           operating_hours_today: operatingHoursToday,
         } as ServiceOfferDto;
       }),
@@ -713,22 +722,29 @@ export class ServiceDiscoveryService {
     return count >= 2;
   }
 
-  private extractLocationArea(address: string): string {
-    const areas = [
-      'Zamalek',
-      'Maadi',
-      'Heliopolis',
-      'Downtown',
-      'Mohandessin',
-      'Nasr City',
-      'New Cairo',
-    ];
-    for (const area of areas) {
-      if (address?.toLowerCase().includes(area.toLowerCase())) {
-        return area;
-      }
-    }
-    return 'Other';
+  private async getBusinessLogo(businessId: string): Promise<string | undefined> {
+    const image = await this.prisma.image.findFirst({
+      where: {
+        entityId: businessId,
+        entityType: 'BUSINESS_LOGO',
+      },
+    });
+    return image?.url;
+  }
+
+  /**
+   * Lightweight fallback: extract a usable city label from a freeform address
+   * string when the structured `city` column is empty.
+   * Returns the first comma-separated token that looks like a place name,
+   * or an empty string so callers can decide how to handle it.
+   */
+  private extractCityFromAddress(address: string): string {
+    if (!address) return '';
+    // Take the first non-numeric, non-empty token separated by commas or slashes
+    const parts = address.split(/[,\/]/).map((s) => s.trim()).filter(Boolean);
+    // Skip pure number / street-number tokens and pick the first meaningful word
+    const city = parts.find((p) => isNaN(Number(p)) && p.length > 2);
+    return city ?? '';
   }
 
   /**
@@ -788,8 +804,8 @@ export class ServiceDiscoveryService {
               some: {
                 isActive: true,
                 price: {
-                  gte: range.min * 100,
-                  ...(range.max !== null && { lte: range.max * 100 }),
+                  gte: range.min,
+                  ...(range.max !== null && { lte: range.max }),
                 },
                 business: {
                   statusHistory: {

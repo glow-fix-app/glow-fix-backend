@@ -166,9 +166,9 @@ export class AdminService {
       completed_bookings: completedBookings,
       pending_bookings: pendingBookings,
       cancelled_bookings: cancelledBookings,
-      total_revenue: totalRevenue / 100, // Convert from cents
-      platform_fees: platformFees / 100,
-      net_revenue: netRevenue / 100,
+      total_revenue: totalRevenue,
+      platform_fees: platformFees,
+      net_revenue: netRevenue,
       total_payouts: totalPayouts,
       pending_payouts: pendingPayouts,
       average_rating: Math.round((reviews._avg.rating || 0) * 10) / 10,
@@ -204,7 +204,7 @@ export class AdminService {
     for (const payment of payments) {
       const date = payment.createdAt.toISOString().split('T')[0];
       const existing = dailyMap.get(date) || { revenue: 0, fees: 0, bookings: 0 };
-      const amount = Number(payment.amount) / 100;
+      const amount = Number(payment.amount);
       existing.revenue += amount;
       existing.fees += amount * 0.1;
       existing.bookings += 1;
@@ -221,7 +221,7 @@ export class AdminService {
     for (const payment of payments) {
       const week = this.getWeekNumber(payment.createdAt);
       const existing = weeklyMap.get(week) || { revenue: 0, fees: 0, bookings: 0 };
-      const amount = Number(payment.amount) / 100;
+      const amount = Number(payment.amount);
       existing.revenue += amount;
       existing.fees += amount * 0.1;
       existing.bookings += 1;
@@ -238,7 +238,7 @@ export class AdminService {
     for (const payment of payments) {
       const month = payment.createdAt.toISOString().slice(0, 7);
       const existing = monthlyMap.get(month) || { revenue: 0, fees: 0, bookings: 0 };
-      const amount = Number(payment.amount) / 100;
+      const amount = Number(payment.amount);
       existing.revenue += amount;
       existing.fees += amount * 0.1;
       existing.bookings += 1;
@@ -255,7 +255,7 @@ export class AdminService {
     for (const payment of payments) {
       const year = payment.createdAt.getFullYear();
       const existing = yearlyMap.get(year) || { revenue: 0, fees: 0, bookings: 0 };
-      const amount = Number(payment.amount) / 100;
+      const amount = Number(payment.amount);
       existing.revenue += amount;
       existing.fees += amount * 0.1;
       existing.bookings += 1;
@@ -311,7 +311,7 @@ export class AdminService {
         id: b.id,
         business_name: b.business_name,
         total_bookings: Number(b.total_bookings),
-        total_revenue: Number(b.total_revenue) / 100,
+        total_revenue: Number(b.total_revenue),
         average_rating: Math.round(Number(b.average_rating) * 10) / 10,
       })),
       top_clients: (topClients as any[]).map(c => ({
@@ -319,7 +319,7 @@ export class AdminService {
         full_name: c.full_name,
         email: c.email,
         total_bookings: Number(c.total_bookings),
-        total_spent: Number(c.total_spent) / 100,
+        total_spent: Number(c.total_spent),
       })),
     };
   }
@@ -804,7 +804,7 @@ export class AdminService {
         business_id: p.businessId,
         business_name: p.business.businessName,
         manager_name: p.business.manager.fullName,
-        amount: Number(p.amount) / 100,
+        amount: Number(p.amount),
         status: p.status.context,
         processed_at: p.processedAt,
         created_at: p.createdAt,
@@ -836,7 +836,7 @@ export class AdminService {
       data: {
         statusId: processedStatus.id,
         processedAt: new Date(),
-        amount: dto.amount * 100,
+        amount: dto.amount,
       },
     });
 
@@ -897,7 +897,7 @@ export class AdminService {
 
     return {
       total_bookings: bookings.length,
-      total_revenue: totalRevenue / 100,
+      total_revenue: totalRevenue,
       average_rating: reviewCount > 0 ? Math.round((totalRating / reviewCount) * 10) / 10 : 0,
     };
   }

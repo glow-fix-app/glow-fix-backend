@@ -79,6 +79,11 @@ export class CreateBusinessDto {
   @IsEmail()
   contact_email?: string;
 
+  @ApiPropertyOptional({ example: 'Premium car wash and detailing service provider.' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
   @ApiPropertyOptional({ type: [OperatingHoursInputDto], description: 'Operating hours for each day' })
   @IsOptional()
   @IsArray()

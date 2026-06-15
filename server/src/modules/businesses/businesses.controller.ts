@@ -329,6 +329,127 @@ export class BusinessesController {
     return this.businessesService.getBusinessStats(business.id);
   }
 
+  @Put('me/logo')
+  @Roles('MANAGER')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload or replace business logo' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+      required: ['file'],
+    },
+  })
+  async uploadLogo(
+    @CurrentUser() user: any,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<BusinessResponseDto> {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+    return this.businessesService.uploadBusinessImage(user.id, file, 'logo');
+  }
+
+  @Put('me/cover')
+  @Roles('MANAGER')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload or replace business cover photo' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+      required: ['file'],
+    },
+  })
+  async uploadCover(
+    @CurrentUser() user: any,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<BusinessResponseDto> {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+    return this.businessesService.uploadBusinessImage(user.id, file, 'cover');
+  }
+
+  @Post('me/gallery')
+  @Roles('MANAGER')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage() }))
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload an image to business gallery' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+      required: ['file'],
+    },
+  })
+  async uploadGalleryImage(
+    @CurrentUser() user: any,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<BusinessResponseDto> {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+    return this.businessesService.uploadBusinessImage(user.id, file, 'gallery');
+  }
+
+  @Delete('me/gallery')
+  @Roles('MANAGER')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a gallery image by URL' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string' },
+      },
+      required: ['url'],
+    },
+  })
+  async deleteGalleryImage(
+    @CurrentUser() user: any,
+    @Body('url') url: string,
+  ): Promise<BusinessResponseDto> {
+    if (!url) {
+      throw new BadRequestException('URL is required');
+    }
+    return this.businessesService.deleteGalleryImage(user.id, url);
+  }
+
+  @Put('me/gallery/reorder')
+  @Roles('MANAGER')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reorder business gallery images' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        urls: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['urls'],
+    },
+  })
+  async reorderGallery(
+    @CurrentUser() user: any,
+    @Body('urls') urls: string[],
+  ): Promise<BusinessResponseDto> {
+    if (!urls || !Array.isArray(urls)) {
+      throw new BadRequestException('URLs array is required');
+    }
+    return this.businessesService.reorderGallery(user.id, urls);
+  }
+
   // ==================== PUBLIC ENDPOINTS ====================
 
   @Get()
