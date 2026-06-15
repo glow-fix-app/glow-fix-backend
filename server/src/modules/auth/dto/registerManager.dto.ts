@@ -5,6 +5,7 @@ import {
   MaxLength,
   IsOptional,
   Matches,
+  IsNumber,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
@@ -28,7 +29,7 @@ export class RegisterManagerDto {
 
   @ApiPropertyOptional({ example: '01001234567' })
   @IsOptional()
-  @Matches(/^\d{8,15}$/, { message: 'Invalid phone number format' })
+  @Matches(/^\+?\d{7,15}$/, { message: 'Invalid phone number format' })
   phone?: string;
 
   @ApiProperty({ minLength: 8 })
@@ -44,4 +45,32 @@ export class RegisterManagerDto {
   @ApiProperty()
   @IsString()
   confirmPassword: string;
+
+  @ApiProperty({ example: 'Auto Fix Shop' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
+  businessName: string;
+
+  @ApiProperty({ example: '123 Main St, Cairo' })
+  @IsString()
+  @MinLength(5)
+  @MaxLength(500)
+  address: string;
+
+  @ApiProperty({ example: 30.0444 })
+  @Transform(({ value }) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? value : num;
+  })
+  @IsNumber()
+  latitude: number;
+
+  @ApiProperty({ example: 31.2357 })
+  @Transform(({ value }) => {
+    const num = parseFloat(value);
+    return isNaN(num) ? value : num;
+  })
+  @IsNumber()
+  longitude: number;
 }

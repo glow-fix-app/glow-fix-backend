@@ -31,7 +31,12 @@ import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { DiagnosticReportsModule } from './modules/diagnostic-reports/diagnostic-reports.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { BusinessesModule } from './modules/businesses/businesses.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
+import { RolesGuard } from './common/guards/roles.guard';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
@@ -72,12 +77,20 @@ import { BusinessesModule } from './modules/businesses/businesses.module';
     LoyaltyModule,
     NotificationsModule,
     DiagnosticReportsModule,
+    ChatModule,
+    PaymentsModule,
+    BookingsModule,
+    AnalyticsModule,
   ],
   providers: [
     JwtAuthGuard,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })

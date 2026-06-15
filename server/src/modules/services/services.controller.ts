@@ -70,7 +70,7 @@ export class ServicesController {
   @Public()
   @ApiOperation({ summary: 'Get category by ID' })
   async getCategoryById(
-    @Param('categoryId', ParseUUIDPipe) categoryId: string,
+    @Param('categoryId') categoryId: string,
   ): Promise<CategoryResponseDto> {
     return this.servicesService.getCategoryById(categoryId);
   }
@@ -93,7 +93,7 @@ export class ServicesController {
   @ApiOperation({ summary: 'Delete category (admin only)' })
   async deleteCategory(
     @CurrentUser() user: any,
-    @Param('categoryId', ParseUUIDPipe) categoryId: string,
+    @Param('categoryId') categoryId: string,
   ): Promise<{ message: string }> {
     return this.servicesService.deleteCategory(user.id, categoryId);
   }
@@ -186,7 +186,7 @@ export class ServicesController {
   @Public()
   @ApiOperation({ summary: 'Get service by ID from catalog' })
   async getServiceById(
-    @Param('serviceId', ParseUUIDPipe) serviceId: string,
+    @Param('serviceId') serviceId: string,
   ): Promise<ServiceCatalogResponseDto> {
     return this.servicesService.getServiceById(serviceId);
   }
@@ -198,7 +198,7 @@ export class ServicesController {
   @ApiQuery({ name: 'latitude', required: false, type: Number })
   @ApiQuery({ name: 'longitude', required: false, type: Number })
   async getServiceWithProviders(
-    @Param('serviceId', ParseUUIDPipe) serviceId: string,
+    @Param('serviceId') serviceId: string,
     @CurrentUser() user: any,
     @Query('latitude') latitude?: string,
     @Query('longitude') longitude?: string,
@@ -228,7 +228,7 @@ export class ServicesController {
   @ApiOperation({ summary: 'Update service in catalog (admin only)' })
   async updateService(
     @CurrentUser() user: any,
-    @Param('serviceId', ParseUUIDPipe) serviceId: string,
+    @Param('serviceId') serviceId: string,
     @Body() dto: UpdateServiceDto,
   ): Promise<ServiceCatalogResponseDto> {
     return this.servicesService.updateService(user.id, serviceId, dto);
@@ -241,7 +241,7 @@ export class ServicesController {
   @ApiOperation({ summary: 'Delete service from catalog (admin only)' })
   async deleteService(
     @CurrentUser() user: any,
-    @Param('serviceId', ParseUUIDPipe) serviceId: string,
+    @Param('serviceId') serviceId: string,
   ): Promise<{ message: string }> {
     return this.servicesService.deleteService(user.id, serviceId);
   }
@@ -254,7 +254,7 @@ export class ServicesController {
   @ApiOperation({ summary: 'Get unassigned services for my business (manager only)' })
   async getUnassignedServices(
     @CurrentUser() user: any,
-    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('businessId') businessId: string,
   ): Promise<ServiceCatalogResponseDto[]> {
     return this.servicesService.getUnassignedServicesForBusiness(user.id, businessId);
   }
@@ -263,7 +263,7 @@ export class ServicesController {
   @Public()
   @ApiOperation({ summary: 'Get available services for a business (public - with prices)' })
   async getBusinessServices(
-    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('businessId') businessId: string,
   ): Promise<AvailableServiceDto[]> {
     return this.servicesService.getAvailableServicesForBusiness(businessId);
   }
@@ -272,7 +272,7 @@ export class ServicesController {
   @Public()
   @ApiOperation({ summary: 'Get services by category for a business (public)' })
   async getBusinessServicesByCategory(
-    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('businessId') businessId: string,
     @Param('categoryName') categoryName: string,
   ): Promise<AvailableServiceDto[]> {
     return this.servicesService.getAvailableServicesByCategory(businessId, categoryName);
@@ -284,7 +284,7 @@ export class ServicesController {
   @ApiOperation({ summary: 'Get all assigned services with prices for my business (manager only)' })
   async getMyAssignedServices(
     @CurrentUser() user: any,
-    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('businessId') businessId: string,
   ): Promise<AssignedBusinessServiceResponseDto[]> {
     await this.servicesService.verifyBusinessOwnership(user.id, businessId);
     return this.servicesService.getBusinessServices(businessId, true);
@@ -296,7 +296,7 @@ export class ServicesController {
   @ApiOperation({ summary: 'Assign a service to my business with price (manager only)' })
   async assignServiceToBusiness(
     @CurrentUser() user: any,
-    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('businessId') businessId: string,
     @Body() dto: AssignServiceToBusinessDto,
   ): Promise<AssignedBusinessServiceResponseDto> {
     return this.servicesService.assignServiceToBusiness(user.id, businessId, dto);
@@ -308,7 +308,7 @@ export class ServicesController {
   @ApiOperation({ summary: 'Bulk assign services to my business (manager only)' })
   async bulkAssignServicesToBusiness(
     @CurrentUser() user: any,
-    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('businessId') businessId: string,
     @Body() dto: BulkAssignServicesDto,
   ): Promise<BulkAssignResponseDto> {
     return this.servicesService.bulkAssignServicesToBusiness(user.id, businessId, dto);
@@ -318,7 +318,7 @@ export class ServicesController {
   @Public()
   @ApiOperation({ summary: 'Get assigned service details by ID' })
   async getBusinessServiceById(
-    @Param('businessServiceId', ParseUUIDPipe) businessServiceId: string,
+    @Param('businessServiceId') businessServiceId: string,
   ): Promise<AssignedBusinessServiceResponseDto> {
     return this.servicesService.getBusinessServiceById(businessServiceId);
   }
@@ -329,8 +329,8 @@ export class ServicesController {
   @ApiOperation({ summary: 'Update assigned service price/duration (manager only)' })
   async updateBusinessService(
     @CurrentUser() user: any,
-    @Param('businessId', ParseUUIDPipe) businessId: string,
-    @Param('businessServiceId', ParseUUIDPipe) businessServiceId: string,
+    @Param('businessId') businessId: string,
+    @Param('businessServiceId') businessServiceId: string,
     @Body() dto: UpdateBusinessServiceDto,
   ): Promise<AssignedBusinessServiceResponseDto> {
     return this.servicesService.updateBusinessService(user.id, businessId, businessServiceId, dto);
@@ -343,8 +343,8 @@ export class ServicesController {
   @ApiOperation({ summary: 'Toggle service active status (manager only)' })
   async toggleServiceStatus(
     @CurrentUser() user: any,
-    @Param('businessId', ParseUUIDPipe) businessId: string,
-    @Param('businessServiceId', ParseUUIDPipe) businessServiceId: string,
+    @Param('businessId') businessId: string,
+    @Param('businessServiceId') businessServiceId: string,
   ): Promise<{ is_active: boolean; message: string }> {
     return this.servicesService.toggleServiceStatus(user.id, businessId, businessServiceId);
   }
@@ -356,8 +356,8 @@ export class ServicesController {
   @ApiOperation({ summary: 'Remove service from business (manager only)' })
   async removeServiceFromBusiness(
     @CurrentUser() user: any,
-    @Param('businessId', ParseUUIDPipe) businessId: string,
-    @Param('businessServiceId', ParseUUIDPipe) businessServiceId: string,
+    @Param('businessId') businessId: string,
+    @Param('businessServiceId') businessServiceId: string,
   ): Promise<{ message: string }> {
     return this.servicesService.removeServiceFromBusiness(user.id, businessId, businessServiceId);
   }

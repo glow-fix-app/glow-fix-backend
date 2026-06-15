@@ -105,6 +105,7 @@ export class NotificationsService {
   async delete(notificationId: string, userId: string): Promise<void> {
     await this.ensureOwnership(notificationId, userId);
     await this.prisma.notification.delete({ where: { id: notificationId } });
+    this.gateway.emitNotificationDeleted(userId, { id: notificationId });
   }
 
   private async ensureOwnership(notificationId: string, userId: string) {

@@ -14,6 +14,7 @@ import { TokenService } from '../token.service';
 import { OtpService } from '../otp.service';
 import { PasswordService } from '../password.service';
 import { SessionService } from '../session.service';
+import { StorageService } from '../../../core/storage/storage.service';
 import { UserRole, Permission } from '@glow-fix/types';
 import { OtpPurpose } from '../dto/verify-otp.dto';
 
@@ -31,6 +32,7 @@ describe('AuthService', () => {
   let otpService: jest.Mocked<OtpService>;
   let passwordService: jest.Mocked<PasswordService>;
   let sessionService: jest.Mocked<SessionService>;
+  let storage: jest.Mocked<StorageService>;
 
   const mockUser = {
     id: 'user-id',
@@ -39,7 +41,7 @@ describe('AuthService', () => {
     phone: '+12025551234',
     avatarUrl: null,
     passwordHash: 'hashed_password',
-    emailVerified: false,
+    emailVerified: true,
     phoneVerified: false,
     twoFactorEnabled: false,
     twoFactorSecret: null,
@@ -67,6 +69,14 @@ describe('AuthService', () => {
     auditLog: {
       create: jest.fn(),
     },
+    userOtp: {
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    image: {
+      create: jest.fn(),
+    },
   };
 
   const mockRedis = {
@@ -88,6 +98,7 @@ describe('AuthService', () => {
     verifyAccessToken: jest.fn(),
     blacklistToken: jest.fn(),
     isTokenBlacklisted: jest.fn(),
+    verifyResetToken: jest.fn(),
   };
 
   const mockOtpService = {
@@ -121,6 +132,10 @@ describe('AuthService', () => {
     debug: jest.fn(),
   };
 
+  const mockStorage = {
+    uploadFile: jest.fn(),
+  };
+
   function setupSuccessLoginMocks() {
     mockRedis.checkRateLimit.mockResolvedValue({ allowed: true, remaining: 4, resetAt: 0 });
     mockPasswordService.compare.mockResolvedValue(true);
@@ -146,6 +161,7 @@ describe('AuthService', () => {
         { provide: OtpService, useValue: mockOtpService },
         { provide: PasswordService, useValue: mockPasswordService },
         { provide: SessionService, useValue: mockSessionService },
+        { provide: StorageService, useValue: mockStorage },
       ],
     }).compile();
 
@@ -156,11 +172,12 @@ describe('AuthService', () => {
     otpService = module.get(OtpService);
     passwordService = module.get(PasswordService);
     sessionService = module.get(SessionService);
+    storage = module.get(StorageService);
 
     jest.clearAllMocks();
   });
 
-  describe('register', () => {
+  describe('registerClient', () => {
     const registerDto = {
       fullName: 'Ahmed Eid',
       email: 'ahmed@example.com',
@@ -178,7 +195,7 @@ describe('AuthService', () => {
       mockOtpService.sendOtpToEmail.mockResolvedValue(undefined);
       mockOtpService.sendOtpToPhone.mockResolvedValue(undefined);
 
-      const result = await service.register(registerDto, '127.0.0.1', 'test-agent');
+      const result = await service.registerClient(registerDto, '127.0.0.1', 'test-agent');
 
       expect(result.requiresOtp).toBe(true);
       expect(result.message).toContain('Verification codes');
@@ -204,7 +221,7 @@ describe('AuthService', () => {
       mockPrisma.userAuthProvider.create.mockResolvedValue({} as any);
       mockOtpService.sendOtpToEmail.mockResolvedValue(undefined);
 
-      const result = await service.register(dtoWithoutPhone, '127.0.0.1', 'test-agent');
+      const result = await service.registerClient(dtoWithoutPhone, '127.0.0.1', 'test-agent');
 
       expect(result.message).toContain('A verification code');
       expect(mockOtpService.sendOtpToPhone).not.toHaveBeenCalled();
@@ -214,7 +231,7 @@ describe('AuthService', () => {
       mockPrisma.user.findUnique.mockResolvedValueOnce(mockUser);
 
       await expect(
-        service.register(registerDto, '127.0.0.1', 'test-agent'),
+        service.registerClient(registerDto, '127.0.0.1', 'test-agent'),
       ).rejects.toThrow(ConflictException);
     });
 
@@ -224,7 +241,7 @@ describe('AuthService', () => {
         .mockResolvedValueOnce(mockUser);
 
       await expect(
-        service.register(registerDto, '127.0.0.1', 'test-agent'),
+        service.registerClient(registerDto, '127.0.0.1', 'test-agent'),
       ).rejects.toThrow(ConflictException);
 
       expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
@@ -304,7 +321,7 @@ describe('AuthService', () => {
 
   describe('resendOtp', () => {
     it('should resend OTP to email', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue(mockUser);
+      mockPrisma.user.findFirst.mockResolvedValue({ ...mockUser, emailVerified: false });
       mockOtpService.sendOtpToEmail.mockResolvedValue(undefined);
 
       const result = await service.resendOtp({
@@ -312,7 +329,7 @@ describe('AuthService', () => {
         purpose: OtpPurpose.EMAIL_VERIFICATION,
       });
 
-      expect(result.message).toBe('A new verification code has been sent.');
+      expect(result.message).toBe('If an account exists, a new verification code has been sent.');
       expect(mockOtpService.sendOtpToEmail).toHaveBeenCalled();
     });
 
@@ -556,7 +573,7 @@ describe('AuthService', () => {
 
   describe('forgotPassword', () => {
     it('should send password reset OTP for existing user', async () => {
-      mockPrisma.user.findFirst.mockResolvedValue(mockUser);
+      mockPrisma.user.findFirst.mockResolvedValue({ ...mockUser, email: 'john@example.com' });
       mockOtpService.sendOtpToEmail.mockResolvedValue(undefined);
 
       const result = await service.forgotPassword({ identifier: 'john@example.com' });
@@ -579,15 +596,22 @@ describe('AuthService', () => {
 
   describe('resetPassword', () => {
     const resetDto = {
-      identifier: 'john@example.com',
-      otp: '123456',
+      resetToken: 'valid-reset-token',
       newPassword: 'NewStr0ng!Pass',
       confirmPassword: 'NewStr0ng!Pass',
     };
 
     it('should reset password and invalidate all sessions', async () => {
+      mockTokenService.verifyResetToken.mockReturnValueOnce({
+        sub: 'user-id',
+        email: 'john@example.com',
+      });
       mockPrisma.user.findFirst.mockResolvedValue(mockUser);
+      mockPrisma.userOtp.findFirst.mockResolvedValue({ id: 'otp-id' });
+      mockPrisma.userOtp.update.mockResolvedValue({ id: 'otp-id' });
       mockOtpService.verifyOtp.mockResolvedValue(true);
+      mockPasswordService.compare.mockResolvedValueOnce(false);
+      mockPasswordService.isPasswordReused.mockResolvedValueOnce(false);
       mockPasswordService.hash.mockResolvedValue('new_hashed_password');
       mockPrisma.user.update.mockResolvedValue(mockUser);
       mockSessionService.invalidateAllSessions.mockResolvedValue(3);
@@ -600,6 +624,10 @@ describe('AuthService', () => {
     });
 
     it('should throw BadRequestException if user not found', async () => {
+      mockTokenService.verifyResetToken.mockReturnValueOnce({
+        sub: 'user-id',
+        email: 'john@example.com',
+      });
       mockPrisma.user.findFirst.mockResolvedValue(null);
 
       await expect(service.resetPassword(resetDto)).rejects.toThrow(BadRequestException);

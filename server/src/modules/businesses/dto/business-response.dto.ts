@@ -28,6 +28,21 @@ export class BusinessResponseDto {
   @ApiPropertyOptional()
   contact_email?: string;
 
+  @ApiPropertyOptional()
+  description?: string;
+
+  @ApiPropertyOptional()
+  bank_name?: string;
+
+  @ApiPropertyOptional()
+  bank_account_name?: string;
+
+  @ApiPropertyOptional()
+  bank_account_number?: string;
+
+  @ApiPropertyOptional()
+  swift_iban?: string;
+
   @ApiProperty()
   current_status: string;
 
@@ -39,6 +54,15 @@ export class BusinessResponseDto {
 
   @ApiProperty({ type: [Object] })
   documents: any[];
+
+  @ApiPropertyOptional()
+  logo_url?: string;
+
+  @ApiPropertyOptional()
+  cover_url?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  gallery?: string[];
 
   @ApiProperty()
   created_at: Date;

@@ -24,8 +24,9 @@
     "db:studio": "turbo run db:studio --filter=@glow-fix/api",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
+    "start:ts": "npm run start:ts --workspace=@glow-fix/api",
     "clean": "turbo run clean && rm -rf node_modules",
-    "prepare": "husky install"
+    "prepare": "node -e \"if (process.env.NODE_ENV !== 'production') require('child_process').execSync('husky install')\""
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
@@ -48,5 +49,8 @@
     "express": "^5.2.1",
     "nodemailer": "^8.0.7",
     "serverless-http": "^4.0.0"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }

@@ -10,7 +10,7 @@ services:
     container_name: glowfix-postgres
     restart: unless-stopped
     ports:
-      - '5432:5432'
+      - '5434:5432'
     environment:
       POSTGRES_USER: glowfix
       POSTGRES_PASSWORD: glowfix_dev_password
@@ -19,7 +19,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U glowfix -d glowfix_dev']
+      test: [ 'CMD-SHELL', 'pg_isready -U glowfix -d glowfix_dev' ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,9 +38,9 @@ services:
     ports:
       - "5433:5432"
     tmpfs:
-      - /var/lib/postgresql/data  # in-memory for fast tests
+      - /var/lib/postgresql/data # in-memory for fast tests
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U glowfix -d glowfix_test"]
+      test: [ "CMD-SHELL", "pg_isready -U glowfix -d glowfix_test" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -60,25 +60,10 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: [ 'CMD', 'redis-cli', 'ping' ]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # ─────────────────────────────────────────
-  # MailHog (local email testing)
-  # UI at http://localhost:8025
-  # ─────────────────────────────────────────
-  mailhog:
-    image: mailhog/mailhog:latest
-    container_name: glowfix_mailhog
-    restart: unless-stopped
-    ports:
-      - "1025:1025"   # SMTP server
-      - "8025:8025"   # Web UI
-    networks:
-      - glowfix_network
-
 
   # ─────────────────────────────────────────
   # Redis Commander (Redis UI)

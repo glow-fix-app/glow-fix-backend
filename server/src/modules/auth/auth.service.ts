@@ -15,6 +15,7 @@ import {
 
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { RedisService } from '../../core/redis/redis.service';
+import { StorageService } from '../../core/storage/storage.service';
 import { RedisKeys } from '../../core/redis/redis-keys';
 import { WinstonLoggerService } from '../../common/logger/winston-logger.service';
 import { TokenService } from './token.service';
@@ -46,6 +47,7 @@ export class AuthService {
     private readonly otpService: OtpService,
     private readonly passwordService: PasswordService,
     private readonly sessionService: SessionService,
+    private readonly storage: StorageService,
   ) {}
 
   // ─── Registration ───
@@ -128,7 +130,7 @@ export class AuthService {
       },
     });
 
-    // CLIENT role → create Client profile row (location defaults to Cairo centre)
+    // CLIENT role → create Client profile row (location starts as NULL — user must set it)
     await this.prisma.client.create({ data: { userId: user.id } });
 
     this.logger.log('Client registered', 'AuthService', {
@@ -140,9 +142,15 @@ export class AuthService {
     return this.finaliseRegistration(user.id, user.email, dto.phone);
   }
 
-  // ── MANAGER registration (public — business verified separately by admin) ────
+  // ── MANAGER registration (public — business details and docs created transactionally) ────
   async registerManager(
     dto: RegisterManagerDto,
+    files: {
+      businessRegistration?: Express.Multer.File[];
+      ownerID?: Express.Multer.File[];
+      insuranceCertificate?: Express.Multer.File[];
+      serviceLicense?: Express.Multer.File[];
+    },
     ipAddress: string,
     userAgent: string,
   ): Promise<{ message: string; requiresOtp: boolean }> {
@@ -150,28 +158,143 @@ export class AuthService {
 
     const passwordHash = await this.passwordService.hash(dto.password);
 
-    const user = await this.prisma.user.create({
-      data: {
-        role: 'MANAGER',
-        fullName: dto.fullName,
-        email: dto.email.toLowerCase(),
-        phone: dto.phone ?? null,
-        passwordHash,
-        emailVerified: false,
-        phoneVerified: false,
-      },
+    const user = await this.prisma.$transaction(async (tx) => {
+      // 1. Create User
+      const u = await tx.user.create({
+        data: {
+          role: 'MANAGER',
+          fullName: dto.fullName,
+          email: dto.email.toLowerCase(),
+          phone: dto.phone ?? null,
+          passwordHash,
+          emailVerified: false,
+          phoneVerified: false,
+        },
+      });
+
+      // 2. Create Business
+      const businesses = await tx.$queryRaw<Array<{ id: string }>>`
+        INSERT INTO businesses (id, manager_id, business_name, address, location, contact_phone, contact_email, created_at, updated_at)
+        VALUES (
+          gen_random_uuid(),
+          ${u.id}::uuid,
+          ${dto.businessName},
+          ${dto.address},
+          ST_SetSRID(ST_MakePoint(${dto.longitude}, ${dto.latitude}), 4326)::geography,
+          ${dto.phone || null},
+          ${dto.email.toLowerCase()},
+          NOW(),
+          NOW()
+        )
+        RETURNING id
+      `;
+
+      const businessId = businesses[0]?.id;
+      if (!businessId) {
+        throw new Error('Failed to create business profile during registration');
+      }
+
+      // 3. Create BusinessStatus
+      let pendingStatus = await tx.status.findFirst({
+        where: { context: 'PENDING_REVIEW' },
+      });
+      if (!pendingStatus) {
+        pendingStatus = await tx.status.create({
+          data: { context: 'PENDING_REVIEW' },
+        });
+      }
+      await tx.businessStatus.create({
+        data: {
+          businessId,
+          statusId: pendingStatus.id,
+        },
+      });
+
+      // 4. Create UserAuthProvider
+      await tx.userAuthProvider.create({
+        data: { userId: u.id, provider: 'EMAIL', email: dto.email.toLowerCase() },
+      });
+
+      // 5. Upload & create documents
+      if (files.businessRegistration?.[0]) {
+        await this.uploadAndCreateDocument(tx, businessId, files.businessRegistration[0], 'BUSINESS_REGISTRATION');
+      }
+      if (files.ownerID?.[0]) {
+        await this.uploadAndCreateDocument(tx, businessId, files.ownerID[0], 'OWNER_ID');
+      }
+      if (files.insuranceCertificate?.[0]) {
+        await this.uploadAndCreateDocument(tx, businessId, files.insuranceCertificate[0], 'INSURANCE_CERTIFICATE');
+      }
+      if (files.serviceLicense?.[0]) {
+        await this.uploadAndCreateDocument(tx, businessId, files.serviceLicense[0], 'SERVICE_LICENSE');
+      }
+
+      return u;
+    }, {
+      timeout: 30000,
+      maxWait: 30000,
     });
 
-    // MANAGER role → no profile table; their Business row is created separately
-    // after admin approves their business application.
-
-    this.logger.log('Manager registered', 'AuthService', {
+    this.logger.log('Manager and business registered', 'AuthService', {
       userId: user.id,
       email: user.email,
       ipAddress,
     });
 
-    return this.finaliseRegistration(user.id, user.email, dto.phone);
+    // 6. Send OTP *after* transaction commits successfully
+    await this.otpService.sendOtpToEmail(
+      user.id,
+      user.email,
+      OtpPurpose.EMAIL_VERIFICATION,
+    );
+
+    if (user.phone) {
+      await this.otpService.sendOtpToPhone(
+        user.id,
+        user.phone,
+        OtpPurpose.PHONE_VERIFICATION,
+      );
+    }
+
+    return {
+      message: user.phone
+        ? 'Registration successful. Verification codes have been sent to your email and phone.'
+        : 'Registration successful. A verification code has been sent to your email.',
+      requiresOtp: true,
+    };
+  }
+
+  private async uploadAndCreateDocument(
+    tx: any,
+    businessId: string,
+    file: Express.Multer.File,
+    type: string,
+  ): Promise<void> {
+    const { storageKey, url } = await this.storage.uploadFile(
+      file.buffer,
+      `businesses/${businessId}/documents`,
+      file.mimetype,
+      file.originalname,
+    );
+
+    let pendingStatus = await tx.status.findFirst({
+      where: { context: 'PENDING' },
+    });
+
+    if (!pendingStatus) {
+      pendingStatus = await tx.status.create({
+        data: { context: 'PENDING' },
+      });
+    }
+
+    await tx.businessDocument.create({
+      data: {
+        businessId,
+        type,
+        url,
+        statusId: pendingStatus.id,
+      },
+    });
   }
 
   // ── ADMIN registration (protected — only existing admins can create admins) ──
@@ -1210,11 +1333,11 @@ export class AuthService {
 
   private async checkLoginRateLimit(ipAddress: string): Promise<void> {
     const key = RedisKeys.loginAttempts(ipAddress);
-    const result = await this.redis.checkRateLimit(key, 5, 900);
+    const result = await this.redis.checkRateLimit(key, 5, 60);
 
     if (!result.allowed) {
       throw new ForbiddenException(
-        'Too many login attempts. Please try again in 15 minutes.',
+        'Too many login attempts. Please try again in 1 minute.',
       );
     }
   }
@@ -1226,7 +1349,7 @@ export class AuthService {
   ): Promise<void> {
     const key = RedisKeys.loginAttempts(ipAddress);
     await this.redis.incr(key);
-    await this.redis.expire(key, 900);
+    await this.redis.expire(key, 60);
 
     await this.prisma.auditLog.create({
       data: {

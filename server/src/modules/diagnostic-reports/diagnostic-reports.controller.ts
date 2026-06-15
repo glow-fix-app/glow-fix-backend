@@ -84,8 +84,8 @@ export class DiagnosticReportsController {
   @ApiResponse({ status: 404, description: 'Report not found' })
   async getReportByBookingId(
     @CurrentUser() user: any,
-    @Param('bookingId', ParseUUIDPipe) bookingId: string,
-  ): Promise<DiagnosticReportResponseDto> {
+    @Param('bookingId') bookingId: string,
+  ): Promise<DiagnosticReportResponseDto | null> {
     return this.diagnosticReportsService.getReportByBookingId(
       bookingId,
       user.id,
@@ -103,8 +103,8 @@ export class DiagnosticReportsController {
   })
   async getReportSummary(
     @CurrentUser() user: any,
-    @Param('bookingId', ParseUUIDPipe) bookingId: string,
-  ): Promise<ReportSummaryDto> {
+    @Param('bookingId') bookingId: string,
+  ): Promise<ReportSummaryDto | null> {
     return this.diagnosticReportsService.getReportSummary(
       bookingId,
       user.id,

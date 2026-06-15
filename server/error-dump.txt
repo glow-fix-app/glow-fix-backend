@@ -40,3 +40,238 @@ STACK: Error: CORS blocked for origin: http://localhost:5173
     at router.process_params (d:\finalone\backend\node_modules\@nestjs\platform-express\node_modules\express\lib\router\index.js:346:12)
     at next (d:\finalone\backend\node_modules\@nestjs\platform-express\node_modules\express\lib\router\index.js:280:10)
     at cookieParser (d:\finalone\backend\node_modules\cookie-parser\index.js:71:5)
+2026-06-15T07:38:42.183Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:38:45.679Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:200:47
+
+  197 }
+  198 
+  199 async getServiceById(serviceId: string): Promise<ServiceCatalogResponseDto> {
+→ 200   const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid character: expected an optional prefix of `urn:uuid:` followed by [0-9a-fA-F-], found `t` at 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.getServiceById (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:200:21)\n\n2026-06-15T07:40:40.709Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:40:41.421Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:40:41.622Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:40:41.794Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:40:41.964Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:40:42.098Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:40:42.268Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:40:42.440Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:40:42.608Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:40:54.764Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:40:55.635Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:41:09.316Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:41:10.057Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:41:10.658Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:41:11.580Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n2026-06-15T07:41:19.262Z\nPrismaClientKnownRequestError: 
+Invalid `this.prisma.service.findUnique()` invocation in
+C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:47
+
+  307 await this.verifyBusinessOwnership(managerId, businessId);
+  308 
+  309 // Verify service exists in catalog
+→ 310 const service = await this.prisma.service.findUnique(
+Inconsistent column data: Error creating UUID, invalid length: expected length 32 for simple format, found 1
+    at $n.handleRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:7315)
+    at $n.handleAndLogRequestError (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6623)
+    at $n.request (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:121:6307)
+    at async l (C:\Users\Admin\Documents\project\glow-fix-backend\node_modules\@prisma\client\runtime\library.js:130:9633)
+    at async ServicesService.assignServiceToBusiness (C:\Users\Admin\Documents\project\glow-fix-backend\server\src\modules\services\services.service.ts:310:21)\n\n

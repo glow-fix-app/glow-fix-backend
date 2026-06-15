@@ -19,6 +19,9 @@ export class ClientStatsDto {
   @ApiProperty()
   total_spent: number;
 
+  @ApiPropertyOptional()
+  total_refunded?: number;
+
   @ApiProperty()
   loyalty_points: number;
 

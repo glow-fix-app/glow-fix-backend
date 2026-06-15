@@ -20,30 +20,41 @@ export class EmailService {
     private readonly configService: ConfigService,
     private readonly logger: WinstonLoggerService,
   ) {
+    const service = this.configService.get<string>('mail.service');
     const host = this.configService.get<string>('mail.host');
     const port = this.configService.get<number>('mail.port');
+    const secure = this.configService.get<boolean>('mail.secure');
+    const user = this.configService.get<string>('mail.user');
+    const pass = this.configService.get<string>('mail.pass');
 
-    // MailHog: no TLS, no auth — purely a local SMTP catcher
-    this.transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: false,
-      ignoreTLS: true,
-      auth: undefined,
-    });
+    const transportOptions: any = service
+      ? {
+          service,
+          auth: user && pass ? { user, pass } : undefined,
+        }
+      : {
+          host,
+          port,
+          secure,
+          auth: user && pass ? { user, pass } : undefined,
+        };
+
+    this.transporter = nodemailer.createTransport(transportOptions);
 
     this.logger.log(
-      `EmailService initialized — SMTP ${host}:${port}`,
+      service
+        ? `EmailService → Service ${service} (${user ? 'authenticated' : 'no auth'})`
+        : `EmailService → SMTP ${host}:${port} (${user ? 'authenticated' : 'no auth'})`,
       'EmailService',
     );
   }
 
   async sendEmail(options: SendEmailOptions): Promise<void> {
-    const from = this.configService.get<string>('mail.from');
+    const from = `"Glow Fix" <${this.configService.get<string>('mail.from')}>`;
 
     try {
       const info = await this.transporter.sendMail({
-        from: `"Glow Fix" <${from}>`,
+        from,
         to: options.to,
         subject: options.subject,
         html: options.html,
@@ -57,11 +68,18 @@ export class EmailService {
       );
     } catch (error) {
       this.logger.error(
-        `Failed to send email to ${options.to}: ${(error as Error).message}`,
+        `Failed to send email to ${options.to}: ${(error as Error).message}. (Check your SMTP variables in Railway)`,
         (error as Error).stack,
         'EmailService',
       );
-      throw error;
+      // Fallback: Print the email content to logs so you can see OTPs without a real SMTP server!
+      this.logger.warn(`--- MOCK EMAIL CONTENT ---`, 'EmailService');
+      this.logger.warn(`To: ${options.to}`, 'EmailService');
+      this.logger.warn(`Subject: ${options.subject}`, 'EmailService');
+      this.logger.warn(`Body: \n${options.text || options.html}`, 'EmailService');
+      this.logger.warn(`--------------------------`, 'EmailService');
+      
+      // We removed "throw error;" so the application doesn't crash with 500 when registering users.
     }
   }
 }

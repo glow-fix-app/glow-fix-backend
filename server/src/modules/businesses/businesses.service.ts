@@ -8,11 +8,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { StorageService } from '../../core/storage/storage.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UpdateBusinessStatusDto, BusinessStatus } from './dto/business-status.dto';
 import { UploadBusinessDocumentDto, UpdateDocumentStatusDto, DocumentStatus } from './dto/business-document.dto';
 import { BusinessResponseDto, BusinessStatsDto, NearbyBusinessDto } from './dto/business-response.dto';
+import { reverseGeocodeCity } from '../../utils/geocode';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class BusinessesService {
@@ -21,6 +24,8 @@ export class BusinessesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly storage: StorageService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ==================== BUSINESS CRUD ====================
@@ -37,16 +42,24 @@ export class BusinessesService {
       throw new ConflictException('You already have a registered business');
     }
 
+    // Reverse-geocode lat/lng to city name (best-effort, non-blocking)
+    const city = await reverseGeocodeCity(
+      dto.location.latitude,
+      dto.location.longitude,
+    );
+
     const businesses = await this.prisma.$queryRaw<Array<{ id: string }>>`
-      INSERT INTO businesses (id, manager_id, business_name, address, location, contact_phone, contact_email, created_at, updated_at)
+      INSERT INTO businesses (id, manager_id, business_name, address, city, location, contact_phone, contact_email, description, created_at, updated_at)
       VALUES (
         gen_random_uuid(),
         ${managerId}::uuid,
         ${dto.business_name},
         ${dto.address},
+        ${city},
         ST_SetSRID(ST_MakePoint(${dto.location.longitude}, ${dto.location.latitude}), 4326)::geography,
         ${dto.contact_phone},
         ${dto.contact_email},
+        ${dto.description || null},
         NOW(),
         NOW()
       )
@@ -121,6 +134,18 @@ export class BusinessesService {
     const coords = await this.getBusinessLocation(businessId);
     const currentStatus = business.statusHistory[0]?.status?.context || 'PENDING_REVIEW';
 
+    const images = await this.prisma.image.findMany({
+      where: {
+        entityId: businessId,
+        entityType: { in: ['BUSINESS_LOGO', 'BUSINESS_COVER', 'BUSINESS_GALLERY'] },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const logo_url = images.find(img => img.entityType === 'BUSINESS_LOGO')?.url || undefined;
+    const cover_url = images.find(img => img.entityType === 'BUSINESS_COVER')?.url || undefined;
+    const gallery = images.filter(img => img.entityType === 'BUSINESS_GALLERY').map(img => img.url);
+
     return {
       id: business.id,
       manager_id: business.managerId,
@@ -131,6 +156,11 @@ export class BusinessesService {
       longitude: coords.longitude,
       contact_phone: business.contactPhone || undefined,
       contact_email: business.contactEmail || undefined,
+      description: business.description || undefined,
+      bank_name: business.bankName || undefined,
+      bank_account_name: business.bankAccountName || undefined,
+      bank_account_number: business.bankAccountNumber || undefined,
+      swift_iban: business.swiftIban || undefined,
       current_status: currentStatus,
       operating_hours: business.operatingHours,
       documents: business.documents.map(doc => ({
@@ -140,6 +170,9 @@ export class BusinessesService {
         status: doc.status?.context || 'PENDING',
         created_at: doc.createdAt,
       })),
+      logo_url,
+      cover_url,
+      gallery,
       created_at: business.createdAt,
       updated_at: business.updatedAt,
     };
@@ -184,16 +217,45 @@ export class BusinessesService {
       sets.push(`contact_email = $${paramIndex++}`);
       params.push(dto.contact_email);
     }
+    if (dto.description !== undefined) {
+      sets.push(`description = $${paramIndex++}`);
+      params.push(dto.description);
+    }
+    if (dto.bank_name !== undefined) {
+      sets.push(`bank_name = $${paramIndex++}`);
+      params.push(dto.bank_name);
+    }
+    if (dto.bank_account_name !== undefined) {
+      sets.push(`bank_account_name = $${paramIndex++}`);
+      params.push(dto.bank_account_name);
+    }
+    if (dto.bank_account_number !== undefined) {
+      sets.push(`bank_account_number = $${paramIndex++}`);
+      params.push(dto.bank_account_number);
+    }
+    if (dto.swift_iban !== undefined) {
+      sets.push(`swift_iban = $${paramIndex++}`);
+      params.push(dto.swift_iban);
+    }
     if (dto.location) {
       sets.push(`location = ST_SetSRID(ST_MakePoint($${paramIndex++}, $${paramIndex++}), 4326)::geography`);
       params.push(dto.location.longitude, dto.location.latitude);
+      // Also update city from new coordinates (best-effort)
+      const city = await reverseGeocodeCity(
+        dto.location.latitude,
+        dto.location.longitude,
+      );
+      if (city) {
+        sets.push(`city = $${paramIndex++}`);
+        params.push(city);
+      }
     }
 
     if (sets.length > 0) {
       sets.push(`updated_at = NOW()`);
       params.push(businessId);
       await this.prisma.$executeRawUnsafe(
-        `UPDATE businesses SET ${sets.join(', ')} WHERE id = $${paramIndex}`,
+        `UPDATE businesses SET ${sets.join(', ')} WHERE id = $${paramIndex}::uuid`,
         ...params,
       );
     }
@@ -384,21 +446,28 @@ export class BusinessesService {
     });
 
     if (existingDoc) {
-      throw new ConflictException(`Document of type ${dto.type} already exists. Delete it first to upload a new one.`);
+      await this.prisma.businessDocument.delete({
+        where: { id: existingDoc.id },
+      });
     }
 
     let pendingStatus = await this.prisma.status.findFirst({
-      where: { context: 'PENDING' },
+      where: { context: 'PENDING_REVIEW' },
     });
 
     if (!pendingStatus) {
       pendingStatus = await this.prisma.status.create({
-        data: { context: 'PENDING' },
+        data: { context: 'PENDING_REVIEW' },
       });
     }
 
-    // TODO: Upload file to S3/Storage and get URL
-    const fileUrl = `https://storage.glowfix.com/businesses/${businessId}/${dto.type}-${Date.now()}.pdf`;
+    // Upload file to S3/Storage and get URL
+    const { url: fileUrl } = await this.storage.uploadFile(
+      file.buffer,
+      `businesses/${businessId}/documents`,
+      file.mimetype,
+      file.originalname,
+    );
 
     const document = await this.prisma.businessDocument.create({
       data: {
@@ -417,6 +486,27 @@ export class BusinessesService {
       managerId,
       documentType: dto.type,
     });
+
+    // Notify admins about the new document upload
+    const admins = await this.prisma.user.findMany({ where: { role: 'ADMIN', isActive: true, deletedAt: null } });
+    const business = await this.prisma.business.findUnique({ where: { id: businessId } });
+    
+    if (business) {
+      for (const admin of admins) {
+        try {
+          await this.notificationsService.createNotification({
+            recipientUserId: admin.id,
+            actorUserId: managerId,
+            typeCode: 'SYSTEM_ALERT',
+            title: 'Document Uploaded',
+            body: `Business "${business.businessName}" has uploaded a ${dto.type} document for review.`,
+            actionUrl: `/admin/businesses/${businessId}`,
+          });
+        } catch (err) {
+          this.logger.error(`Failed to send notification to admin ${admin.id}: ${(err as any).message || String(err)}`);
+        }
+      }
+    }
 
     return {
       id: document.id,
@@ -467,6 +557,78 @@ export class BusinessesService {
           reasonText: dto.rejection_reason,
         },
       });
+      
+      // Notify manager of rejection
+      await this.notificationsService.createNotification({
+        recipientUserId: document.business.managerId,
+        actorUserId: document.business.managerId, // System/Admin action
+        typeCode: 'SYSTEM_ALERT',
+        title: 'Document Rejected',
+        body: `Your document (${document.type}) was rejected. Reason: ${dto.rejection_reason}. Please re-upload it in the Settings.`,
+        actionUrl: `/provider/settings`,
+      });
+    } else if (dto.status === DocumentStatus.ACCEPTED) {
+      // Notify manager of approval
+      await this.notificationsService.createNotification({
+        recipientUserId: document.business.managerId,
+        actorUserId: document.business.managerId,
+        typeCode: 'SYSTEM_ALERT',
+        title: 'Document Approved',
+        body: `Your document (${document.type}) has been approved.`,
+        actionUrl: `/provider/settings`,
+      });
+
+      // Check if all 4 required documents are now approved
+      const allBusinessDocs = await this.prisma.businessDocument.findMany({
+        where: { businessId: document.businessId },
+        include: { status: true },
+      });
+
+      const requiredTypes = [
+        'BUSINESS_REGISTRATION',
+        'OWNER_ID',
+        'INSURANCE_CERTIFICATE',
+        'SERVICE_LICENSE',
+      ];
+
+      const approvedDocTypes = allBusinessDocs
+        .filter((d) => d.status.context === DocumentStatus.ACCEPTED)
+        .map((d) => d.type);
+
+      const allRequiredApproved = requiredTypes.every((type) =>
+        approvedDocTypes.includes(type),
+      );
+
+      if (allRequiredApproved) {
+        // Auto-approve the business
+        let approvedBusinessStatus = await this.prisma.status.findFirst({
+          where: { context: 'APPROVED' },
+        });
+
+        if (!approvedBusinessStatus) {
+          approvedBusinessStatus = await this.prisma.status.create({
+            data: { context: 'APPROVED' },
+          });
+        }
+
+        await this.prisma.businessStatus.create({
+          data: {
+            businessId: document.businessId,
+            statusId: approvedBusinessStatus.id,
+          },
+        });
+
+        await this.notificationsService.createNotification({
+          recipientUserId: document.business.managerId,
+          actorUserId: document.business.managerId,
+          typeCode: 'SYSTEM_ALERT',
+          title: 'Business Account Approved',
+          body: `Congratulations! All your verification documents have been approved. Your business account is now fully active.`,
+          actionUrl: `/provider/dashboard`,
+        });
+
+        this.logger.log(`Business ${document.businessId} auto-approved after all documents were approved.`);
+      }
     }
 
     this.logger.log(`Document status updated: ${documentId} -> ${dto.status}`);
@@ -818,7 +980,7 @@ export class BusinessesService {
         ST_Y(location::geometry) as latitude,
         ST_X(location::geometry) as longitude
       FROM businesses
-      WHERE id = ${businessId}
+      WHERE id = ${businessId}::uuid
     `;
     return result[0] || { latitude: 0, longitude: 0 };
   }
@@ -831,12 +993,139 @@ export class BusinessesService {
         ST_Y(location::geometry) as latitude,
         ST_X(location::geometry) as longitude
       FROM businesses
-      WHERE id = ANY(${ids})
+      WHERE id = ANY(${ids}::uuid[])
     `;
     const map = new Map<string, { latitude: number; longitude: number }>();
     for (const row of results) {
       map.set(row.id, { latitude: row.latitude, longitude: row.longitude });
     }
     return map;
+  }
+
+  async uploadBusinessImage(
+    managerId: string,
+    file: { buffer: Buffer; mimetype: string; originalname: string; size: number },
+    type: 'logo' | 'cover' | 'gallery',
+  ): Promise<BusinessResponseDto> {
+    const business = await this.getMyBusiness(managerId);
+
+    // Validate image format
+    const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+    if (!allowedMimeTypes.has(file.mimetype)) {
+      throw new BadRequestException('Unsupported file type. Allowed: JPEG, PNG, WebP, GIF');
+    }
+    const maxBytes = 10 * 1024 * 1024; // 10 MB limit
+    if (file.size > maxBytes) {
+      throw new BadRequestException('File size too large. Maximum is 10 MB.');
+    }
+
+    // Set resize parameters based on image type
+    let resizeOptions = {};
+    let entityType = '';
+    let folderName = `businesses/${business.id}`;
+
+    if (type === 'logo') {
+      resizeOptions = { width: 256, height: 256, quality: 85 };
+      entityType = 'BUSINESS_LOGO';
+      folderName += '/logo';
+    } else if (type === 'cover') {
+      resizeOptions = { width: 1200, height: 400, quality: 85 };
+      entityType = 'BUSINESS_COVER';
+      folderName += '/cover';
+    } else if (type === 'gallery') {
+      resizeOptions = { width: 1024, height: 768, quality: 85 };
+      entityType = 'BUSINESS_GALLERY';
+      folderName += '/gallery';
+    } else {
+      throw new BadRequestException('Invalid image type');
+    }
+
+    // Upload new image
+    const { storageKey, url } = await this.storage.uploadImage(
+      file.buffer,
+      folderName,
+      resizeOptions,
+    );
+
+    // For logo and cover, delete any existing first
+    if (type === 'logo' || type === 'cover') {
+      const existing = await this.prisma.image.findFirst({
+        where: {
+          entityType,
+          entityId: business.id,
+        },
+      });
+      if (existing) {
+        await this.prisma.image.delete({ where: { id: existing.id } });
+        if (existing.storageKey) {
+          await this.storage.deleteByKey(existing.storageKey);
+        }
+      }
+    }
+
+    // Save image to DB
+    await this.prisma.image.create({
+      data: {
+        url,
+        storageKey,
+        entityType,
+        entityId: business.id,
+      },
+    });
+
+    return this.getBusinessWithDetails(business.id);
+  }
+
+  async deleteGalleryImage(managerId: string, url: string): Promise<BusinessResponseDto> {
+    const business = await this.getMyBusiness(managerId);
+
+    const image = await this.prisma.image.findFirst({
+      where: {
+        entityId: business.id,
+        entityType: 'BUSINESS_GALLERY',
+        url,
+      },
+    });
+
+    if (!image) {
+      throw new NotFoundException('Gallery image not found');
+    }
+
+    await this.prisma.image.delete({ where: { id: image.id } });
+    if (image.storageKey) {
+      await this.storage.deleteByKey(image.storageKey);
+    }
+
+    return this.getBusinessWithDetails(business.id);
+  }
+
+  async reorderGallery(managerId: string, urls: string[]): Promise<BusinessResponseDto> {
+    const business = await this.getMyBusiness(managerId);
+
+    // Fetch all gallery images for this business
+    const images = await this.prisma.image.findMany({
+      where: {
+        entityId: business.id,
+        entityType: 'BUSINESS_GALLERY',
+      },
+    });
+
+    // Update their createdAt field sequentially based on the order of urls
+    const urlToIndex = new Map(urls.map((url, i) => [url, i]));
+    const baseTime = new Date();
+
+    for (const image of images) {
+      const index = urlToIndex.get(image.url);
+      if (index !== undefined) {
+        // Set distinct createdAt times so ordering is preserved
+        const newCreatedAt = new Date(baseTime.getTime() + index * 1000);
+        await this.prisma.image.update({
+          where: { id: image.id },
+          data: { createdAt: newCreatedAt },
+        });
+      }
+    }
+
+    return this.getBusinessWithDetails(business.id);
   }
 }

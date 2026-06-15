@@ -8,6 +8,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { TokenService } from '../auth/token.service';
 import { PrismaService } from '../../core/prisma/prisma.service';
+import { RedisService } from '../../core/redis/redis.service';
 import { MetricsService } from '../../core/metrics/metrics.service';
 
 const notificationAllowedOrigins = (process.env.ALLOWED_ORIGINS || '')
@@ -32,6 +33,7 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
   constructor(
     private readonly tokenService: TokenService,
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
     private readonly metrics: MetricsService,
   ) {}
 
@@ -68,6 +70,10 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
     this.server.to(`user:${userId}`).emit('notification.read_all', payload);
   }
 
+  emitNotificationDeleted(userId: string, payload: unknown): void {
+    this.server.to(`user:${userId}`).emit('notification.deleted', payload);
+  }
+
   private async authenticate(client: Socket): Promise<{ id: string }> {
     const token =
       client.handshake.auth?.token ||
@@ -87,13 +93,20 @@ export class NotificationsGateway implements OnGatewayConnection, OnGatewayDisco
       throw new Error('Unauthorized');
     }
 
-    const session = await this.prisma.userSession.findUnique({
-      where: { id: payload.sessionId },
-      select: { id: true, expiresAt: true },
-    });
+    const sessionKey = `ws:session:${payload.sessionId}`;
+    const cachedSession = await this.redis.get(sessionKey);
 
-    if (!session || session.expiresAt <= new Date()) {
-      throw new Error('Session expired');
+    if (!cachedSession) {
+      const session = await this.prisma.userSession.findUnique({
+        where: { id: payload.sessionId },
+        select: { id: true, expiresAt: true },
+      });
+
+      if (!session || session.expiresAt <= new Date()) {
+        throw new Error('Session expired');
+      }
+
+      await this.redis.set(sessionKey, '1', 300); // Cache for 5 minutes
     }
 
     return user;

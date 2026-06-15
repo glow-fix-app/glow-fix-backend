@@ -39,8 +39,8 @@ export class WinstonLoggerService implements LoggerService {
       ],
     });
 
-    // File transports for production
-    if (nodeEnv === 'production') {
+    // File transports for production (disabled in Railway/Docker by default)
+    if (nodeEnv === 'production' && process.env.WRITE_LOGS_TO_FILE === 'true') {
       this.logger.add(
         new winston.transports.File({
           filename: 'logs/error.log',

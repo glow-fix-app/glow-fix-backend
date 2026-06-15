@@ -22,6 +22,7 @@ import {
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
+import { ReplyReviewDto } from './dto/reply-review.dto';
 import { ReviewResponseDto, ReviewWithUserDto, BusinessReviewsResponseDto, RatingSummaryDto } from './dto/review-response.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -54,7 +55,7 @@ export class ReviewsController {
   @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
   async canReview(
     @CurrentUser() user: any,
-    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @Param('bookingId') bookingId: string,
   ): Promise<{ can_review: boolean; reason?: string }> {
     return this.reviewsService.canReview(user.id, bookingId);
   }
@@ -66,9 +67,11 @@ export class ReviewsController {
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getMyReviews(
     @CurrentUser() user: any,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') pageParam?: string,
+    @Query('limit') limitParam?: string,
   ): Promise<{ data: ReviewWithUserDto[]; meta: any }> {
+    const page = pageParam && !isNaN(Number(pageParam)) ? Number(pageParam) : 1;
+    const limit = limitParam && !isNaN(Number(limitParam)) ? Number(limitParam) : 20;
     return this.reviewsService.getUserReviews(user.id, page, limit);
   }
 
@@ -78,7 +81,7 @@ export class ReviewsController {
   @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
   async getReviewByBookingId(
     @CurrentUser() user: any,
-    @Param('bookingId', ParseUUIDPipe) bookingId: string,
+    @Param('bookingId') bookingId: string,
   ): Promise<ReviewWithUserDto | null> {
     return this.reviewsService.getReviewByBookingId(bookingId, user.id, user.role);
   }
@@ -115,12 +118,19 @@ export class ReviewsController {
   @ApiParam({ name: 'businessId', description: 'Business UUID' })
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
+  @ApiQuery({ name: 'rating', required: false, example: 5 })
+  @ApiQuery({ name: 'sortBy', required: false, example: 'createdAt_desc' })
   async getBusinessReviews(
     @Param('businessId', ParseUUIDPipe) businessId: string,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 20,
+    @Query('page') pageParam?: string,
+    @Query('limit') limitParam?: string,
+    @Query('rating') ratingParam?: string,
+    @Query('sortBy') sortBy?: string,
   ): Promise<BusinessReviewsResponseDto> {
-    return this.reviewsService.getBusinessReviews(businessId, page, limit);
+    const page = pageParam && !isNaN(Number(pageParam)) ? Number(pageParam) : 1;
+    const limit = limitParam && !isNaN(Number(limitParam)) ? Number(limitParam) : 20;
+    const rating = ratingParam && !isNaN(Number(ratingParam)) ? Number(ratingParam) : undefined;
+    return this.reviewsService.getBusinessReviews(businessId, page, limit, rating, sortBy);
   }
 
   @Get('business/:businessId/summary')
@@ -176,5 +186,19 @@ export class ReviewsController {
     @Param('reviewId', ParseUUIDPipe) reviewId: string,
   ): Promise<{ message: string }> {
     return this.reviewsService.deleteReview(user.id, user.role, reviewId);
+  }
+
+  @Post(':reviewId/reply')
+  @Roles('MANAGER')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reply to a review (manager only)' })
+  @ApiParam({ name: 'reviewId', description: 'Review UUID' })
+  @ApiResponse({ status: 201, description: 'Reply added/updated', type: ReviewResponseDto })
+  async replyToReview(
+    @CurrentUser() user: any,
+    @Param('reviewId', ParseUUIDPipe) reviewId: string,
+    @Body() dto: ReplyReviewDto,
+  ): Promise<ReviewResponseDto> {
+    return this.reviewsService.addReviewReply(user.id, reviewId, dto.reply);
   }
 }
