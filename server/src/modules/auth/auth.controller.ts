@@ -361,28 +361,38 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    const googleUser = req.user as {
-      providerId: string;
-      email: string;
-      name: string;
-      profilePhoto?: string;
-    };
-
-    const result = await this.authService.handleGoogleOAuth(
-      googleUser,
-      req.ip || '',
-      req.get('user-agent') || '',
-    );
-
-    this.setRefreshTokenCookie(res, result.refreshToken);
-
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const params = new URLSearchParams({
-      token: result.accessToken,
-      isNewUser: result.isNewUser.toString(),
-    });
 
-    res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
+    try {
+      // If the guard failed and returned null, we stop here (guard already redirected)
+      if (!req.user) return;
+
+      const googleUser = req.user as {
+        providerId: string;
+        email: string;
+        name: string;
+        profilePhoto?: string;
+      };
+
+      const result = await this.authService.handleGoogleOAuth(
+        googleUser,
+        req.ip || '',
+        req.get('user-agent') || '',
+      );
+
+      this.setRefreshTokenCookie(res, result.refreshToken);
+
+      const params = new URLSearchParams({
+        token: result.accessToken,
+        isNewUser: result.isNewUser.toString(),
+      });
+
+      res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
+    } catch (error: any) {
+      console.error('Google OAuth callback error:', error);
+      const errorMsg = error.message || 'An error occurred during Google login';
+      res.redirect(`${frontendUrl}/auth/login?error=${encodeURIComponent(errorMsg)}`);
+    }
   }
 
   // ─── MFA ───
