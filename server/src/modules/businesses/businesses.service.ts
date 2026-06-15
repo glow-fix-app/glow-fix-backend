@@ -157,10 +157,6 @@ export class BusinessesService {
       contact_phone: business.contactPhone || undefined,
       contact_email: business.contactEmail || undefined,
       description: business.description || undefined,
-      bank_name: business.bankName || undefined,
-      bank_account_name: business.bankAccountName || undefined,
-      bank_account_number: business.bankAccountNumber || undefined,
-      swift_iban: business.swiftIban || undefined,
       current_status: currentStatus,
       operating_hours: business.operatingHours,
       documents: business.documents.map(doc => ({

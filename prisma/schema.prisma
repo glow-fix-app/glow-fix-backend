@@ -372,10 +372,6 @@ model Business {
   contactPhone String?                              @map("contact_phone")
   contactEmail String?                              @map("contact_email")
   description  String?
-  bankName          String?                         @map("bank_name")
-  bankAccountName   String?                         @map("bank_account_name")
-  bankAccountNumber String?                         @map("bank_account_number")
-  swiftIban         String?                         @map("swift_iban")
   createdAt    DateTime                             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime                             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
