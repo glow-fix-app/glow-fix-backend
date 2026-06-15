@@ -771,10 +771,10 @@ async function main() {
       vehicleId: vehicle4.id,
       businessId: business3.id,
       scheduledAt: futureDate(3),
-      subTotal: 80.0,
+      subTotal: 150.0,
       discount: 0,
-      commission: 8.0,
-      totalPrice: 80.0,
+      commission: 15.0,
+      totalPrice: 150.0,
     },
   });
 
@@ -787,10 +787,10 @@ async function main() {
       vehicleId: vehicle2.id,
       businessId: business2.id,
       scheduledAt: pastDate(10),
-      subTotal: 450.0,
+      subTotal: 200.0,
       discount: 0,
-      commission: 45.0,
-      totalPrice: 450.0,
+      commission: 20.0,
+      totalPrice: 200.0,
     },
   });
 
