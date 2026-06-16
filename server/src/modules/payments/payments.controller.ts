@@ -129,7 +129,7 @@ export class PaymentsController {
   ): Promise<{ received: boolean }> {
     const payload = req.body;
     // Express raw body is needed for signature verification
-    const rawPayload = (req as any).rawBody;
+    const rawPayload = Buffer.isBuffer(req.body) ? req.body : (req as any).rawBody;
     
     if (!rawPayload) {
       throw new Error('Webhook requires raw body parsing. Check your NestJS raw body configuration.');
