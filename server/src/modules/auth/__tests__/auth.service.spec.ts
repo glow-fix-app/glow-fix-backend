@@ -52,7 +52,8 @@ describe('AuthService', () => {
     createdAt: new Date(),
   };
 
-  const mockPrisma = {
+  const mockPrisma: any = {
+    $transaction: jest.fn((callback) => callback(mockPrisma)),
     user: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),

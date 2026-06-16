@@ -124,6 +124,10 @@ describe('ChatService', () => {
       },
       user: {
         findMany: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      image: {
+        findMany: jest.fn().mockResolvedValue([]),
       },
       message: {
         findMany: jest.fn(),
