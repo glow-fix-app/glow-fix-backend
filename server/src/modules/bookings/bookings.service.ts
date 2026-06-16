@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException,
 import * as crypto from 'crypto';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PaymentsService } from '../payments/payments.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { BookingQueryDto } from './dto/booking-query.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
@@ -18,6 +19,7 @@ export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   // ==================== CLIENT WORKFLOWS ====================
@@ -1002,6 +1004,9 @@ export class BookingsService {
           });
           break;
         case 'COMPLETED':
+          // Create payout for the provider/business
+          await this.paymentsService.createPayoutForCompletedBooking(bookingId);
+
           // Award Loyalty Points only when fully completed
           const config = await this.prisma.loyaltyConfig.findFirst();
           if (booking.payment && Number(booking.payment.amount) > 0 && config?.isActive) {
