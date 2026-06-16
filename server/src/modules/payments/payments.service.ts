@@ -207,6 +207,21 @@ export class PaymentsService {
     },
   ): Promise<ProcessPaymentResponseDto> {
     try {
+      if (options.amount === 0) {
+        return this.finalizePayment(
+          payment.id,
+          'free_or_points',
+          options.loyaltyDiscount,
+          options.pointsUsed,
+          options.bookingId,
+          options.amount,
+        );
+      }
+
+      if (options.amount < 30) {
+        throw new BadRequestException('Amount must be at least 30 EGP to meet minimum Stripe requirements.');
+      }
+
       const paymentIntent = await this.stripeProvider.createPaymentIntent({
         amount: options.amount,
         currency: options.currency,
