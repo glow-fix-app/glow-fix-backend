@@ -545,7 +545,7 @@ export class PaymentsService {
         receipt_url: `/api/v1/payments/${payment.id}/receipt`,
         message: this.getSuccessMessage(pointsUsed, pointsEarned, loyaltyDiscount),
       };
-    });
+    }, { maxWait: 5000, timeout: 20000 });
   }
 
   private async sendPaymentSuccessNotification(
