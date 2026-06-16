@@ -52,10 +52,12 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     // Rate Limiting
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: async (config: ConfigService) => ({
-        ttl: config.get<number>('throttle.ttl') || 60,
-        limit: config.get<number>('throttle.limit') || 100,
-      }) as any,
+      useFactory: async (config: ConfigService) => [
+        {
+          ttl: (config.get<number>('throttle.ttl') || 60) * 1000,
+          limit: config.get<number>('throttle.limit') || 100,
+        },
+      ],
     }),
 
     // Caching
