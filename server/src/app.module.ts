@@ -37,6 +37,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     PaymentsModule,
     BookingsModule,
     AnalyticsModule,
+    AdminModule,
   ],
   providers: [
     JwtAuthGuard,

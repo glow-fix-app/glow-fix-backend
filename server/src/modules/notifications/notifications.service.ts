@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../core/prisma/prisma.service';
 import { NotificationsGateway } from './notifications.gateway';
 import { NotificationsQueryDto } from './dto/notifications-query.dto';
@@ -22,11 +23,13 @@ export class NotificationsService {
     body?: string;
     actionUrl?: string;
   }) {
-    const type = await this.prisma.notificationType.findUnique({
+    let type = await this.prisma.notificationType.findUnique({
       where: { code: input.typeCode },
     });
     if (!type) {
-      throw new NotFoundException('Notification type not found');
+      type = await this.prisma.notificationType.create({
+        data: { code: input.typeCode, label: input.typeCode.replace(/_/g, ' ') },
+      });
     }
 
     const notification = await this.prisma.notification.create({
@@ -119,5 +122,31 @@ export class NotificationsService {
     }
 
     return notification;
+  }
+
+  @OnEvent('business.approved')
+  async handleBusinessApproved(payload: { businessId: string; businessName: string; managerId: string }) {
+    if (payload.managerId) {
+      await this.createNotification({
+        recipientUserId: payload.managerId,
+        typeCode: 'BUSINESS_APPROVED',
+        title: 'Business Approved',
+        body: `Congratulations! Your business "${payload.businessName}" has been approved and is now active.`,
+        actionUrl: `/provider/dashboard`,
+      });
+    }
+  }
+
+  @OnEvent('business.rejected')
+  async handleBusinessRejected(payload: { businessId: string; businessName: string; managerId: string; reason?: string }) {
+    if (payload.managerId) {
+      await this.createNotification({
+        recipientUserId: payload.managerId,
+        typeCode: 'BUSINESS_REJECTED',
+        title: 'Business Application Rejected',
+        body: `Your business application for "${payload.businessName}" was rejected. Reason: ${payload.reason || 'Not specified'}`,
+        actionUrl: `/provider/settings`,
+      });
+    }
   }
 }

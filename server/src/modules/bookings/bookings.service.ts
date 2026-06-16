@@ -1248,7 +1248,13 @@ export class BookingsService {
       this.prisma.booking.findMany({
         where,
         include: {
-          vehicle: true,
+          vehicle: {
+            include: {
+              client: {
+                include: { user: true }
+              }
+            }
+          },
           business: true,
           notes: true,
           statusHistory: {

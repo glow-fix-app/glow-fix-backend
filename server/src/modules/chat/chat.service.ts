@@ -550,18 +550,19 @@ export class ChatService {
         statusId,
         closedAt: null,
         participants: {
-          every: { userId: { in: participantIds } },
+          some: { userId: participantIds[0] },
         },
       },
-      select: {
-        id: true,
-        _count: { select: { participants: true } },
+      include: {
+        participants: { select: { userId: true } },
       },
     });
 
-    const existing = existingConversations.find(
-      (c) => c._count.participants === participantIds.length,
-    );
+    const existing = existingConversations.find((c) => {
+      if (c.participants.length !== participantIds.length) return false;
+      const ids = c.participants.map((p) => p.userId).sort();
+      return ids.every((id, idx) => id === participantIds[idx]);
+    });
 
     if (existing) {
       await this.ensureParticipants(existing.id, participants);

@@ -37,6 +37,7 @@ import {
   GetBusinessesAdminDto,
   ApproveBusinessDto,
   RejectBusinessDto,
+  RejectDocumentDto,
   BusinessResponseAdminDto,
 } from './dto/admin-businesses.dto';
 import {
@@ -154,6 +155,50 @@ export class AdminController {
     return this.adminService.getBusinessById(businessId);
   }
 
+  @Put('businesses/:businessId')
+  @ApiOperation({ summary: 'Update business details' })
+  @ApiParam({ name: 'businessId', description: 'Business UUID' })
+  async updateBusiness(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Body() data: any,
+  ): Promise<any> {
+    return this.adminService.updateBusiness(businessId, data);
+  }
+
+  @Get('businesses/:businessId/bookings')
+  @ApiOperation({ summary: 'Get bookings for a business' })
+  @ApiParam({ name: 'businessId', description: 'Business UUID' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getBusinessBookings(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<any> {
+    return this.adminService.getBusinessBookings(
+      businessId,
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 10,
+    );
+  }
+
+  @Get('businesses/:businessId/reviews')
+  @ApiOperation({ summary: 'Get reviews for a business' })
+  @ApiParam({ name: 'businessId', description: 'Business UUID' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getBusinessReviews(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<any> {
+    return this.adminService.getBusinessReviews(
+      businessId,
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 10,
+    );
+  }
+
   @Post('businesses/:businessId/approve')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Approve a business' })
@@ -176,6 +221,29 @@ export class AdminController {
     return this.adminService.rejectBusiness(businessId, dto);
   }
 
+  @Post('businesses/:businessId/documents/:documentId/approve')
+  @ApiOperation({ summary: 'Approve a business document' })
+  @ApiParam({ name: 'businessId', description: 'Business UUID' })
+  @ApiParam({ name: 'documentId', description: 'Document UUID' })
+  async approveDocument(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+  ): Promise<any> {
+    return this.adminService.approveDocument(businessId, documentId);
+  }
+
+  @Post('businesses/:businessId/documents/:documentId/reject')
+  @ApiOperation({ summary: 'Reject a business document' })
+  @ApiParam({ name: 'businessId', description: 'Business UUID' })
+  @ApiParam({ name: 'documentId', description: 'Document UUID' })
+  async rejectDocument(
+    @Param('businessId', ParseUUIDPipe) businessId: string,
+    @Param('documentId', ParseUUIDPipe) documentId: string,
+    @Body() dto: RejectDocumentDto,
+  ): Promise<any> {
+    return this.adminService.rejectDocument(businessId, documentId, dto.reason);
+  }
+
   // ==================== SYSTEM SETTINGS ====================
 
   @Get('settings')
@@ -192,7 +260,17 @@ export class AdminController {
     return this.adminService.updateSettings(dto);
   }
 
-  // ==================== PAYOUT MANAGEMENT ====================
+  // ==================== PAYMENT & PAYOUT MANAGEMENT ====================
+
+  @Get('payments')
+  @ApiOperation({ summary: 'Get all platform payments' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'List of payments' })
+  async getAllPayments(@Query() query: any): Promise<{ data: any[]; meta: any }> {
+    return this.adminService.getAllPayments(query);
+  }
 
   @Get('payouts')
   @ApiOperation({ summary: 'Get all payouts' })
@@ -210,5 +288,33 @@ export class AdminController {
     @Body() dto: ProcessPayoutDto,
   ): Promise<{ message: string }> {
     return this.adminService.processPayout(payoutId, dto);
+  }
+
+  @Get('payouts/:payoutId/receipt')
+  @ApiOperation({ summary: 'Get payout receipt' })
+  @ApiParam({ name: 'payoutId', description: 'Payout UUID' })
+  async getPayoutReceipt(@Param('payoutId', ParseUUIDPipe) payoutId: string): Promise<any> {
+    // TODO: Implement receipt generation/retrieval
+    return { message: 'Receipt feature coming soon' };
+  }
+
+  // ==================== REVIEWS MANAGEMENT ====================
+
+  @Get('reviews')
+  @ApiOperation({ summary: 'Get all platform reviews' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'List of all reviews' })
+  async getAllReviews(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ): Promise<{ data: any[]; meta: any }> {
+    return this.adminService.getAllReviews({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      search,
+    });
   }
 }

@@ -63,6 +63,31 @@ export class DashboardStatsDto {
 
   @ApiProperty()
   total_reviews: number;
+
+  @ApiProperty({ type: () => [BookingTrendDto] })
+  booking_trends: BookingTrendDto[];
+
+  @ApiProperty({ type: () => [ServiceDistributionDto] })
+  services_distribution: ServiceDistributionDto[];
+}
+
+export class BookingTrendDto {
+  @ApiProperty()
+  day: string;
+
+  @ApiProperty()
+  bookings: number;
+}
+
+export class ServiceDistributionDto {
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  value: number;
+
+  @ApiProperty()
+  color: string;
 }
 
 export class RevenueStatsDto {
@@ -104,6 +129,7 @@ export class TopPerformersDto {
   top_businesses: Array<{
     id: string;
     business_name: string;
+    city: string;
     total_bookings: number;
     total_revenue: number;
     average_rating: number;
