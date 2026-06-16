@@ -506,6 +506,7 @@ export class PaymentsService {
 
       // Send notifications
       await this.sendPaymentSuccessNotification(
+        payment.id,
         clientUser.id,
         clientUser.fullName,
         bookingCode,
@@ -549,6 +550,7 @@ export class PaymentsService {
   }
 
   private async sendPaymentSuccessNotification(
+    paymentId: string,
     userId: string,
     userName: string,
     bookingCode: string,
@@ -585,9 +587,9 @@ export class PaymentsService {
         data: {
           recipientUserId: userId,
           typeId: notificationType.id,
-          title: 'Payment Successful! ≡ƒÆ░',
+          title: 'Payment Successful! 💰',
           body: message,
-          actionUrl: `/payments/success?booking=${bookingCode}`,
+          actionUrl: `/payments/${paymentId}`,
           sentAt: new Date(),
         },
       });
