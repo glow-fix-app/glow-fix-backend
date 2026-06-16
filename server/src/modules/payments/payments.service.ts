@@ -482,30 +482,11 @@ export class PaymentsService {
         });
       }
 
-      // Create payout for provider
-      const grossAmount = Number(payment.booking.totalPrice);
-      const platformFee = (grossAmount * platformFeePercent) / 100;
-      const netAmount = grossAmount - platformFee;
-
-      const payout = await tx.payout.create({
-        data: {
-          businessId: payment.booking.business.id,
-          amount: netAmount,
-          statusId: payoutPendingStatus?.id || '',
-        },
-      });
-
-      await tx.payoutBooking.create({
-        data: {
-          payoutId: payout.id,
-          bookingId,
-        },
-      });
-
-      this.logger.log(`Payment finalized: ${paymentId}, payout created: ${payout.id}`);
+      this.logger.log(`Payment finalized: ${paymentId}`);
 
       // Send notifications
       await this.sendPaymentSuccessNotification(
+        payment.id,
         clientUser.id,
         clientUser.fullName,
         bookingCode,
@@ -513,15 +494,6 @@ export class PaymentsService {
         pointsEarned,
         pointsUsed,
         loyaltyDiscount,
-      );
-
-      await this.sendPaymentReceivedNotification(
-        payment.booking.business.managerId,
-        payment.booking.business.businessName,
-        bookingCode,
-        amount,
-        platformFee,
-        netAmount,
       );
 
       this.eventEmitter.emit('payment.completed', {
@@ -545,10 +517,11 @@ export class PaymentsService {
         receipt_url: `/api/v1/payments/${payment.id}/receipt`,
         message: this.getSuccessMessage(pointsUsed, pointsEarned, loyaltyDiscount),
       };
-    });
+    }, { maxWait: 5000, timeout: 20000 });
   }
 
   private async sendPaymentSuccessNotification(
+    paymentId: string,
     userId: string,
     userName: string,
     bookingCode: string,
@@ -585,9 +558,9 @@ export class PaymentsService {
         data: {
           recipientUserId: userId,
           typeId: notificationType.id,
-          title: 'Payment Successful! ≡ƒÆ░',
+          title: 'Payment Successful! 💰',
           body: message,
-          actionUrl: `/payments/success?booking=${bookingCode}`,
+          actionUrl: `/payments/${paymentId}`,
           sentAt: new Date(),
         },
       });
@@ -597,6 +570,94 @@ export class PaymentsService {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       this.logger.error(`Failed to send payment notification: ${errorMessage}`);
     }
+  }
+
+  async createPayoutForCompletedBooking(bookingId: string): Promise<void> {
+    const existingPayoutBooking = await this.prisma.payoutBooking.findFirst({
+      where: { bookingId },
+    });
+
+    if (existingPayoutBooking) {
+      this.logger.log(`Payout already exists for completed booking: ${bookingId}. Skipping.`);
+      return;
+    }
+
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        business: {
+          include: {
+            manager: true,
+          },
+        },
+        payment: {
+          include: {
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      throw new NotFoundException(`Booking ${bookingId} not found`);
+    }
+
+    if (!booking.payment || booking.payment.status.context !== 'PAID') {
+      this.logger.warn(`Booking ${bookingId} has no PAID payment. Skipping payout creation.`);
+      return;
+    }
+
+    const settings = await this.prisma.setting.findFirst();
+    const platformFeePercent = settings?.businessFeePct ? Number(settings.businessFeePct) : 10;
+
+    const grossAmount = Number(booking.totalPrice);
+    const platformFee = (grossAmount * platformFeePercent) / 100;
+    const netAmount = grossAmount - platformFee;
+
+    let payoutPendingStatus = await this.prisma.status.findFirst({
+      where: { context: 'PAYOUT_PENDING' },
+    });
+
+    if (!payoutPendingStatus) {
+      payoutPendingStatus = await this.prisma.status.findFirst({
+        where: { context: 'PENDING' },
+      });
+      if (!payoutPendingStatus) {
+        payoutPendingStatus = await this.prisma.status.create({
+          data: { context: 'PENDING' },
+        });
+      }
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const payout = await tx.payout.create({
+        data: {
+          businessId: booking.business.id,
+          amount: netAmount,
+          statusId: payoutPendingStatus.id,
+        },
+      });
+
+      await tx.payoutBooking.create({
+        data: {
+          payoutId: payout.id,
+          bookingId,
+        },
+      });
+
+      this.logger.log(`Payout created for completed booking: ${bookingId}, payout: ${payout.id}`);
+    });
+
+    const bookingCode = `BK-${bookingId.slice(0, 8).toUpperCase()}`;
+
+    await this.sendPaymentReceivedNotification(
+      booking.business.managerId,
+      booking.business.businessName,
+      bookingCode,
+      Number(booking.payment.amount),
+      platformFee,
+      netAmount,
+    );
   }
 
   private async sendPaymentReceivedNotification(

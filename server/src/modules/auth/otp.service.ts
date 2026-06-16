@@ -165,20 +165,30 @@ export class OtpService {
   }
 
   private async checkResendCooldown(identifier: string): Promise<void> {
-    const resendKey = RedisKeys.otpResendCount(identifier);
-    const resendCount = await this.redis.get(resendKey);
+    try {
+      const resendKey = RedisKeys.otpResendCount(identifier);
+      const resendCount = await this.redis.get(resendKey);
 
-    if (
-      resendCount &&
-      parseInt(resendCount, 10) >= OTP_CONSTANTS.MAX_RESEND_ATTEMPTS
-    ) {
-      throw new BadRequestException(
-        'Maximum OTP resend attempts reached. Please try again later.',
+      if (
+        resendCount &&
+        parseInt(resendCount, 10) >= OTP_CONSTANTS.MAX_RESEND_ATTEMPTS
+      ) {
+        throw new BadRequestException(
+          'Maximum OTP resend attempts reached. Please try again later.',
+        );
+      }
+
+      await this.redis.incr(resendKey);
+      await this.redis.expire(resendKey, OTP_CONSTANTS.RESEND_COOLDOWN_SECONDS);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      this.logger.warn(
+        `Redis is unavailable for OTP cooldown check: ${(error as Error).message}. Proceeding without cooldown check.`,
+        'OtpService',
       );
     }
-
-    await this.redis.incr(resendKey);
-    await this.redis.expire(resendKey, OTP_CONSTANTS.RESEND_COOLDOWN_SECONDS);
   }
 
   private async sendViaSms(phone: string, otp: string): Promise<void> {

@@ -118,20 +118,28 @@ export class AuthService {
 
     const passwordHash = await this.passwordService.hash(dto.password);
 
-    const user = await this.prisma.user.create({
-      data: {
-        role: 'CLIENT',
-        fullName: dto.fullName,
-        email: dto.email.toLowerCase(),
-        phone: dto.phone ?? null,
-        passwordHash,
-        emailVerified: false,
-        phoneVerified: false,
-      },
-    });
+    const user = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.user.create({
+        data: {
+          role: 'CLIENT',
+          fullName: dto.fullName,
+          email: dto.email.toLowerCase(),
+          phone: dto.phone ?? null,
+          passwordHash,
+          emailVerified: false,
+          phoneVerified: false,
+        },
+      });
 
-    // CLIENT role → create Client profile row (location starts as NULL — user must set it)
-    await this.prisma.client.create({ data: { userId: user.id } });
+      // CLIENT role → create Client profile row (location starts as NULL — user must set it)
+      await tx.client.create({ data: { userId: u.id } });
+
+      await tx.userAuthProvider.create({
+        data: { userId: u.id, provider: 'EMAIL', email: dto.email.toLowerCase() },
+      });
+
+      return u;
+    });
 
     this.logger.log('Client registered', 'AuthService', {
       userId: user.id,
@@ -139,8 +147,36 @@ export class AuthService {
       ipAddress,
     });
 
-    return this.finaliseRegistration(user.id, user.email, dto.phone);
+    try {
+      await this.otpService.sendOtpToEmail(
+        user.id,
+        user.email,
+        OtpPurpose.EMAIL_VERIFICATION,
+      );
+
+      if (dto.phone) {
+        await this.otpService.sendOtpToPhone(
+          user.id,
+          dto.phone,
+          OtpPurpose.PHONE_VERIFICATION,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to send verification codes during client registration: ${(error as Error).message}`,
+        (error as Error).stack,
+        'AuthService',
+      );
+    }
+
+    return {
+      message: dto.phone
+        ? 'Registration successful. Verification codes have been sent to your email and phone.'
+        : 'Registration successful. A verification code has been sent to your email.',
+      requiresOtp: true,
+    };
   }
+
 
   // ── MANAGER registration (public — business details and docs created transactionally) ────
   async registerManager(
@@ -241,18 +277,26 @@ export class AuthService {
       ipAddress,
     });
 
-    // 6. Send OTP *after* transaction commits successfully
-    await this.otpService.sendOtpToEmail(
-      user.id,
-      user.email,
-      OtpPurpose.EMAIL_VERIFICATION,
-    );
-
-    if (user.phone) {
-      await this.otpService.sendOtpToPhone(
+    try {
+      // 6. Send OTP *after* transaction commits successfully
+      await this.otpService.sendOtpToEmail(
         user.id,
-        user.phone,
-        OtpPurpose.PHONE_VERIFICATION,
+        user.email,
+        OtpPurpose.EMAIL_VERIFICATION,
+      );
+
+      if (user.phone) {
+        await this.otpService.sendOtpToPhone(
+          user.id,
+          user.phone,
+          OtpPurpose.PHONE_VERIFICATION,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to send verification codes during manager registration: ${(error as Error).message}`,
+        (error as Error).stack,
+        'AuthService',
       );
     }
 
@@ -318,19 +362,38 @@ export class AuthService {
 
     const passwordHash = await this.passwordService.hash(dto.password);
 
-    const user = await this.prisma.user.create({
-      data: {
-        role: 'ADMIN',
-        fullName: dto.fullName,
-        email: dto.email.toLowerCase(),
-        phone: dto.phone ?? null,
-        passwordHash,
-        emailVerified: false,
-        phoneVerified: false,
-      },
-    });
+    const user = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.user.create({
+        data: {
+          role: 'ADMIN',
+          fullName: dto.fullName,
+          email: dto.email.toLowerCase(),
+          phone: dto.phone ?? null,
+          passwordHash,
+          emailVerified: false,
+          phoneVerified: false,
+        },
+      });
 
-    // ADMIN role → no profile table needed.
+      // ADMIN role -> create UserAuthProvider
+      await tx.userAuthProvider.create({
+        data: { userId: u.id, provider: 'EMAIL', email: dto.email.toLowerCase() },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId,
+          entityType: 'USER',
+          entityId: u.id,
+          action: 'CREATED',
+          newData: { role: 'ADMIN', email: u.email },
+          ipAddress,
+          userAgent,
+        },
+      });
+
+      return u;
+    });
 
     this.logger.log('Admin registered', 'AuthService', {
       actorId,
@@ -339,19 +402,34 @@ export class AuthService {
       ipAddress,
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        actorId,
-        entityType: 'USER',
-        entityId: user.id,
-        action: 'CREATED',
-        newData: { role: 'ADMIN', email: user.email },
-        ipAddress,
-        userAgent,
-      },
-    });
+    try {
+      await this.otpService.sendOtpToEmail(
+        user.id,
+        user.email,
+        OtpPurpose.EMAIL_VERIFICATION,
+      );
 
-    return this.finaliseRegistration(user.id, user.email, dto.phone);
+      if (dto.phone) {
+        await this.otpService.sendOtpToPhone(
+          user.id,
+          dto.phone,
+          OtpPurpose.PHONE_VERIFICATION,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to send verification codes during admin registration: ${(error as Error).message}`,
+        (error as Error).stack,
+        'AuthService',
+      );
+    }
+
+    return {
+      message: dto.phone
+        ? 'Registration successful. Verification codes have been sent to your email and phone.'
+        : 'Registration successful. A verification code has been sent to your email.',
+      requiresOtp: true,
+    };
   }
 
   // ─── OTP Verification ───
@@ -609,7 +687,14 @@ export class AuthService {
       userAgent,
     );
 
-    await this.redis.del(RedisKeys.loginAttempts(ipAddress));
+    try {
+      await this.redis.del(RedisKeys.loginAttempts(ipAddress));
+    } catch (error) {
+      this.logger.warn(
+        `Redis is unavailable for deleting login attempts: ${(error as Error).message}.`,
+        'AuthService',
+      );
+    }
 
     this.logger.log('User logged in', 'AuthService', {
       userId: user.id,
@@ -1332,12 +1417,22 @@ export class AuthService {
   }
 
   private async checkLoginRateLimit(ipAddress: string): Promise<void> {
-    const key = RedisKeys.loginAttempts(ipAddress);
-    const result = await this.redis.checkRateLimit(key, 5, 60);
+    try {
+      const key = RedisKeys.loginAttempts(ipAddress);
+      const result = await this.redis.checkRateLimit(key, 5, 60);
 
-    if (!result.allowed) {
-      throw new ForbiddenException(
-        'Too many login attempts. Please try again in 1 minute.',
+      if (!result.allowed) {
+        throw new ForbiddenException(
+          'Too many login attempts. Please try again in 1 minute.',
+        );
+      }
+    } catch (error) {
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
+      this.logger.warn(
+        `Redis is unavailable for login rate limit check: ${(error as Error).message}. Proceeding without check.`,
+        'AuthService',
       );
     }
   }
@@ -1347,9 +1442,16 @@ export class AuthService {
     ipAddress: string,
     userAgent: string,
   ): Promise<void> {
-    const key = RedisKeys.loginAttempts(ipAddress);
-    await this.redis.incr(key);
-    await this.redis.expire(key, 60);
+    try {
+      const key = RedisKeys.loginAttempts(ipAddress);
+      await this.redis.incr(key);
+      await this.redis.expire(key, 60);
+    } catch (error) {
+      this.logger.warn(
+        `Redis is unavailable for recording failed login: ${(error as Error).message}.`,
+        'AuthService',
+      );
+    }
 
     await this.prisma.auditLog.create({
       data: {

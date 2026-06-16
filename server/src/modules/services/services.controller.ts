@@ -11,7 +11,9 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
 } from '@nestjs/common';
+import { CacheInterceptor } from '@nestjs/cache-manager';
 import {
   ApiTags,
   ApiOperation,
@@ -172,6 +174,7 @@ export class ServicesController {
 
   @Get()
   @Public()
+  @UseInterceptors(CacheInterceptor)
   @ApiOperation({ summary: 'Get all services from catalog (no prices)' })
   @ApiQuery({ name: 'categoryId', required: false })
   async getAllServices(

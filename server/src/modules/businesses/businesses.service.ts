@@ -439,9 +439,20 @@ export class BusinessesService {
         businessId,
         type: dto.type,
       },
+      include: {
+        status: true,
+      },
     });
 
     if (existingDoc) {
+      const statusContext = existingDoc.status?.context;
+      if (statusContext === 'PENDING_REVIEW' || statusContext === 'ACCEPTED') {
+        throw new BadRequestException(
+          `Cannot upload document of type ${dto.type} because it is already ${statusContext.toLowerCase()}.`,
+        );
+      }
+      
+      // If REJECTED, delete the old one and allow re-upload
       await this.prisma.businessDocument.delete({
         where: { id: existingDoc.id },
       });
