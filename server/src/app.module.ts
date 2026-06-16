@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { APP_GUARD } from '@nestjs/core';
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 
 import configuration from './config/configuration';
 
@@ -56,6 +58,22 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
       }) as any,
     }),
 
+    // Caching
+    CacheModule.registerAsync({
+      isGlobal: true,
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        store: await redisStore({
+          socket: {
+            host: configService.get<string>('redis.host') || 'localhost',
+            port: configService.get<number>('redis.port') || 6379,
+            tls: configService.get<string>('redis.tls') === 'true',
+          },
+          password: configService.get<string>('redis.password'),
+        }),
+      }),
+    }),
+
     // Event Emitter (global)
     EventEmitterModule.forRoot(),
 
@@ -91,6 +109,10 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

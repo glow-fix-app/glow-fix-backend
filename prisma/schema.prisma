@@ -200,15 +200,15 @@ model Image {
 
 /// Global platform settings. Only one active row is expected.
 model Setting {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Platform commission percentage charged per booking (e.g., 10.00 = 10%)
-  businessFeePct   Decimal  @map("business_fee_pct")
+  businessFeePct    Decimal  @map("business_fee_pct")
   /// Flat platform fee charged to the client per booking
   clientPlatformFee Decimal  @default(0) @map("client_platform_fee")
   /// Maximum minutes before scheduled_at that a booking can be cancelled
-  maxCancelMinutes Int      @map("max_cancel_minutes")
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  maxCancelMinutes  Int      @map("max_cancel_minutes")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("settings")
 }
@@ -528,6 +528,8 @@ model Booking {
   conversation        Conversation[]
   disputes            Dispute[]
 
+  @@index([vehicleId])
+  @@index([businessId])
   @@map("bookings")
 }
 
@@ -651,22 +653,22 @@ model RecommendedRepair {
 
 /// Records a payment made by a client for a booking.
 model Payment {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId       String   @unique @map("booking_id")
-  paymentMethodId String   @map("payment_method_id") @db.Uuid
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId       String    @unique @map("booking_id")
+  paymentMethodId String    @map("payment_method_id") @db.Uuid
   provider        String?
-  providerRef     String?  @map("provider_ref")
+  providerRef     String?   @map("provider_ref")
   /// Amount charged in EGP
   amount          Decimal
-  currency        String   @default("EGP") @db.Char(3)
+  currency        String    @default("EGP") @db.Char(3)
   /// When the payment was completed/paid
   paidAt          DateTime? @map("paid_at") @db.Timestamptz
-  statusId        String   @map("status_id") @db.Uuid
-  idempotencyKey  String?  @unique @map("idempotency_key")
+  statusId        String    @map("status_id") @db.Uuid
+  idempotencyKey  String?   @unique @map("idempotency_key")
   /// Reason for failure (if status is FAILED)
-  failureReason   String?  @map("failure_reason")
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  failureReason   String?   @map("failure_reason")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // CASCADE: payment record is part of the booking lifecycle
   booking       Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -675,6 +677,8 @@ model Payment {
   status        Status        @relation(fields: [statusId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   disputes      Dispute[]
 
+  @@index([paymentMethodId])
+  @@index([statusId])
   @@map("payments")
 }
 
@@ -778,18 +782,18 @@ model LoyaltyTransaction {
 
 /// Post-service review submitted by the client after a booking is completed.
 model Review {
-  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId           String   @unique @map("booking_id")
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId           String    @unique @map("booking_id")
   /// Overall rating (1–5)
-  rating              Int      @db.SmallInt
-  qualityRating       Int?     @map("quality_rating") @db.SmallInt
-  punctualityRating   Int?     @map("punctuality_rating") @db.SmallInt
-  communicationRating Int?     @map("communication_rating") @db.SmallInt
+  rating              Int       @db.SmallInt
+  qualityRating       Int?      @map("quality_rating") @db.SmallInt
+  punctualityRating   Int?      @map("punctuality_rating") @db.SmallInt
+  communicationRating Int?      @map("communication_rating") @db.SmallInt
   comment             String?
   reply               String?
   repliedAt           DateTime? @map("replied_at") @db.Timestamptz
-  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   // CASCADE: review is part of the booking record
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -870,6 +874,8 @@ model ConversationParticipant {
   // RESTRICT: cannot delete a user who is still an active participant
   user         User         @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@index([conversationId])
+  @@index([userId])
   @@map("conversation_participants")
 }
 
@@ -896,6 +902,8 @@ model Message {
   sender       User?        @relation(fields: [senderUserId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   status       Status       @relation(fields: [statusId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
+  @@index([conversationId])
+  @@index([senderUserId])
   @@map("messages")
 }
 
