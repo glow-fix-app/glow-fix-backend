@@ -1,328 +1,167 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-  ForbiddenException,
-  Logger,
-} from '@nestjs/common';
-import { PrismaService } from '../../core/prisma/prisma.service';
+import { Injectable } from '@nestjs/common';
 import { WinstonLoggerService } from '../../common/logger/winston-logger.service';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { GetUsersQueryDto } from './dto/get-users-query.dto';
-import { AvatarService } from './avatar.service';
-import { UserProfile } from './user.types';
-import { reverseGeocodeCity } from '../../utils/geocode';
+import { UsersRepository } from './users.repository';
+import { AvatarService } from './services/avatar.service';
+import { LocationService } from './services/location.service';
 
-// Shared select matching schema exactly (Prisma uses camelCase)
-const USER_SELECT = {
-  id: true,
-  fullName: true,
-  email: true,
-  phone: true,
-  role: true,
-  emailVerified: true,
-  phoneVerified: true,
-  twoFactorEnabled: true,
-  isActive: true,
-  createdAt: true,
-  updatedAt: true,
-  deletedAt: true,
-} as const;
+import { IUserProfile, IUserListOptions } from './interfaces/user.interface';
+import {
+  UserNotFoundException,
+  ClientProfileNotFoundException,
+  EmailAlreadyInUseException,
+  PhoneAlreadyInUseException,
+  UnauthorizedUserAccessException,
+} from './exceptions/user.exceptions';
+
+import { UpdateUserDto } from './dto/request/update-user.dto';
+import { GetUsersQueryDto } from './dto/request/get-users-query.dto';
+import { UserProfileResponseDto, ClientLocationResponseDto } from './dto/response/user-response.dto';
+import { UserListResponseDto } from './dto/response/user-list-response.dto';
 
 @Injectable()
 export class UsersService {
-  private readonly logger = new Logger(UsersService.name);
-
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly winstonLogger: WinstonLoggerService,
+    private readonly repository: UsersRepository,
     private readonly avatarService: AvatarService,
+    private readonly locationService: LocationService,
+    private readonly winstonLogger: WinstonLoggerService,
   ) {}
 
-  // ─── Get full profile (includes avatar resolution) ───
-  async getProfile(
-    userId: string,
-  ): Promise<
-    UserProfile & {
-      clientLocation: {
-        latitude: number;
-        longitude: number;
-        city: string | null;
-      } | null;
-    }
-  > {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId, deletedAt: null },
-      select: {
-        id: true,
-        fullName: true,
-        email: true,
-        phone: true,
-        role: true,
-        emailVerified: true,
-        phoneVerified: true,
-        twoFactorEnabled: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
+  async getProfile(userId: string): Promise<UserProfileResponseDto> {
+    const user = await this.repository.findUserWithClientById(userId);
 
-    if (!user) throw new NotFoundException('User not found');
+    if (!user) {
+      throw new UserNotFoundException();
+    }
 
     const avatarUrl = await this.avatarService.resolve(userId);
+    let clientLocation: ClientLocationResponseDto | null = null;
 
-    // For CLIENT role: fetch location from clients table. Always explicitly null if not set.
-    let clientLocation: {
-      latitude: number;
-      longitude: number;
-      city: string | null;
-    } | null = null;
-    if (user.role === 'CLIENT') {
-      const locResult = await this.prisma.$queryRaw<
-        Array<{ latitude: number; longitude: number; city: string | null }>
-      >`
-        SELECT 
-          ST_Y(location::geometry) as latitude,
-          ST_X(location::geometry) as longitude,
-          city
-        FROM clients 
-        WHERE user_id = ${userId}::uuid AND location IS NOT NULL
-      `;
-      if (locResult && locResult.length > 0) {
-        let city = locResult[0].city;
-        // If we have coordinates but no city, reverse-geocode and cache it
-        if (!city) {
-          try {
-            city = await reverseGeocodeCity(
-              locResult[0].latitude,
-              locResult[0].longitude,
-            );
-            if (city) {
-              await this.prisma
-                .$executeRaw`UPDATE clients SET city = ${city} WHERE user_id = ${userId}::uuid`;
-            }
-          } catch (err) {
-            this.logger.warn(`Failed to auto-geocode client location: ${err}`);
-          }
-        }
-        clientLocation = {
-          latitude: Number(locResult[0].latitude),
-          longitude: Number(locResult[0].longitude),
-          city: city ?? null,
-        };
-      }
-      // clientLocation stays null if no location row found — this explicitly signals
-      // the frontend that the user has not set a location yet.
+    if (user.role === 'CLIENT' && user.client) {
+      clientLocation = await this.locationService.getClientLocation(userId);
     }
 
     return {
       id: user.id,
-      full_name: user.fullName,
+      fullName: user.fullName,
       email: user.email,
-      phone: user.phone,
+      phone: user.phone ?? undefined,
       role: user.role,
-      email_verified: user.emailVerified,
-      phone_verified: user.phoneVerified,
-      two_factor_enabled: user.twoFactorEnabled,
-      avatar_url: avatarUrl,
-      created_at: user.createdAt,
-      updated_at: user.updatedAt,
-      clientLocation,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified,
+      twoFactorEnabled: user.twoFactorEnabled,
+      avatarUrl: avatarUrl ?? undefined,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      clientLocation: clientLocation ?? undefined,
     };
   }
 
-  // ─── Get client profile with client-specific data ───
   async getClientProfile(userId: string): Promise<any> {
-    const client = await this.prisma.client.findUnique({
-      where: { userId: userId },
-      include: {
-        user: {
-          select: USER_SELECT,
-        },
-      },
-    });
-
-    if (!client) {
-      throw new NotFoundException('Client profile not found');
+    const user = await this.repository.findUserWithClientById(userId);
+    if (!user || !user.client) {
+      throw new ClientProfileNotFoundException();
     }
 
-    // Parse location if exists
-    let location = null;
-    const clientLocation = (client as any).location;
-    if (clientLocation) {
-      const coords = clientLocation.coordinates;
-      if (coords && Array.isArray(coords)) {
-        location = {
-          longitude: coords[0],
-          latitude: coords[1],
-        };
-      }
-    }
+    const location = await this.locationService.getClientLocation(userId);
 
     const avatarUrl = await this.avatarService.resolve(userId);
 
     return {
-      ...client.user,
+      ...user,
       avatar_url: avatarUrl,
-      client_id: client.id,
+      client_id: user.client.id,
       location,
     };
   }
 
-  // ─── Get single user by ID ───
-  async getUser(id: string): Promise<Record<string, unknown>> {
-    const user = await this.prisma.user.findUnique({
-      where: { id, deletedAt: null },
-      select: USER_SELECT,
-    });
+  async getUser(id: string): Promise<any> {
+    const user = await this.repository.findUserWithClientById(id);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new UserNotFoundException();
     }
 
     const avatarUrl = await this.avatarService.resolve(id);
 
     return {
       ...user,
-      avatar_url: avatarUrl,
+      avatarUrl: avatarUrl,
     };
   }
 
-  private mapUserToResponse(user: any): Record<string, unknown> {
-    return {
-      id: user.id,
-      full_name: user.fullName,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      email_verified: user.emailVerified,
-      phone_verified: user.phoneVerified,
-      two_factor_enabled: user.twoFactorEnabled,
-      is_active: user.isActive,
-      created_at: user.createdAt,
-      updated_at: user.updatedAt,
-      deleted_at: user.deletedAt,
-    };
-  }
-
-  // ─── Get all users — admin only ───
-  async getAllUsers(query: GetUsersQueryDto): Promise<{
-    data: Record<string, unknown>[];
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  }> {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      role,
-      email_verified,
-      phone_verified,
-      is_active,
-    } = query;
-    const skip = (page - 1) * limit;
-
-    const where: any = {
-      deletedAt: null,
+  async getAllUsers(query: GetUsersQueryDto): Promise<UserListResponseDto> {
+    const options: IUserListOptions = {
+      page: query.page || 1,
+      limit: query.limit || 20,
+      search: query.search,
+      role: query.role,
+      emailVerified: query.emailVerified,
+      phoneVerified: query.phoneVerified,
+      isActive: query.isActive,
     };
 
-    if (email_verified !== undefined) where.emailVerified = email_verified;
-    if (phone_verified !== undefined) where.phoneVerified = phone_verified;
-    if (is_active !== undefined) where.isActive = is_active;
-    if (role) where.role = role;
+    const result = await this.repository.findUsers(options);
 
-    if (search) {
-      where.OR = [
-        { fullName: { contains: search, mode: 'insensitive' as const } },
-        { email: { contains: search, mode: 'insensitive' as const } },
-        { phone: { contains: search } },
-      ];
-    }
-
-    const [data, total] = await Promise.all([
-      this.prisma.user.findMany({
-        where,
-        select: USER_SELECT,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      this.prisma.user.count({ where }),
-    ]);
-
-    // Resolve avatars for all users (batch would be better for performance)
     const dataWithAvatars = await Promise.all(
-      data.map(async (user) => ({
-        ...this.mapUserToResponse(user),
-        avatar_url: await this.avatarService.resolve(user.id),
+      result.data.map(async (user) => ({
+        ...user,
+        phone: user.phone ?? undefined,
+        avatarUrl: (await this.avatarService.resolve(user.id)) ?? undefined,
       })),
     );
 
     return {
-      data: dataWithAvatars,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      data: dataWithAvatars as any,
+      meta: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      },
     };
   }
 
-  // ─── Update user ───
   async updateUser(
     id: string,
     dto: UpdateUserDto,
     requesterId: string,
     requesterRole: string,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<any> {
     if (requesterId !== id && requesterRole !== 'ADMIN') {
-      throw new ForbiddenException('You are not allowed to update this user');
+      throw new UnauthorizedUserAccessException();
     }
 
-    const existing = await this.prisma.user.findUnique({
-      where: { id, deletedAt: null },
-    });
+    const existing = await this.repository.findUserById(id);
 
     if (!existing) {
-      throw new NotFoundException('User not found');
+      throw new UserNotFoundException();
     }
 
-    // Uniqueness checks
     if (dto.email && dto.email !== existing.email) {
-      const emailTaken = await this.prisma.user.findUnique({
-        where: { email: dto.email },
-      });
+      const emailTaken = await this.repository.findUserByEmail(dto.email);
       if (emailTaken) {
-        throw new ConflictException('Email is already in use');
+        throw new EmailAlreadyInUseException();
       }
     }
 
     if (dto.phone && dto.phone !== existing.phone) {
-      const phoneTaken = await this.prisma.user.findUnique({
-        where: { phone: dto.phone },
-      });
+      const phoneTaken = await this.repository.findUserByPhone(dto.phone);
       if (phoneTaken) {
-        throw new ConflictException('Phone number is already in use');
+        throw new PhoneAlreadyInUseException();
       }
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data: {
-        ...(dto.full_name !== undefined && { fullName: dto.full_name }),
-        ...(dto.email !== undefined && {
-          email: dto.email,
-          emailVerified: false, // must re-verify
-        }),
-        ...(dto.phone !== undefined && {
-          phone: dto.phone,
-          phoneVerified: false, // must re-verify
-        }),
-        updatedAt: new Date(),
-      },
-      select: USER_SELECT,
+    const updated = await this.repository.updateUser(id, {
+      fullName: dto.fullName,
+      email: dto.email ? dto.email.toLowerCase() : undefined,
+      phone: dto.phone,
+      emailVerified: dto.email ? false : undefined,
+      phoneVerified: dto.phone ? false : undefined,
     });
+
+    const avatarUrl = await this.avatarService.resolve(id);
 
     this.winstonLogger.log('User updated', 'UsersService', {
       targetId: id,
@@ -330,96 +169,28 @@ export class UsersService {
       changedFields: Object.keys(dto),
     });
 
-    const avatarUrl = await this.avatarService.resolve(id);
-
     return {
-      ...this.mapUserToResponse(updated),
-      avatar_url: avatarUrl,
+      ...updated,
+      avatarUrl,
     };
   }
 
-  // async deleteUser(
-  //   id: string,
-  //   requesterId: string,
-  //   requesterRole: string,
-  // ): Promise<{ message: string }> {
-  //   // if (requesterId !== id && requesterRole !== 'ADMIN') {
-  //   //   throw new ForbiddenException('You are not allowed to delete this user');
-  //   // }
-
-  //   const existing = await this.prisma.user.findUnique({
-  //     where: { id, deletedAt: null },
-  //   });
-
-  //   if (!existing) {
-  //     throw new NotFoundException('User not found');
-  //   }
-
-  //   // Permanently delete the user and all related data
-  //   await this.prisma.$transaction([
-  //     // Delete sessions first (foreign key constraint)
-  //     this.prisma.userSession.deleteMany({
-  //       where: { userId: id },
-  //     }),
-  //     // // Delete OAuth accounts
-  //     // this.prisma.oAuthAccount.deleteMany({
-  //     //   where: { customerId: id },
-  //     // }),
-  //     // // Delete security events
-  //     // this.prisma.securityEvent.deleteMany({
-  //     //   where: { userId: id },
-  //     // }),
-  //     // // Delete referrals
-  //     // this.prisma.referral.deleteMany({
-  //     //   where: {
-  //     //     OR: [{ referrerId: id }, { refereeId: id }],
-  //     //   },
-  //     // }),
-  //     // Finally delete the customer
-  //     this.prisma.user.delete({
-  //       where: { id },
-  //     }),
-  //   ]);
-
-  //   this.logger.log('User permanently deleted', 'UsersService', {
-  //     targetId: id,
-  //     requesterId,
-  //   });
-
-  //   return { message: 'User permanently deleted successfully' };
-  // }
-  // ─── Delete user (soft delete per schema) ───
   async deleteUser(
     id: string,
     requesterId: string,
     requesterRole: string,
   ): Promise<{ message: string }> {
     if (requesterId !== id && requesterRole !== 'ADMIN') {
-      throw new ForbiddenException('You are not allowed to delete this user');
+      throw new UnauthorizedUserAccessException();
     }
 
-    const existing = await this.prisma.user.findUnique({
-      where: { id, deletedAt: null },
-    });
+    const existing = await this.repository.findUserById(id);
 
     if (!existing) {
-      throw new NotFoundException('User not found');
+      throw new UserNotFoundException();
     }
 
-    // Soft delete - set deletedAt and isActive = false
-    await this.prisma.user.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        isActive: false,
-        updatedAt: new Date(),
-      },
-    });
-
-    // Also invalidate all sessions
-    await this.prisma.userSession.deleteMany({
-      where: { userId: id },
-    });
+    await this.repository.softDeleteUser(id);
 
     this.winstonLogger.log('User soft-deleted', 'UsersService', {
       targetId: id,
@@ -429,83 +200,16 @@ export class UsersService {
     return { message: 'User deleted successfully' };
   }
 
-  // ─── Get user by email (for auth) ───
   async getUserByEmail(email: string): Promise<any> {
-    return this.prisma.user.findUnique({
-      where: { email: email.toLowerCase() },
-    });
+    return this.repository.findUserByEmail(email);
   }
 
-  // ─── Get user by phone ───
   async getUserByPhone(phone: string): Promise<any> {
-    return this.prisma.user.findUnique({
-      where: { phone },
-    });
+    return this.repository.findUserByPhone(phone);
   }
 
-  // ─── Get manager's business ───
   async getManagerBusiness(managerId: string): Promise<any> {
-    return this.prisma.business.findFirst({
-      where: { managerId: managerId },
-      include: {
-        operatingHours: true,
-        statusHistory: {
-          include: { status: true },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
-    });
+    return this.repository.getManagerBusiness(managerId);
   }
+
 }
-
-// async deleteUser(
-//   id: string,
-//   requesterId: string,
-//   requesterRole: string,
-// ): Promise<{ message: string }> {
-//   // if (requesterId !== id && requesterRole !== 'ADMIN') {
-//   //   throw new ForbiddenException('You are not allowed to delete this user');
-//   // }
-
-//   const existing = await this.prisma.user.findUnique({
-//     where: { id, deletedAt: null },
-//   });
-
-//   if (!existing) {
-//     throw new NotFoundException('User not found');
-//   }
-
-//   // Permanently delete the user and all related data
-//   await this.prisma.$transaction([
-//     // Delete sessions first (foreign key constraint)
-//     this.prisma.userSession.deleteMany({
-//       where: { userId: id },
-//     }),
-//     // // Delete OAuth accounts
-//     // this.prisma.oAuthAccount.deleteMany({
-//     //   where: { customerId: id },
-//     // }),
-//     // // Delete security events
-//     // this.prisma.securityEvent.deleteMany({
-//     //   where: { userId: id },
-//     // }),
-//     // // Delete referrals
-//     // this.prisma.referral.deleteMany({
-//     //   where: {
-//     //     OR: [{ referrerId: id }, { refereeId: id }],
-//     //   },
-//     // }),
-//     // Finally delete the customer
-//     this.prisma.user.delete({
-//       where: { id },
-//     }),
-//   ]);
-
-//   this.logger.log('User permanently deleted', 'UsersService', {
-//     targetId: id,
-//     requesterId,
-//   });
-
-//   return { message: 'User permanently deleted successfully' };
-// }

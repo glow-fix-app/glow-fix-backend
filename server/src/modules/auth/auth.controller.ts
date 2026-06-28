@@ -11,7 +11,6 @@ import {
   Delete,
   Param,
   BadRequestException,
-  ConflictException,
   UseInterceptors,
   UploadedFiles,
 } from '@nestjs/common';
@@ -23,6 +22,9 @@ import {
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { JwtPayload } from '@glow-fix/types';
+import { AuthGuard } from '@nestjs/passport';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
@@ -32,21 +34,20 @@ import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { ResendOtpDto } from './dto/resend-otp.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
-import { VerifyResetOtpDto } from './dto/reset-password.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { AuthGuard } from '@nestjs/passport';
-import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
-import { AuthUser } from '../auth/types/auth.types';
-import { RegisterAdminDto } from './dto/registerAdmin.dto';
-import { RegisterManagerDto } from './dto/registerManager.dto';
-import { RegisterClientDto } from './dto/registerClient.dto';
+import { LoginDto } from './dto/request/login.dto';
+import { VerifyOtpDto } from './dto/request/verify-otp.dto';
+import { ResendOtpDto } from './dto/request/resend-otp.dto';
+import { ForgotPasswordDto } from './dto/request/forgot-password.dto';
+import { ResetPasswordDto, VerifyResetOtpDto } from './dto/request/reset-password.dto';
+import { ChangePasswordDto } from './dto/request/change-password.dto';
+import { RegisterAdminDto } from './dto/request/register-admin.dto';
+import { RegisterManagerDto } from './dto/request/register-manager.dto';
+import { RegisterClientDto } from './dto/request/register-client.dto';
+import { AuthUser } from './types/auth.types';
+import {
+  getRefreshTokenCookieOptions,
+  getClearCookieOptions,
+} from './constants/auth.constants';
 
 @ApiTags('Auth')
 @Controller({ path: 'auth', version: '1' })
@@ -57,28 +58,18 @@ export class AuthController {
     private readonly sessionService: SessionService,
   ) {}
 
-  // ─── Registration ───
+  // ─── Registration ──────────────────────────────────────────────────────────
 
   @Post('register/client')
   @Public()
   @ApiOperation({ summary: 'Register a new client account' })
-  @ApiResponse({
-    status: 201,
-    description: 'Registration successful, OTP sent',
-  })
+  @ApiResponse({ status: 201, description: 'Registration successful, OTP sent' })
   @ApiResponse({ status: 409, description: 'Email or phone already exists' })
   async registerClient(
     @Body() dto: RegisterClientDto,
     @Req() req: Request,
   ): Promise<{ message: string; requiresOtp: boolean }> {
-    if (dto.password !== dto.confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
-    }
-    return this.authService.registerClient(
-      dto,
-      req.ip || '',
-      req.get('user-agent') || '',
-    );
+    return this.authService.registerClient(dto, req.ip ?? '', req.get('user-agent') ?? '');
   }
 
   @Post('register/manager')
@@ -93,15 +84,12 @@ export class AuthController {
       ],
       {
         storage: memoryStorage(),
-        limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit per file
+        limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB per file
       },
     ),
   )
   @ApiOperation({ summary: 'Register a new manager (workshop owner) account' })
-  @ApiResponse({
-    status: 201,
-    description: 'Registration successful, OTP sent',
-  })
+  @ApiResponse({ status: 201, description: 'Registration successful, OTP sent' })
   @ApiResponse({ status: 409, description: 'Email or phone already exists' })
   async registerManager(
     @Body() dto: RegisterManagerDto,
@@ -114,14 +102,11 @@ export class AuthController {
     },
     @Req() req: Request,
   ): Promise<{ message: string; requiresOtp: boolean }> {
-    if (dto.password !== dto.confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
-    }
     return this.authService.registerManager(
       dto,
-      files || {},
-      req.ip || '',
-      req.get('user-agent') || '',
+      files ?? {},
+      req.ip ?? '',
+      req.get('user-agent') ?? '',
     );
   }
 
@@ -136,25 +121,20 @@ export class AuthController {
     @CurrentUser() actor: JwtPayload,
     @Req() req: Request,
   ): Promise<{ message: string; requiresOtp: boolean }> {
-    if (dto.password !== dto.confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
-    }
     return this.authService.registerAdmin(
       dto,
       actor.sub,
-      req.ip || '',
-      req.get('user-agent') || '',
+      req.ip ?? '',
+      req.get('user-agent') ?? '',
     );
   }
 
-  // ─── OTP Verification ───
+  // ─── OTP Verification ──────────────────────────────────────────────────────
 
   @Post('verify-otp')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Verify OTP for email/phone verification or password reset',
-  })
+  @ApiOperation({ summary: 'Verify OTP for email/phone verification or password reset' })
   @ApiResponse({ status: 200, description: 'OTP verified successfully' })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
   async verifyOtp(
@@ -162,14 +142,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<Record<string, unknown>> {
-    const result = await this.authService.verifyOtp(
-      dto,
-      req.ip || '',
-      req.get('user-agent') || '',
-    );
-
+    const result = await this.authService.verifyOtp(dto, req.ip ?? '', req.get('user-agent') ?? '');
     this.setRefreshTokenCookie(res, result.refreshToken);
-
     return {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
@@ -178,22 +152,19 @@ export class AuthController {
     };
   }
 
-  // ─── Resend OTP ───
+  // ─── Resend OTP ────────────────────────────────────────────────────────────
 
   @Post('resend-otp')
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Resend OTP to email or phone' })
   @ApiResponse({ status: 200, description: 'OTP resent successfully' })
-  @ApiResponse({
-    status: 400,
-    description: 'Already verified or cooldown active',
-  })
+  @ApiResponse({ status: 400, description: 'Already verified or cooldown active' })
   async resendOtp(@Body() dto: ResendOtpDto): Promise<{ message: string }> {
     return this.authService.resendOtp(dto);
   }
 
-  // ─── Login ───
+  // ─── Login ─────────────────────────────────────────────────────────────────
 
   @Post('login')
   @Public()
@@ -206,18 +177,13 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<Record<string, unknown>> {
-    const result = await this.authService.login(
-      dto,
-      req.ip || '',
-      req.get('user-agent') || '',
-    );
+    const result = await this.authService.login(dto, req.ip ?? '', req.get('user-agent') ?? '');
 
     if (result.requiresMfa) {
       return { requiresMfa: true, mfaToken: result.accessToken };
     }
 
     this.setRefreshTokenCookie(res, result.refreshToken);
-
     return {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
@@ -226,7 +192,7 @@ export class AuthController {
     };
   }
 
-  // ─── Refresh Token ───
+  // ─── Refresh Token ─────────────────────────────────────────────────────────
 
   @Post('refresh-token')
   @Public()
@@ -238,23 +204,22 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ accessToken: string; expiresIn: number }> {
-    const refreshToken = req.cookies?.refreshToken;
+    const refreshToken: string | undefined = (req.cookies as Record<string, string>)?.refreshToken;
     if (!refreshToken) {
       throw new BadRequestException('Refresh token not found');
     }
 
     const result = await this.authService.refreshTokens(
       refreshToken,
-      req.ip || '',
-      req.get('user-agent') || '',
+      req.ip ?? '',
+      req.get('user-agent') ?? '',
     );
 
     this.setRefreshTokenCookie(res, result.refreshToken);
-
     return { accessToken: result.accessToken, expiresIn: result.expiresIn };
   }
 
-  // ─── Logout ───
+  // ─── Logout ────────────────────────────────────────────────────────────────
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
@@ -279,39 +244,26 @@ export class AuthController {
   ): Promise<{ message: string; sessionsRevoked: number }> {
     const result = await this.authService.logoutAllSessions(user.id);
     this.clearRefreshTokenCookie(res);
-    return {
-      message: 'All sessions have been revoked',
-      sessionsRevoked: result.sessionsRevoked,
-    };
+    return { message: 'All sessions have been revoked', sessionsRevoked: result.sessionsRevoked };
   }
 
-  // ─── Password Management ───
+  // ─── Password Management ───────────────────────────────────────────────────
 
   @Post('forgot-password')
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Request password reset OTP' })
-  async forgotPassword(
-    @Body() dto: ForgotPasswordDto,
-  ): Promise<{ message: string }> {
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<{ message: string }> {
     return this.authService.forgotPassword(dto);
   }
 
   @Post('verify-reset-otp')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      'Verify OTP for password reset — returns a short-lived reset token',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'OTP verified, reset token returned',
-  })
+  @ApiOperation({ summary: 'Verify OTP for password reset — returns a short-lived reset token' })
+  @ApiResponse({ status: 200, description: 'OTP verified, reset token returned' })
   @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
-  async verifyResetOtp(
-    @Body() dto: VerifyResetOtpDto,
-  ): Promise<{ resetToken: string }> {
+  async verifyResetOtp(@Body() dto: VerifyResetOtpDto): Promise<{ resetToken: string }> {
     return this.authService.verifyResetOtp(dto);
   }
 
@@ -319,33 +271,27 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reset password using reset token' })
-  async resetPassword(
-    @Body() dto: ResetPasswordDto,
-  ): Promise<{ message: string }> {
-    if (dto.newPassword !== dto.confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
-    }
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<{ message: string }> {
+    // Password match validation is handled by @MatchPasswords in ResetPasswordDto
     return this.authService.resetPassword(dto);
   }
 
   @Post('change-password')
-  @UseGuards(AuthGuard('jwt')) // Protect this route with JWT auth guard
+  @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change password for authenticated user' })
   async changePassword(
     @Body() dto: ChangePasswordDto,
     @CurrentUser() user: AuthUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
-    if (dto.newPassword !== dto.confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
-    }
-
+    // Password match validation is handled by @MatchPasswords in ChangePasswordDto
     const result = await this.authService.changePassword(user.id, dto);
     this.clearRefreshTokenCookie(res);
     return result;
   }
 
-  // ─── Google OAuth ───
+  // ─── Google OAuth ──────────────────────────────────────────────────────────
 
   @Get('google')
   @Public()
@@ -357,10 +303,7 @@ export class AuthController {
   @Public()
   @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Google OAuth callback' })
-  async googleAuthCallback(
-    @Req() req: Request,
-    @Res() res: Response,
-  ): Promise<void> {
+  async googleAuthCallback(@Req() req: Request, @Res() res: Response): Promise<void> {
     const googleUser = req.user as {
       providerId: string;
       email: string;
@@ -370,13 +313,13 @@ export class AuthController {
 
     const result = await this.authService.handleGoogleOAuth(
       googleUser,
-      req.ip || '',
-      req.get('user-agent') || '',
+      req.ip ?? '',
+      req.get('user-agent') ?? '',
     );
 
     this.setRefreshTokenCookie(res, result.refreshToken);
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:5173';
     const params = new URLSearchParams({
       token: result.accessToken,
       isNewUser: result.isNewUser.toString(),
@@ -385,17 +328,12 @@ export class AuthController {
     res.redirect(`${frontendUrl}/auth/callback?${params.toString()}`);
   }
 
-  // ─── MFA ───
+  // ─── MFA ───────────────────────────────────────────────────────────────────
 
   @Post('mfa/setup')
   @ApiBearerAuth('access-token')
-  @ApiOperation({
-    summary: 'Start MFA setup — returns QR code and backup codes',
-  })
-  async setupMfa(
-    @CurrentUser() user: AuthUser,
-  ): Promise<Record<string, unknown>> {
-    console.log('CurrentUser:', user);
+  @ApiOperation({ summary: 'Start MFA setup — returns QR code and backup codes' })
+  async setupMfa(@CurrentUser() user: AuthUser): Promise<Record<string, unknown>> {
     const result = await this.mfaService.setupMfa(user.id);
     return result as unknown as Record<string, unknown>;
   }
@@ -414,18 +352,9 @@ export class AuthController {
   @Post('mfa/validate')
   @Public()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary:
-      'Complete MFA login — exchange mfaToken + TOTP code for full tokens',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'MFA validated, full tokens returned',
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid or expired MFA token / wrong code',
-  })
+  @ApiOperation({ summary: 'Complete MFA login — exchange mfaToken + TOTP code for full tokens' })
+  @ApiResponse({ status: 200, description: 'MFA validated, full tokens returned' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired MFA token / wrong code' })
   async validateMfaLogin(
     @Body('mfaToken') mfaToken: string,
     @Body('code') code: string,
@@ -435,12 +364,11 @@ export class AuthController {
     const result = await this.authService.verifyMfaLogin(
       mfaToken,
       code,
-      req.ip || '',
-      req.get('user-agent') || '',
+      req.ip ?? '',
+      req.get('user-agent') ?? '',
     );
 
     this.setRefreshTokenCookie(res, result.refreshToken);
-
     return {
       accessToken: result.accessToken,
       expiresIn: result.expiresIn,
@@ -459,14 +387,12 @@ export class AuthController {
     return { message: 'Two-factor authentication has been disabled' };
   }
 
-  // ─── Sessions ───
+  // ─── Sessions ──────────────────────────────────────────────────────────────
 
   @Get('sessions')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'List active sessions' })
-  async getSessions(
-    @CurrentUser() user: AuthUser,
-  ): Promise<Record<string, unknown>[]> {
+  async getSessions(@CurrentUser() user: AuthUser): Promise<Record<string, unknown>[]> {
     const sessions = await this.sessionService.getActiveSessions(user.id);
     return sessions.map((session) => ({
       ...session,
@@ -477,31 +403,22 @@ export class AuthController {
   @Delete('sessions/:sessionId')
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Revoke a specific session' })
-  async revokeSession(
-    @Param('sessionId') sessionId: string,
-  ): Promise<{ message: string }> {
+  async revokeSession(@Param('sessionId') sessionId: string): Promise<{ message: string }> {
     await this.sessionService.invalidateSession(sessionId);
     return { message: 'Session revoked successfully' };
   }
 
-  // ─── Helpers ───
+  // ─── Private helpers ───────────────────────────────────────────────────────
+
+  private get isProduction(): boolean {
+    return process.env.NODE_ENV === 'production';
+  }
 
   private setRefreshTokenCookie(res: Response, refreshToken: string): void {
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      path: '/api/v1/auth',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    res.cookie('refreshToken', refreshToken, getRefreshTokenCookieOptions(this.isProduction));
   }
 
   private clearRefreshTokenCookie(res: Response): void {
-    res.clearCookie('refreshToken', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      path: '/api/v1/auth',
-    });
+    res.clearCookie('refreshToken', getClearCookieOptions(this.isProduction));
   }
 }

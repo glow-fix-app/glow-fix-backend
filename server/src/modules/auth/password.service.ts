@@ -1,20 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PASSWORD } from '@glow-fix/utils';
-
-import { PrismaService } from '../../core/prisma/prisma.service';
 import { RedisService } from '../../core/redis/redis.service';
 
 @Injectable()
 export class PasswordService {
-  // In-memory password history (in production use a dedicated DB table)
-  // For now stored in Redis
   private readonly HISTORY_PREFIX = 'password-history:';
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly redis: RedisService,
-  ) {}
+  constructor(private readonly redis: RedisService) {}
 
   async hash(password: string): Promise<string> {
     return bcrypt.hash(password, PASSWORD.BCRYPT_COST_FACTOR);
@@ -40,11 +33,10 @@ export class PasswordService {
 
   async addToHistory(userId: string, passwordHash: string): Promise<void> {
     const historyKey = `${this.HISTORY_PREFIX}${userId}`;
-    let history = await this.redis.getJson<string[]>(historyKey) || [];
+    let history = (await this.redis.getJson<string[]>(historyKey)) ?? [];
 
     history.unshift(passwordHash);
 
-    // Keep only last N passwords
     if (history.length > PASSWORD.HISTORY_COUNT) {
       history = history.slice(0, PASSWORD.HISTORY_COUNT);
     }

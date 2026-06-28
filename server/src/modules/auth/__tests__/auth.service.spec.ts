@@ -16,7 +16,7 @@ import { PasswordService } from '../password.service';
 import { SessionService } from '../session.service';
 import { StorageService } from '../../../core/storage/storage.service';
 import { UserRole, Permission } from '@glow-fix/types';
-import { OtpPurpose } from '../dto/verify-otp.dto';
+import { OtpPurpose } from '../dto/request/verify-otp.dto';
 
 jest.mock('otplib', () => ({
   authenticator: {
