@@ -1,6 +1,6 @@
 // modules/services/service-discovery.service.ts
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../core/prisma/prisma.service';
+import { ServiceDiscoveryRepository } from './service-discovery.repository';
 import { Prisma } from '@prisma/client';
 import {
   SearchServicesDto,
@@ -18,7 +18,7 @@ import {
 export class ServiceDiscoveryService {
   private readonly logger = new Logger(ServiceDiscoveryService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repository: ServiceDiscoveryRepository) {}
 
   /**
    * Search services across all providers with full filters
@@ -95,7 +95,7 @@ export class ServiceDiscoveryService {
     }
 
     // Get matching services with active business assignments
-    const services = await this.prisma.service.findMany({
+    const services = await this.repository.service.findMany({
       where: serviceWhere,
       include: {
         category: true,
@@ -288,7 +288,7 @@ export class ServiceDiscoveryService {
       };
     }
 
-    const services = await this.prisma.service.findMany({
+    const services = await this.repository.service.findMany({
       where: serviceWhere,
       include: {
         category: true,
@@ -366,14 +366,14 @@ export class ServiceDiscoveryService {
     }
 
     const [services, categories] = await Promise.all([
-      this.prisma.service.findMany({
+      this.repository.service.findMany({
         where: {
           title: { contains: query, mode: 'insensitive' },
         },
         take: 5,
         select: { title: true },
       }),
-      this.prisma.category.findMany({
+      this.repository.category.findMany({
         where: {
           name: { contains: query, mode: 'insensitive' },
         },
@@ -397,7 +397,7 @@ export class ServiceDiscoveryService {
     // Ensure limit is a proper integer
     const safeLimit = Math.max(1, Math.min(Number(limit) || 6, 50));
 
-    const results = await this.prisma.$queryRaw<Array<any>>(
+    const results = await this.repository.queryRaw<Array<any>>(
       Prisma.sql`
     SELECT 
       s.id AS service_id,
@@ -432,7 +432,7 @@ export class ServiceDiscoveryService {
     LIMIT ${Prisma.sql`${safeLimit}`}
   `,
     );
-    // const results = await this.prisma.$queryRaw<Array<any>>(
+    // const results = await this.repository.queryRaw<Array<any>>(
     //   Prisma.sql`
     //     SELECT
     //       s.id AS service_id,
@@ -472,7 +472,7 @@ export class ServiceDiscoveryService {
     latitude?: number,
     longitude?: number,
   ): Promise<ServiceDiscoveryResponseDto> {
-    const service = await this.prisma.service.findUnique({
+    const service = await this.repository.service.findUnique({
       where: { id: serviceId },
       include: {
         category: true,
@@ -592,7 +592,7 @@ export class ServiceDiscoveryService {
     userId: string,
   ): Promise<{ latitude: number; longitude: number } | null> {
     if (!userId) return null;
-    const result = await this.prisma.$queryRaw<
+    const result = await this.repository.queryRaw<
       Array<{ latitude: number; longitude: number }>
     >(
       Prisma.sql`
@@ -620,7 +620,7 @@ export class ServiceDiscoveryService {
   ): Promise<{ latitude: number; longitude: number } | null> {
     if (!businessId) return null;
 
-    const result = await this.prisma.$queryRaw<
+    const result = await this.repository.queryRaw<
       Array<{ latitude: number; longitude: number }>
     >(
       Prisma.sql`
@@ -667,7 +667,7 @@ export class ServiceDiscoveryService {
   private async getBusinessRatingSummary(
     businessId: string,
   ): Promise<{ average_rating: number; total_reviews: number }> {
-    const result = await this.prisma.review.aggregate({
+    const result = await this.repository.review.aggregate({
       where: {
         booking: { businessId },
       },
@@ -688,7 +688,7 @@ export class ServiceDiscoveryService {
     const dayOfWeek = dateTime.getDay();
     const timeStr = dateTime.toTimeString().slice(0, 5);
 
-    const hours = await this.prisma.operatingHour.findFirst({
+    const hours = await this.repository.operatingHour.findFirst({
       where: {
         businessId,
         dayOfWeek,
@@ -710,7 +710,7 @@ export class ServiceDiscoveryService {
   }
 
   private async isBusinessVerified(businessId: string): Promise<boolean> {
-    const count = await this.prisma.businessDocument.count({
+    const count = await this.repository.businessDocument.count({
       where: {
         businessId,
         status: {
@@ -723,7 +723,7 @@ export class ServiceDiscoveryService {
   }
 
   private async getBusinessLogo(businessId: string): Promise<string | undefined> {
-    const image = await this.prisma.image.findFirst({
+    const image = await this.repository.image.findFirst({
       where: {
         entityId: businessId,
         entityType: 'BUSINESS_LOGO',
@@ -758,7 +758,7 @@ export class ServiceDiscoveryService {
     const radiusMeters = radiusKm * 1000;
     if (!latitude || !longitude || !radiusMeters) return 0;
 
-    const result = await this.prisma.$queryRaw<Array<{ count: number }>>(
+    const result = await this.repository.queryRaw<Array<{ count: number }>>(
       Prisma.sql`
     SELECT COUNT(*)::int AS count
     FROM businesses b
@@ -797,7 +797,7 @@ export class ServiceDiscoveryService {
 
     const priceRanges = await Promise.all(
       ranges.map(async (range) => {
-        const count = await this.prisma.service.count({
+        const count = await this.repository.service.count({
           where: {
             ...serviceWhere,
             businessServices: {
@@ -960,7 +960,7 @@ export class ServiceDiscoveryService {
 //     }
 
 //     // Get matching services
-//     const services = await this.prisma.service.findMany({
+//     const services = await this.repository.service.findMany({
 //       where: serviceWhere,
 //       include: {
 //         category: true,
@@ -1158,7 +1158,7 @@ export class ServiceDiscoveryService {
 //     }
 
 //     // Get services with their business_services
-//     const services = await this.prisma.service.findMany({
+//     const services = await this.repository.service.findMany({
 //       where: serviceWhere,
 //       include: {
 //         category: true,
@@ -1238,7 +1238,7 @@ export class ServiceDiscoveryService {
 //     }
 
 //     // Search services
-//     const services = await this.prisma.service.findMany({
+//     const services = await this.repository.service.findMany({
 //       where: {
 //         title: {
 //           contains: query,
@@ -1249,7 +1249,7 @@ export class ServiceDiscoveryService {
 //     });
 
 //     // Search categories
-//     const categories = await this.prisma.category.findMany({
+//     const categories = await this.repository.category.findMany({
 //       where: {
 //         name: {
 //           contains: query,
@@ -1270,7 +1270,7 @@ export class ServiceDiscoveryService {
 //    * Get popular services for homepage
 //    */
 //   async getPopularServices(limit: number = 6): Promise<PopularServiceDto[]> {
-//     const results = await this.prisma.$queryRaw<Array<any>>`
+//     const results = await this.repository.queryRaw<Array<any>>`
 //       SELECT
 //         s.id as service_id,
 //         s.title as service_name,
@@ -1308,7 +1308,7 @@ export class ServiceDiscoveryService {
 //     latitude?: number,
 //     longitude?: number,
 //   ): Promise<ServiceDiscoveryResponseDto> {
-//     const service = await this.prisma.service.findUnique({
+//     const service = await this.repository.service.findUnique({
 //       where: { id: serviceId },
 //       include: {
 //         category: true,
@@ -1417,7 +1417,7 @@ export class ServiceDiscoveryService {
 //   // ==================== PRIVATE HELPERS ====================
 
 //   private async getClientLocation(userId: string): Promise<{ latitude: number; longitude: number } | null> {
-//     const result = await this.prisma.$queryRaw<Array<{ latitude: number; longitude: number }>>`
+//     const result = await this.repository.queryRaw<Array<{ latitude: number; longitude: number }>>`
 //       SELECT
 //         ST_Y(location::geometry) as latitude,
 //         ST_X(location::geometry) as longitude
@@ -1436,7 +1436,7 @@ export class ServiceDiscoveryService {
 //   }
 
 //   private async getBusinessLocation(businessId: string): Promise<{ latitude: number; longitude: number } | null> {
-//     const result = await this.prisma.$queryRaw<Array<{ latitude: number; longitude: number }>>`
+//     const result = await this.repository.queryRaw<Array<{ latitude: number; longitude: number }>>`
 //       SELECT
 //         ST_Y(location::geometry) as latitude,
 //         ST_X(location::geometry) as longitude
@@ -1471,7 +1471,7 @@ export class ServiceDiscoveryService {
 //   }
 
 //   private async getBusinessRatingSummary(businessId: string): Promise<{ average_rating: number; total_reviews: number }> {
-//     const result = await this.prisma.review.aggregate({
+//     const result = await this.repository.review.aggregate({
 //       where: {
 //         booking: { businessId: businessId },
 //       },
@@ -1489,7 +1489,7 @@ export class ServiceDiscoveryService {
 //     const dayOfWeek = dateTime.getDay();
 //     const timeStr = dateTime.toTimeString().slice(0, 5);
 
-//     const hours = await this.prisma.operatingHour.findFirst({
+//     const hours = await this.repository.operatingHour.findFirst({
 //       where: {
 //         businessId: businessId,
 //         dayOfWeek: dayOfWeek,
@@ -1515,7 +1515,7 @@ export class ServiceDiscoveryService {
 //   }
 
 //   private async isBusinessVerified(businessId: string): Promise<boolean> {
-//     const documents = await this.prisma.businessDocument.findMany({
+//     const documents = await this.repository.businessDocument.findMany({
 //       where: {
 //         businessId: businessId,
 //         status: {
@@ -1539,7 +1539,7 @@ export class ServiceDiscoveryService {
 
 //   private async countNearbyLocations(latitude: number, longitude: number, radiusKm: number): Promise<number> {
 //     const radiusMeters = radiusKm * 1000;
-//     const result = await this.prisma.$queryRaw<Array<{ count: number }>>`
+//     const result = await this.repository.queryRaw<Array<{ count: number }>>`
 //       SELECT COUNT(*)::int as count
 //       FROM businesses b
 //       WHERE EXISTS (
@@ -1596,7 +1596,7 @@ export class ServiceDiscoveryService {
 //         },
 //       };
 
-//       const count = await this.prisma.service.count({ where: whereCondition });
+//       const count = await this.repository.service.count({ where: whereCondition });
 //       priceRanges.push({
 //         name: range.name,
 //         count,
