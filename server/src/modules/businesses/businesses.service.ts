@@ -15,7 +15,7 @@ import { UpdateBusinessStatusDto, BusinessStatus } from './dto/business-status.d
 import { UploadBusinessDocumentDto, UpdateDocumentStatusDto, DocumentStatus } from './dto/business-document.dto';
 import { BusinessResponseDto, BusinessStatsDto, NearbyBusinessDto } from './dto/business-response.dto';
 import { reverseGeocodeCity } from '../../utils/geocode';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationsService } from '../notifications/services/notifications.service';
 
 @Injectable()
 export class BusinessesService {
