@@ -7,8 +7,6 @@ import {
   Param,
   Query,
   ParseUUIDPipe,
-  HttpCode,
-  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,16 +16,17 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { DiagnosticReportsService } from './diagnostic-reports.service';
-import { CreateDiagnosticReportDto } from './dto/create-report.dto';
-import { UpdateDiagnosticReportDto } from './dto/update-report.dto';
-import { ClientActionDto } from './dto/client-action.dto';
+import { DiagnosticReportsService } from './services/diagnostic-reports.service';
+import { CreateDiagnosticReportDto } from './dto/request/create-report.dto';
+import { UpdateDiagnosticReportDto } from './dto/request/update-report.dto';
+import { ClientActionDto } from './dto/request/client-action.dto';
 import {
   DiagnosticReportResponseDto,
   ReportSummaryDto,
-} from './dto/report-response.dto';
+} from './dto/response/report-response.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtPayload } from '@glow-fix/types';
 
 @ApiTags('Diagnostic Reports')
 @ApiBearerAuth()
@@ -48,10 +47,10 @@ export class DiagnosticReportsController {
     type: DiagnosticReportResponseDto,
   })
   async createReport(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateDiagnosticReportDto,
   ): Promise<DiagnosticReportResponseDto> {
-    return this.diagnosticReportsService.createReport(user.id, dto);
+    return this.diagnosticReportsService.createReport(user.sub, dto);
   }
 
   @Put(':reportId')
@@ -64,11 +63,11 @@ export class DiagnosticReportsController {
     type: DiagnosticReportResponseDto,
   })
   async updateReport(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Param('reportId', ParseUUIDPipe) reportId: string,
     @Body() dto: UpdateDiagnosticReportDto,
   ): Promise<DiagnosticReportResponseDto> {
-    return this.diagnosticReportsService.updateReport(user.id, reportId, dto);
+    return this.diagnosticReportsService.updateReport(user.sub, reportId, dto);
   }
 
   // ==================== CLIENT ENDPOINTS ====================
@@ -83,12 +82,12 @@ export class DiagnosticReportsController {
   })
   @ApiResponse({ status: 404, description: 'Report not found' })
   async getReportByBookingId(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Param('bookingId') bookingId: string,
   ): Promise<DiagnosticReportResponseDto | null> {
     return this.diagnosticReportsService.getReportByBookingId(
       bookingId,
-      user.id,
+      user.sub,
       user.role,
     );
   }
@@ -102,12 +101,12 @@ export class DiagnosticReportsController {
     type: ReportSummaryDto,
   })
   async getReportSummary(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Param('bookingId') bookingId: string,
   ): Promise<ReportSummaryDto | null> {
     return this.diagnosticReportsService.getReportSummary(
       bookingId,
-      user.id,
+      user.sub,
       user.role,
     );
   }
@@ -117,11 +116,11 @@ export class DiagnosticReportsController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getMyReports(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
   ): Promise<{ data: ReportSummaryDto[]; meta: any }> {
-    return this.diagnosticReportsService.getClientReports(user.id, page, limit);
+    return this.diagnosticReportsService.getClientReports(user.sub, page, limit);
   }
 
   // ==================== SHARED ENDPOINTS ====================
@@ -136,12 +135,12 @@ export class DiagnosticReportsController {
   })
   @ApiResponse({ status: 404, description: 'Report not found' })
   async getReportById(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Param('reportId', ParseUUIDPipe) reportId: string,
   ): Promise<DiagnosticReportResponseDto> {
     return this.diagnosticReportsService.getReportById(
       reportId,
-      user.id,
+      user.sub,
       user.role,
     );
   }

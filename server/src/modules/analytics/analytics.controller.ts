@@ -19,36 +19,47 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { Response } from 'express';
-import { AnalyticsService } from './analytics.service';
+import { AnalyticsDashboardService } from './services/analytics-dashboard.service';
+import { AnalyticsRevenueService } from './services/analytics-revenue.service';
+import { AnalyticsBookingService } from './services/analytics-booking.service';
+import { AnalyticsBusinessService } from './services/analytics-business.service';
+import { AnalyticsExportService } from './services/analytics-export.service';
 import {
   AnalyticsQueryDto,
   TimeRange,
   ExportReportDto,
-} from './dto/analytics-query.dto';
+} from './dto/request/analytics-query.dto';
 import {
   DashboardSummaryResponseDto,
-} from './dto/dashboard-stats.dto';
+} from './dto/response/dashboard-stats.dto';
 import {
   RevenueStatsDto,
   RevenueSummaryDto,
   PaymentMethodStatsDto,
-} from './dto/revenue-stats.dto';
+} from './dto/response/revenue-stats.dto';
 import {
   BookingMetricsDto,
   TopServicesDto,
-} from './dto/booking-metrics.dto';
+} from './dto/response/booking-metrics.dto';
 import {
   BusinessPerformanceListDto,
   BusinessPerformanceDto,
-} from './dto/business-performance.dto';
+} from './dto/response/business-performance.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtPayload } from '@glow-fix/types';
 
 @ApiTags('Analytics')
 @ApiBearerAuth()
 @Controller({ path: 'analytics', version: '1' })
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(
+    private readonly dashboardService: AnalyticsDashboardService,
+    private readonly revenueService: AnalyticsRevenueService,
+    private readonly bookingService: AnalyticsBookingService,
+    private readonly businessService: AnalyticsBusinessService,
+    private readonly exportService: AnalyticsExportService,
+  ) {}
 
   // ==================== DASHBOARD STATISTICS ====================
 
@@ -57,10 +68,10 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get dashboard statistics' })
   @ApiResponse({ status: 200, description: 'Dashboard statistics', type: DashboardSummaryResponseDto })
   async getDashboardStats(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Query() query: AnalyticsQueryDto,
   ): Promise<DashboardSummaryResponseDto> {
-    return this.analyticsService.getDashboardStats(user.id, user.role, query);
+    return this.dashboardService.getDashboardStats(user.sub, user.role, query);
   }
 
   // ==================== REVENUE STATISTICS ====================
@@ -70,10 +81,10 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get revenue statistics' })
   @ApiResponse({ status: 200, description: 'Revenue statistics', type: RevenueStatsDto })
   async getRevenueStats(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Query() query: AnalyticsQueryDto,
   ): Promise<RevenueStatsDto> {
-    return this.analyticsService.getRevenueStats(user.id, user.role, query);
+    return this.revenueService.getRevenueStats(user.sub, user.role, query);
   }
 
   @Get('revenue/summary')
@@ -81,10 +92,10 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get revenue summary' })
   @ApiResponse({ status: 200, description: 'Revenue summary', type: RevenueSummaryDto })
   async getRevenueSummary(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Query() query: AnalyticsQueryDto,
   ): Promise<RevenueSummaryDto> {
-    return this.analyticsService.getRevenueSummary(user.id, user.role, query);
+    return this.revenueService.getRevenueSummary(user.sub, user.role, query);
   }
 
   @Get('revenue/payment-methods')
@@ -92,10 +103,10 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get payment method statistics' })
   @ApiResponse({ status: 200, description: 'Payment method stats', type: [PaymentMethodStatsDto] })
   async getPaymentMethodStats(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Query() query: AnalyticsQueryDto,
   ): Promise<PaymentMethodStatsDto[]> {
-    return this.analyticsService.getPaymentMethodStats(user.id, user.role, query);
+    return this.revenueService.getPaymentMethodStats(user.sub, user.role, query);
   }
 
   // ==================== BOOKING METRICS ====================
@@ -105,10 +116,10 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Get booking metrics' })
   @ApiResponse({ status: 200, description: 'Booking metrics', type: BookingMetricsDto })
   async getBookingMetrics(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Query() query: AnalyticsQueryDto,
   ): Promise<BookingMetricsDto> {
-    return this.analyticsService.getBookingMetrics(user.id, user.role, query);
+    return this.bookingService.getBookingMetrics(user.sub, user.role, query);
   }
 
   @Get('bookings/top-services')
@@ -117,11 +128,11 @@ export class AnalyticsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Top services', type: TopServicesDto })
   async getTopServices(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Query() query: AnalyticsQueryDto,
     @Query('limit') limit: number = 10,
   ): Promise<TopServicesDto> {
-    return this.analyticsService.getTopServices(user.id, user.role, query, limit);
+    return this.bookingService.getTopServices(user.sub, user.role, query, limit);
   }
 
   // ==================== BUSINESS PERFORMANCE ====================
@@ -137,7 +148,7 @@ export class AnalyticsController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
   ): Promise<BusinessPerformanceListDto> {
-    return this.analyticsService.getBusinessPerformance(query, page, limit);
+    return this.businessService.getBusinessPerformance(query, page, limit);
   }
 
   @Get('businesses/:businessId')
@@ -146,11 +157,11 @@ export class AnalyticsController {
   @ApiParam({ name: 'businessId', description: 'Business UUID' })
   @ApiResponse({ status: 200, description: 'Business performance', type: BusinessPerformanceDto })
   async getBusinessPerformanceById(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Query() query: AnalyticsQueryDto,
   ): Promise<BusinessPerformanceDto> {
-    return this.analyticsService.getBusinessPerformanceById(user.id, user.role, businessId, query);
+    return this.businessService.getBusinessPerformanceById(user.sub, user.role, businessId, query);
   }
 
   // ==================== EXPORT REPORTS ====================
@@ -160,12 +171,12 @@ export class AnalyticsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Export revenue report as CSV' })
   async exportRevenueReport(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: ExportReportDto,
     @Res() res: Response,
   ): Promise<void> {
-    const { data, filename } = await this.analyticsService.exportRevenueReport(
-      user.id,
+    const { data, filename } = await this.exportService.exportRevenueReport(
+      user.sub,
       user.role,
       dto,
     );
@@ -186,4 +197,4 @@ export class AnalyticsController {
 
     res.send(csvRows.join('\n'));
   }
-}
+}

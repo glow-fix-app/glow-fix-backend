@@ -10,7 +10,6 @@ import {
   HttpStatus,
   Headers,
   Req,
-  Res,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,24 +19,28 @@ import {
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { Request, Response } from 'express';
-import { PaymentsService } from './payments.service';
-import {
-  ProcessPaymentDto,
-  ProcessPaymentResponseDto,
-  ConfirmPaymentDto,
-} from './dto/process-payment.dto';
-import { CreateDisputeDto } from './dto/dispute-payment.dto';
-import { PaymentResponseDto, ReceiptResponseDto } from './dto/payment-response.dto';
+import { Request } from 'express';
+import { PaymentsService } from './services/payments.service';
+import { PaymentWebhookService } from './services/payment-webhook.service';
+import { PaymentPayoutService } from './services/payment-payout.service';
+import { ProcessPaymentDto, ConfirmPaymentDto } from './dto/request/process-payment.dto';
+import { CreateDisputeDto } from './dto/request/create-dispute.dto';
+import { ProcessPaymentResponseDto } from './dto/response/process-payment-response.dto';
+import { PaymentResponseDto, ReceiptResponseDto } from './dto/response/payment-response.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtPayload } from '@glow-fix/types';
 
 @ApiTags('Payments')
 @ApiBearerAuth()
 @Controller({ path: 'payments', version: '1' })
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(
+    private readonly paymentsService: PaymentsService,
+    private readonly paymentWebhookService: PaymentWebhookService,
+    private readonly paymentPayoutService: PaymentPayoutService,
+  ) {}
 
   // ==================== CLIENT ENDPOINTS ====================
 
@@ -46,10 +49,10 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Process payment for a booking' })
   @ApiResponse({ status: 200, description: 'Payment processed', type: ProcessPaymentResponseDto })
   async processPayment(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: ProcessPaymentDto,
   ): Promise<ProcessPaymentResponseDto> {
-    return this.paymentsService.processPayment(user.id, dto);
+    return this.paymentsService.processPayment(user.sub, dto);
   }
 
   @Post('confirm')
@@ -57,10 +60,10 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Confirm payment after Stripe confirmation' })
   @ApiResponse({ status: 200, description: 'Payment confirmed', type: ProcessPaymentResponseDto })
   async confirmPayment(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: ConfirmPaymentDto,
   ): Promise<ProcessPaymentResponseDto> {
-    return this.paymentsService.confirmPayment(user.id, dto);
+    return this.paymentsService.confirmPayment(user.sub, dto);
   }
 
   @Get()
@@ -68,11 +71,11 @@ export class PaymentsController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getUserPayments(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
   ): Promise<{ data: PaymentResponseDto[]; meta: any }> {
-    return this.paymentsService.getUserPayments(user.id, page, limit);
+    return this.paymentsService.getUserPayments(user.sub, page, limit);
   }
 
   @Get(':paymentId')
@@ -80,9 +83,9 @@ export class PaymentsController {
   @ApiParam({ name: 'paymentId', description: 'Payment UUID' })
   async getPayment(
     @Param('paymentId', ParseUUIDPipe) paymentId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
   ): Promise<PaymentResponseDto> {
-    return this.paymentsService.getPayment(paymentId, user.id, user.role);
+    return this.paymentsService.getPayment(paymentId, user.sub, user.role);
   }
 
   @Get('booking/:bookingId')
@@ -90,9 +93,9 @@ export class PaymentsController {
   @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
   async getBookingPayment(
     @Param('bookingId') bookingId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
   ): Promise<PaymentResponseDto | null> {
-    return this.paymentsService.getBookingPayment(bookingId, user.id);
+    return this.paymentsService.getBookingPayment(bookingId, user.sub);
   }
 
   @Get(':paymentId/receipt')
@@ -100,9 +103,9 @@ export class PaymentsController {
   @ApiParam({ name: 'paymentId', description: 'Payment UUID' })
   async getReceipt(
     @Param('paymentId', ParseUUIDPipe) paymentId: string,
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
   ): Promise<ReceiptResponseDto> {
-    return this.paymentsService.getReceipt(paymentId, user.id);
+    return this.paymentsService.getReceipt(paymentId, user.sub);
   }
 
   // ==================== DISPUTES ====================
@@ -111,10 +114,10 @@ export class PaymentsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a payment dispute' })
   async createDispute(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Body() dto: CreateDisputeDto,
   ): Promise<{ success: boolean; dispute_id: string }> {
-    return this.paymentsService.createDispute(user.id, dto);
+    return this.paymentsService.createDispute(user.sub, dto);
   }
 
   // ==================== STRIPE WEBHOOK (Public) ====================
@@ -127,7 +130,6 @@ export class PaymentsController {
     @Req() req: Request,
     @Headers('stripe-signature') signature: string,
   ): Promise<{ received: boolean }> {
-    const payload = req.body;
     // Express raw body is needed for signature verification
     const rawPayload = Buffer.isBuffer(req.body) ? req.body : (req as any).rawBody;
     
@@ -135,7 +137,7 @@ export class PaymentsController {
       throw new Error('Webhook requires raw body parsing. Check your NestJS raw body configuration.');
     }
     
-    return this.paymentsService.handleStripeWebhook(Buffer.from(rawPayload), signature);
+    return this.paymentWebhookService.handleStripeWebhook(Buffer.from(rawPayload), signature);
   }
 
   // ==================== BUSINESS/MANAGER ENDPOINTS ====================
@@ -147,11 +149,11 @@ export class PaymentsController {
   @ApiQuery({ name: 'page', required: false, example: 1 })
   @ApiQuery({ name: 'limit', required: false, example: 20 })
   async getBusinessPayouts(
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
     @Param('businessId', ParseUUIDPipe) businessId: string,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
   ): Promise<{ data: any[]; meta: any }> {
-    return this.paymentsService.getBusinessPayouts(user.id, businessId, page, limit);
+    return this.paymentPayoutService.getBusinessPayouts(user.sub, businessId, page, limit);
   }
 }

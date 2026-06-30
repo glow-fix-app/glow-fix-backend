@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import { PaymentsService } from '../../payments/payments.service';
+import { PaymentsService } from '../../payments/services/payments.service';
+import { PaymentPayoutService } from '../../payments/services/payment-payout.service';
 import { BookingsRepository } from '../repositories/bookings.repository';
 import { BookingMapper } from '../mappers/booking.mapper';
 import { BookingStateMachineService } from './booking-state-machine.service';
@@ -22,6 +23,7 @@ export class BookingManagerService {
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
     private readonly paymentsService: PaymentsService,
+    private readonly paymentPayoutService: PaymentPayoutService,
     private readonly bookingsRepository: BookingsRepository,
     private readonly bookingMapper: BookingMapper,
     private readonly stateMachine: BookingStateMachineService,
@@ -199,7 +201,11 @@ export class BookingManagerService {
           await this.notificationsService.createNotification({ recipientUserId: clientUserId, actorUserId: userId, typeCode: 'READY_FOR_PICKUP', title: 'Ready for Pickup', body: `Your vehicle is ready! Please complete payment and pick up your vehicle. Booking ${ref}`, actionUrl: `/client/bookings/${bookingId}` });
           break;
         case 'COMPLETED':
-          await this.paymentsService.createPayoutForCompletedBooking(bookingId);
+          try {
+            await this.paymentPayoutService.createPayoutForCompletedBooking(bookingId);
+          } catch (err: unknown) {
+            this.logger.error(`Payout failed: ${(err as Error).message}`);
+          }
           const config = await this.prisma.loyaltyConfig.findFirst();
           if (booking.payment && Number(booking.payment.amount) > 0 && config?.isActive) {
             const amount = Number(booking.payment.amount);
