@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { APP_GUARD } from '@nestjs/core';
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
 
 import configuration from './config/configuration';
 
@@ -37,6 +39,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -50,10 +53,28 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     // Rate Limiting
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: async (config: ConfigService) => ({
-        ttl: config.get<number>('throttle.ttl') || 60,
-        limit: config.get<number>('throttle.limit') || 100,
-      }) as any,
+      useFactory: async (config: ConfigService) => [
+        {
+          ttl: (config.get<number>('throttle.ttl') || 60) * 1000,
+          limit: config.get<number>('throttle.limit') || 100,
+        },
+      ],
+    }),
+
+    // Caching
+    CacheModule.registerAsync({
+      isGlobal: true,
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        store: await redisStore({
+          socket: {
+            host: configService.get<string>('redis.host') || 'localhost',
+            port: configService.get<number>('redis.port') || 6379,
+            tls: configService.get<string>('redis.tls') === 'true',
+          },
+          password: configService.get<string>('redis.password'),
+        }),
+      }),
     }),
 
     // Event Emitter (global)
@@ -81,6 +102,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     PaymentsModule,
     BookingsModule,
     AnalyticsModule,
+    AdminModule,
   ],
   providers: [
     JwtAuthGuard,
@@ -91,6 +113,10 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

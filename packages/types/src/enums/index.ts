@@ -3,6 +3,7 @@ export enum UserRole {
   CUSTOMER = 'CUSTOMER',
   STAFF = 'STAFF',
   ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
 }
 
 export enum AdminRole {
@@ -44,6 +45,11 @@ export enum Permission {
   MANAGE_PROMOTIONS = 'manage:promotions',
   MANAGE_WARRANTIES = 'manage:warranties',
   SEND_BROADCASTS = 'send:broadcasts',
+
+  // Manager
+  MANAGE_BUSINESS = 'manage:business',
+  VIEW_BUSINESS_ANALYTICS = 'view:business:analytics',
+  MANAGE_EMPLOYEES = 'manage:employees',
 }
 
 // ─── Booking Enums ───

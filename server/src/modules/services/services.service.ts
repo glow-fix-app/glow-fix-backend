@@ -6,7 +6,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { PrismaService } from '../../core/prisma/prisma.service';
+import { ServicesRepository } from './services.repository';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateServiceDto } from './dto/create-service.dto';
@@ -30,7 +30,7 @@ export class ServicesService {
   private readonly logger = new Logger(ServicesService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repository: ServicesRepository,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -39,7 +39,7 @@ export class ServicesService {
   async createCategory(adminId: string, dto: CreateCategoryDto) {
     const normalizedName = dto.name.trim().toUpperCase();
 
-    const existingCategory = await this.prisma.category.findFirst({
+    const existingCategory = await this.repository.category.findFirst({
       where: {
         name: normalizedName,
       },
@@ -49,7 +49,7 @@ export class ServicesService {
       throw new ConflictException(`Category '${dto.name}' already exists`);
     }
 
-    const category = await this.prisma.category.create({
+    const category = await this.repository.category.create({
       data: {
         name: normalizedName,
       },
@@ -65,7 +65,7 @@ export class ServicesService {
   }
 
   async getAllCategories(): Promise<CategoryResponseDto[]> {
-    const categories = await this.prisma.category.findMany({
+    const categories = await this.repository.category.findMany({
       orderBy: { name: 'asc' },
     });
 
@@ -77,7 +77,7 @@ export class ServicesService {
   }
 
   async getCategoryById(categoryId: string): Promise<CategoryResponseDto> {
-    const category = await this.prisma.category.findUnique({
+    const category = await this.repository.category.findUnique({
       where: { id: categoryId },
     });
 
@@ -96,7 +96,7 @@ export class ServicesService {
     adminId: string,
     categoryId: string,
   ): Promise<{ message: string }> {
-    const category = await this.prisma.category.findUnique({
+    const category = await this.repository.category.findUnique({
       where: { id: categoryId },
       include: {
         services: {
@@ -117,7 +117,7 @@ export class ServicesService {
       );
     }
 
-    await this.prisma.category.delete({
+    await this.repository.category.delete({
       where: { id: categoryId },
     });
 
@@ -132,7 +132,7 @@ export class ServicesService {
     adminId: string,
     dto: CreateServiceDto,
   ): Promise<ServiceCatalogResponseDto> {
-    const category = await this.prisma.category.findUnique({
+    const category = await this.repository.category.findUnique({
       where: { id: dto.category_id },
     });
 
@@ -140,7 +140,7 @@ export class ServicesService {
       throw new NotFoundException('Category not found');
     }
 
-    const service = await this.prisma.service.create({
+    const service = await this.repository.service.create({
       data: {
         categoryId: dto.category_id,
         title: dto.title,
@@ -177,7 +177,7 @@ export class ServicesService {
       where.categoryId = categoryId;
     }
 
-    const services = await this.prisma.service.findMany({
+    const services = await this.repository.service.findMany({
       where,
       include: {
         category: true,
@@ -197,7 +197,7 @@ export class ServicesService {
   }
 
   async getServiceById(serviceId: string): Promise<ServiceCatalogResponseDto> {
-    const service = await this.prisma.service.findUnique({
+    const service = await this.repository.service.findUnique({
       where: { id: serviceId },
       include: { category: true },
     });
@@ -222,7 +222,7 @@ export class ServicesService {
     serviceId: string,
     dto: UpdateServiceDto,
   ): Promise<ServiceCatalogResponseDto> {
-    const service = await this.prisma.service.findUnique({
+    const service = await this.repository.service.findUnique({
       where: { id: serviceId },
       include: { category: true },
     });
@@ -232,7 +232,7 @@ export class ServicesService {
     }
 
     if (dto.category_id) {
-      const category = await this.prisma.category.findUnique({
+      const category = await this.repository.category.findUnique({
         where: { id: dto.category_id },
       });
       if (!category) {
@@ -240,7 +240,7 @@ export class ServicesService {
       }
     }
 
-    const updatedService = await this.prisma.service.update({
+    const updatedService = await this.repository.service.update({
       where: { id: serviceId },
       data: {
         categoryId: dto.category_id,
@@ -269,7 +269,7 @@ export class ServicesService {
     adminId: string,
     serviceId: string,
   ): Promise<{ message: string }> {
-    const service = await this.prisma.service.findUnique({
+    const service = await this.repository.service.findUnique({
       where: { id: serviceId },
       include: {
         businessServices: true,
@@ -286,7 +286,7 @@ export class ServicesService {
       );
     }
 
-    await this.prisma.service.delete({
+    await this.repository.service.delete({
       where: { id: serviceId },
     });
 
@@ -307,7 +307,7 @@ export class ServicesService {
     await this.verifyBusinessOwnership(managerId, businessId);
 
     // Verify service exists in catalog
-    const service = await this.prisma.service.findUnique({
+    const service = await this.repository.service.findUnique({
       where: { id: dto.service_id },
       include: { category: true },
     });
@@ -317,7 +317,7 @@ export class ServicesService {
     }
 
     // Check if service already assigned to this business
-    const existing = await this.prisma.businessService.findFirst({
+    const existing = await this.repository.businessService.findFirst({
       where: {
         businessId: businessId,
         serviceId: dto.service_id,
@@ -328,11 +328,11 @@ export class ServicesService {
       throw new ConflictException('Service already assigned to this business');
     }
 
-    const business = await this.prisma.business.findUnique({
+    const business = await this.repository.business.findUnique({
       where: { id: businessId },
     });
 
-    const businessService = await this.prisma.businessService.create({
+    const businessService = await this.repository.businessService.create({
       data: {
         businessId: businessId,
         serviceId: dto.service_id,
@@ -413,7 +413,7 @@ export class ServicesService {
     includeInactive: boolean = false,
     categoryId?: string,
   ): Promise<AssignedBusinessServiceResponseDto[]> {
-    const business = await this.prisma.business.findUnique({
+    const business = await this.repository.business.findUnique({
       where: { id: businessId },
     });
 
@@ -433,7 +433,7 @@ export class ServicesService {
       where.service = { categoryId: categoryId };
     }
 
-    const businessServices = await this.prisma.businessService.findMany({
+    const businessServices = await this.repository.businessService.findMany({
       where,
       include: {
         service: {
@@ -465,7 +465,7 @@ export class ServicesService {
   async getBusinessServiceById(
     businessServiceId: string,
   ): Promise<AssignedBusinessServiceResponseDto> {
-    const businessService = await this.prisma.businessService.findUnique({
+    const businessService = await this.repository.businessService.findUnique({
       where: { id: businessServiceId },
       include: {
         business: true,
@@ -506,7 +506,7 @@ export class ServicesService {
   ): Promise<AssignedBusinessServiceResponseDto> {
     await this.verifyBusinessOwnership(managerId, businessId);
 
-    const businessService = await this.prisma.businessService.findFirst({
+    const businessService = await this.repository.businessService.findFirst({
       where: {
         id: businessServiceId,
         businessId: businessId,
@@ -539,7 +539,7 @@ export class ServicesService {
       updateData.isActive = dto.is_active;
     }
 
-    const updated = await this.prisma.businessService.update({
+    const updated = await this.repository.businessService.update({
       where: { id: businessServiceId },
       data: updateData,
       include: {
@@ -586,7 +586,7 @@ export class ServicesService {
   ): Promise<{ message: string }> {
     await this.verifyBusinessOwnership(managerId, businessId);
 
-    const businessService = await this.prisma.businessService.findFirst({
+    const businessService = await this.repository.businessService.findFirst({
       where: {
         id: businessServiceId,
         businessId: businessId,
@@ -601,7 +601,7 @@ export class ServicesService {
     }
 
     // Check if there are active bookings using this service
-    const activeBookings = await this.prisma.bookingItem.findFirst({
+    const activeBookings = await this.repository.bookingItem.findFirst({
       where: {
         businessServiceId: businessServiceId,
         booking: {
@@ -616,7 +616,7 @@ export class ServicesService {
 
     if (activeBookings) {
       // Soft delete - just deactivate
-      await this.prisma.businessService.update({
+      await this.repository.businessService.update({
         where: { id: businessServiceId },
         data: { isActive: false },
       });
@@ -626,7 +626,7 @@ export class ServicesService {
     }
 
     // Hard delete if no bookings
-    await this.prisma.businessService.delete({
+    await this.repository.businessService.delete({
       where: { id: businessServiceId },
     });
 
@@ -650,7 +650,7 @@ export class ServicesService {
   ): Promise<{ is_active: boolean; message: string }> {
     await this.verifyBusinessOwnership(managerId, businessId);
 
-    const businessService = await this.prisma.businessService.findFirst({
+    const businessService = await this.repository.businessService.findFirst({
       where: {
         id: businessServiceId,
         businessId: businessId,
@@ -661,7 +661,7 @@ export class ServicesService {
       throw new NotFoundException('Business service not found');
     }
 
-    const updated = await this.prisma.businessService.update({
+    const updated = await this.repository.businessService.update({
       where: { id: businessServiceId },
       data: {
         isActive: !businessService.isActive,
@@ -684,7 +684,7 @@ export class ServicesService {
   async getAvailableServicesForBusiness(
     businessId: string,
   ): Promise<AvailableServiceDto[]> {
-    const business = await this.prisma.business.findUnique({
+    const business = await this.repository.business.findUnique({
       where: { id: businessId },
     });
 
@@ -692,7 +692,7 @@ export class ServicesService {
       throw new NotFoundException('Business not found');
     }
 
-    const businessServices = await this.prisma.businessService.findMany({
+    const businessServices = await this.repository.businessService.findMany({
       where: {
         businessId: businessId,
         isActive: true,
@@ -722,7 +722,7 @@ export class ServicesService {
     businessId: string,
     categoryName: string,
   ): Promise<AvailableServiceDto[]> {
-    const category = await this.prisma.category.findFirst({
+    const category = await this.repository.category.findFirst({
       where: {
         name: {
           equals: categoryName,
@@ -735,7 +735,7 @@ export class ServicesService {
       throw new NotFoundException(`Category '${categoryName}' not found`);
     }
 
-    const businessServices = await this.prisma.businessService.findMany({
+    const businessServices = await this.repository.businessService.findMany({
       where: {
         businessId: businessId,
         isActive: true,
@@ -771,7 +771,7 @@ export class ServicesService {
     await this.verifyBusinessOwnership(managerId, businessId);
 
     // Get all service IDs already assigned to this business
-    const assignedServices = await this.prisma.businessService.findMany({
+    const assignedServices = await this.repository.businessService.findMany({
       where: { businessId: businessId },
       select: { serviceId: true },
     });
@@ -779,7 +779,7 @@ export class ServicesService {
     const assignedServiceIds = assignedServices.map((s) => s.serviceId);
 
     // Get unassigned services from catalog
-    const unassignedServices = await this.prisma.service.findMany({
+    const unassignedServices = await this.repository.service.findMany({
       where: {
         id: { notIn: assignedServiceIds },
       },
@@ -806,7 +806,7 @@ export class ServicesService {
     managerId: string,
     businessId: string,
   ): Promise<void> {
-    const business = await this.prisma.business.findFirst({
+    const business = await this.repository.business.findFirst({
       where: {
         id: businessId,
         managerId: managerId,

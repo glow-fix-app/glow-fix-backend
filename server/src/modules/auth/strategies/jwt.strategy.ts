@@ -7,7 +7,7 @@ import { PrismaService } from '../../../core/prisma/prisma.service';
 import { RedisService } from '../../../core/redis/redis.service';
 import { RedisKeys } from '../../../core/redis/redis-keys';
 import { JwtPayload, AuthUser  } from '../types/auth.types';
-import { AvatarService } from '../../users/avatar.service';
+import { AvatarService } from '../../users/services/avatar.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {

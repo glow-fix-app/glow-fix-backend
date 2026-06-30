@@ -54,6 +54,13 @@ export class RejectBusinessDto {
   reason: string;
 }
 
+export class RejectDocumentDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
 export class BusinessResponseAdminDto {
   @ApiProperty()
   id: string;
@@ -70,8 +77,8 @@ export class BusinessResponseAdminDto {
   @ApiPropertyOptional()
   manager_phone?: string;
 
-  @ApiProperty()
-  address: string;
+  @ApiPropertyOptional()
+  city?: string;
 
   @ApiProperty()
   latitude: number;

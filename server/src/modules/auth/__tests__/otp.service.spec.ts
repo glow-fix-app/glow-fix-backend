@@ -7,7 +7,7 @@ import { PrismaService } from '../../../core/prisma/prisma.service';
 import { RedisService } from '../../../core/redis/redis.service';
 import { WinstonLoggerService } from '../../../common/logger/winston-logger.service';
 import { EmailService } from '../email.service';
-import { OtpPurpose } from '../dto/verify-otp.dto';
+import { OtpPurpose } from '../dto/request/verify-otp.dto';
 
 jest.mock('@glow-fix/utils', () => ({
   generateOtp: jest.fn().mockReturnValue('123456'),

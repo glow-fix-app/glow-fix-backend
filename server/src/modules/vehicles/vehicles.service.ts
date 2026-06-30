@@ -5,12 +5,12 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
-import { PrismaService } from '../../core/prisma/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { QueryVehiclesDto } from './dto/query-vehicles.dto';
 import { VehicleResponseDto, VehicleWithStatsResponseDto, VehicleBookingHistoryDto } from './dto/vehicle-response.dto';
+import { VehiclesRepository } from "./vehicles.repository";
 
 const SORT_FIELD_MAP: Record<string, string> = {
   created_at: 'createdAt',
@@ -24,96 +24,76 @@ export class VehiclesService {
   private readonly logger = new Logger(VehiclesService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly eventEmitter: EventEmitter2,
+    private readonly repository: VehiclesRepository, private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private async getClientIdFromUserId(userId: string): Promise<string> {
-    const client = await this.prisma.client.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
 
-    if (!client) {
-      throw new NotFoundException('Client profile not found');
-    }
-
-    return client.id;
+          const clientId = await this.repository.getClientIdFromUserId(userId);
+          if (!clientId) {
+            throw new NotFoundException('Client profile not found');
+          }
+          return clientId;
   }
 
   async createVehicle(
     userId: string,
     dto: CreateVehicleDto,
   ): Promise<VehicleResponseDto> {
-    const clientId = await this.getClientIdFromUserId(userId);
 
-    const existingVehicle = await this.prisma.clientVehicle.findFirst({
-      where: {
-        clientId,
-        licensePlate: dto.license_plate.toUpperCase(),
-      },
-    });
+          const clientId = await this.getClientIdFromUserId(userId);
 
-    if (existingVehicle) {
-      throw new ConflictException('Vehicle with this license plate already exists');
-    }
+          const existingVehicle = await this.repository.findVehicleByLicensePlate(clientId, dto.license_plate);
 
-    const vehicle = await this.prisma.clientVehicle.create({
-      data: {
-        clientId,
-        licensePlate: dto.license_plate.toUpperCase(),
-        model: dto.model,
-        year: dto.year,
-        color: dto.color,
-      },
-    });
+          if (existingVehicle) {
+            throw new ConflictException('Vehicle with this license plate already exists');
+          }
 
-    this.logger.log(`Vehicle created for client ${clientId}: ${dto.license_plate}`);
+          const vehicle = await this.repository.createVehicle({
+            clientId,
+            licensePlate: dto.license_plate.toUpperCase(),
+            model: dto.model,
+            year: dto.year,
+            color: dto.color,
+          });
 
-    this.eventEmitter.emit('vehicle.created', {
-      userId,
-      clientId,
-      vehicleId: vehicle.id,
-      licensePlate: dto.license_plate,
-    });
+          this.logger.log(`Vehicle created for client ${clientId}: ${dto.license_plate}`);
 
-    return this.mapToResponseDto(vehicle);
+          this.eventEmitter.emit('vehicle.created', {
+            userId,
+            clientId,
+            vehicleId: vehicle.id,
+            licensePlate: dto.license_plate,
+          });
+
+          return this.mapToResponseDto(vehicle);
   }
 
   async getUserVehicles(userId: string): Promise<VehicleResponseDto[]> {
-    const clientId = await this.getClientIdFromUserId(userId);
 
-    const vehicles = await this.prisma.clientVehicle.findMany({
-      where: { clientId },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return vehicles.map(v => this.mapToResponseDto(v));
+          const clientId = await this.getClientIdFromUserId(userId);
+          const vehicles = await this.repository.findVehiclesByClient(clientId);
+          return vehicles.map(v => this.mapToResponseDto(v));
   }
 
   async getVehicle(
     userId: string,
     vehicleId: string,
   ): Promise<VehicleWithStatsResponseDto> {
-    const clientId = await this.getClientIdFromUserId(userId);
 
-    const vehicle = await this.prisma.clientVehicle.findFirst({
-      where: {
-        id: vehicleId,
-        clientId,
-      },
-    });
+          const clientId = await this.getClientIdFromUserId(userId);
+          const vehicle = await this.repository.findVehicleByIdAndClient(vehicleId, clientId);
 
-    if (!vehicle) {
-      throw new NotFoundException('Vehicle not found');
-    }
+          if (!vehicle) {
+            throw new NotFoundException('Vehicle not found');
+          }
 
-    const stats = await this.getVehicleStats(vehicleId);
+          const stats = await this.getVehicleStats(vehicleId);
 
-    return {
-      ...this.mapToResponseDto(vehicle),
-      ...stats,
-    };
+          return {
+            ...this.mapToResponseDto(vehicle),
+            ...stats,
+          };
   }
 
   async updateVehicle(
@@ -121,98 +101,75 @@ export class VehiclesService {
     vehicleId: string,
     dto: UpdateVehicleDto,
   ): Promise<VehicleResponseDto> {
-    const clientId = await this.getClientIdFromUserId(userId);
 
-    const existingVehicle = await this.prisma.clientVehicle.findFirst({
-      where: {
-        id: vehicleId,
-        clientId,
-      },
-    });
+          const clientId = await this.getClientIdFromUserId(userId);
+          const existingVehicle = await this.repository.findVehicleByIdAndClient(vehicleId, clientId);
 
-    if (!existingVehicle) {
-      throw new NotFoundException('Vehicle not found');
-    }
+          if (!existingVehicle) {
+            throw new NotFoundException('Vehicle not found');
+          }
 
-    if (dto.license_plate && dto.license_plate !== existingVehicle.licensePlate) {
-      const duplicate = await this.prisma.clientVehicle.findFirst({
-        where: {
-          clientId,
-          licensePlate: dto.license_plate.toUpperCase(),
-          id: { not: vehicleId },
-        },
-      });
-      if (duplicate) {
-        throw new ConflictException('Vehicle with this license plate already exists');
-      }
-    }
+          if (dto.license_plate && dto.license_plate !== existingVehicle.licensePlate) {
+            const duplicate = await this.repository.findVehicleByLicensePlate(clientId, dto.license_plate, vehicleId);
+            if (duplicate) {
+              throw new ConflictException('Vehicle with this license plate already exists');
+            }
+          }
 
-    const updatedVehicle = await this.prisma.clientVehicle.update({
-      where: { id: vehicleId },
-      data: {
-        licensePlate: dto.license_plate?.toUpperCase(),
-        model: dto.model,
-        year: dto.year,
-        color: dto.color,
-      },
-    });
+          const updatedVehicle = await this.repository.updateVehicle(vehicleId, {
+            licensePlate: dto.license_plate?.toUpperCase(),
+            model: dto.model,
+            year: dto.year,
+            color: dto.color,
+          });
 
-    this.logger.log(`Vehicle updated: ${vehicleId} for client ${clientId}`);
+          this.logger.log(`Vehicle updated: ${vehicleId} for client ${clientId}`);
 
-    this.eventEmitter.emit('vehicle.updated', {
-      userId,
-      clientId,
-      vehicleId,
-      updates: Object.keys(dto),
-    });
+          this.eventEmitter.emit('vehicle.updated', {
+            userId,
+            clientId,
+            vehicleId,
+            updates: Object.keys(dto),
+          });
 
-    return this.mapToResponseDto(updatedVehicle);
+          return this.mapToResponseDto(updatedVehicle);
   }
 
   async deleteVehicle(
     userId: string,
     vehicleId: string,
   ): Promise<{ success: boolean; message: string }> {
-    const clientId = await this.getClientIdFromUserId(userId);
 
-    const vehicle = await this.prisma.clientVehicle.findFirst({
-      where: {
-        id: vehicleId,
-        clientId,
-      },
-    });
+          const clientId = await this.getClientIdFromUserId(userId);
+          const vehicle = await this.repository.findVehicleByIdAndClient(vehicleId, clientId);
 
-    if (!vehicle) {
-      throw new NotFoundException('Vehicle not found');
-    }
+          if (!vehicle) {
+            throw new NotFoundException('Vehicle not found');
+          }
 
-    const bookingsCount = await this.prisma.booking.count({
-      where: { vehicleId },
-    });
+          const bookingsCount = await this.repository.countBookingsByVehicle(vehicleId);
 
-    if (bookingsCount > 0) {
-      throw new BadRequestException(
-        `Cannot delete vehicle with ${bookingsCount} existing booking(s). Archive it instead.`,
-      );
-    }
+          if (bookingsCount > 0) {
+            throw new BadRequestException(
+              `Cannot delete vehicle with ${bookingsCount} existing booking(s). Archive it instead.`,
+            );
+          }
 
-    await this.prisma.clientVehicle.delete({
-      where: { id: vehicleId },
-    });
+          await this.repository.deleteVehicle(vehicleId);
 
-    this.logger.log(`Vehicle deleted: ${vehicleId} for client ${clientId}`);
+          this.logger.log(`Vehicle deleted: ${vehicleId} for client ${clientId}`);
 
-    this.eventEmitter.emit('vehicle.deleted', {
-      userId,
-      clientId,
-      vehicleId,
-      licensePlate: vehicle.licensePlate,
-    });
+          this.eventEmitter.emit('vehicle.deleted', {
+            userId,
+            clientId,
+            vehicleId,
+            licensePlate: vehicle.licensePlate,
+          });
 
-    return {
-      success: true,
-      message: 'Vehicle deleted successfully',
-    };
+          return {
+            success: true,
+            message: 'Vehicle deleted successfully',
+          };
   }
 
   async getVehicleStats(vehicleId: string): Promise<{
@@ -223,59 +180,8 @@ export class VehiclesService {
     last_booking_at?: Date;
     next_booking_at?: Date;
   }> {
-    const bookings = await this.prisma.booking.findMany({
-      where: { vehicleId },
-      include: {
-          statusHistory: {
-            include: { status: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-          payment: {
-            include: { status: true },
-          },
-        },
-        orderBy: { scheduledAt: 'desc' },
-      });
 
-    let completedBookings = 0;
-    let cancelledBookings = 0;
-    let totalSpent = 0;
-    let lastBookingAt: Date | undefined;
-    let nextBookingAt: Date | undefined;
-    const now = new Date();
-
-    for (const booking of bookings) {
-      const latestStatus = booking.statusHistory[0]?.status?.context || 'PENDING';
-
-      if (latestStatus === 'COMPLETED') {
-        completedBookings++;
-        if (booking.payment?.status?.context === 'PAID') {
-          totalSpent += Number(booking.totalPrice);
-        }
-      } else if (latestStatus === 'CANCELLED') {
-        cancelledBookings++;
-      }
-
-      if (!lastBookingAt || booking.scheduledAt > lastBookingAt) {
-        lastBookingAt = booking.scheduledAt;
-      }
-
-      if (booking.scheduledAt > now &&
-          (!nextBookingAt || booking.scheduledAt < nextBookingAt) &&
-          latestStatus !== 'CANCELLED') {
-        nextBookingAt = booking.scheduledAt;
-      }
-    }
-
-    return {
-      total_bookings: bookings.length,
-      completed_bookings: completedBookings,
-      cancelled_bookings: cancelledBookings,
-      total_spent: totalSpent,
-      last_booking_at: lastBookingAt,
-      next_booking_at: nextBookingAt,
-    };
+          return this.repository.getVehicleStats(vehicleId);
   }
 
   async getVehicleBookingHistory(
@@ -285,90 +191,51 @@ export class VehiclesService {
     limit: number = 20,
     status?: string,
   ): Promise<{ data: VehicleBookingHistoryDto[]; meta: any }> {
-    const clientId = await this.getClientIdFromUserId(userId);
 
-    const vehicle = await this.prisma.clientVehicle.findFirst({
-      where: {
-        id: vehicleId,
-        clientId,
-      },
-    });
+          const clientId = await this.getClientIdFromUserId(userId);
+          const vehicle = await this.repository.findVehicleByIdAndClient(vehicleId, clientId);
 
-    if (!vehicle) {
-      throw new NotFoundException('Vehicle not found');
-    }
+          if (!vehicle) {
+            throw new NotFoundException('Vehicle not found');
+          }
 
-    const skip = (page - 1) * limit;
-    const take = Math.min(limit, 50);
+          const skip = (page - 1) * limit;
+          const take = Math.min(limit, 50);
 
-    const where: any = { vehicleId };
+          const [bookings, total] = await this.repository.getVehicleBookingHistory(vehicleId, skip, take, status);
 
-    if (status) {
-      where.statusHistory = {
-        some: {
-          status: { context: status },
-        },
-      };
-    }
+          const formattedBookings = bookings.map(booking => {
+            const latestStatus = booking.statusHistory[0];
+            const payment = booking.payment;
+            const review = booking.review;
 
-    const [bookings, total] = await Promise.all([
-      this.prisma.booking.findMany({
-        where,
-        include: {
-          business: {
-            select: {
-              businessName: true,
+            return {
+              id: booking.id,
+              booking_code: `BK-${booking.id.slice(0, 8).toUpperCase()}`,
+              business_name: booking.business.businessName,
+              scheduled_at: booking.scheduledAt,
+              total_price: Number(booking.totalPrice),
+              status: latestStatus?.status?.context || 'PENDING',
+              payment_status: payment?.status?.context || 'PENDING',
+              rating: review?.rating,
+              created_at: booking.createdAt,
+            };
+          });
+
+          return {
+            data: formattedBookings,
+            meta: {
+              total,
+              page,
+              limit,
+              totalPages: Math.ceil(total / limit),
+              vehicle: {
+                id: vehicle.id,
+                license_plate: vehicle.licensePlate,
+                model: vehicle.model,
+              },
             },
-          },
-          statusHistory: {
-            include: { status: true },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-          payment: {
-            include: { status: true },
-          },
-          review: true,
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take,
-      }),
-      this.prisma.booking.count({ where }),
-    ]);
-
-    const formattedBookings: VehicleBookingHistoryDto[] = bookings.map(booking => {
-      const latestStatus = booking.statusHistory[0];
-      const payment = booking.payment;
-      const review = booking.review;
-
-      return {
-        id: booking.id,
-        booking_code: `BK-${booking.id.slice(0, 8).toUpperCase()}`,
-        business_name: booking.business.businessName,
-        scheduled_at: booking.scheduledAt,
-        total_price: Number(booking.totalPrice),
-        status: latestStatus?.status?.context || 'PENDING',
-        payment_status: payment?.status?.context || 'PENDING',
-        rating: review?.rating,
-        created_at: booking.createdAt,
-      };
-    });
-
-    return {
-      data: formattedBookings,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-        vehicle: {
-          id: vehicle.id,
-          license_plate: vehicle.licensePlate,
-          model: vehicle.model,
-        },
-      },
-    };
+          };
   }
 
   async getUpcomingBookings(
@@ -376,58 +243,31 @@ export class VehiclesService {
     vehicleId: string,
     limit: number = 5,
   ): Promise<VehicleBookingHistoryDto[]> {
-    const clientId = await this.getClientIdFromUserId(userId);
 
-    const vehicle = await this.prisma.clientVehicle.findFirst({
-      where: {
-        id: vehicleId,
-        clientId,
-      },
-    });
+          const clientId = await this.getClientIdFromUserId(userId);
+          const vehicle = await this.repository.findVehicleByIdAndClient(vehicleId, clientId);
 
-    if (!vehicle) {
-      throw new NotFoundException('Vehicle not found');
-    }
+          if (!vehicle) {
+            throw new NotFoundException('Vehicle not found');
+          }
 
-    const now = new Date();
+          const bookings = await this.repository.getUpcomingBookings(vehicleId, limit);
 
-    const bookings = await this.prisma.booking.findMany({
-      where: {
-        vehicleId,
-        scheduledAt: { gt: now },
-      },
-      include: {
-        business: {
-          select: { businessName: true },
-        },
-        statusHistory: {
-          include: { status: true },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-        payment: {
-          include: { status: true },
-        },
-      },
-      orderBy: { scheduledAt: 'asc' },
-      take: limit,
-    });
+          return bookings.map(booking => {
+            const latestStatus = booking.statusHistory[0];
+            const payment = booking.payment;
 
-    return bookings.map(booking => {
-      const latestStatus = booking.statusHistory[0];
-      const payment = booking.payment;
-
-      return {
-        id: booking.id,
-        booking_code: `BK-${booking.id.slice(0, 8).toUpperCase()}`,
-        business_name: booking.business.businessName,
-        scheduled_at: booking.scheduledAt,
-        total_price: Number(booking.totalPrice),
-        status: latestStatus?.status?.context || 'PENDING',
-        payment_status: payment?.status?.context || 'PENDING',
-        created_at: booking.createdAt,
-      };
-    });
+            return {
+              id: booking.id,
+              booking_code: `BK-${booking.id.slice(0, 8).toUpperCase()}`,
+              business_name: booking.business.businessName,
+              scheduled_at: booking.scheduledAt,
+              total_price: Number(booking.totalPrice),
+              status: latestStatus?.status?.context || 'PENDING',
+              payment_status: payment?.status?.context || 'PENDING',
+              created_at: booking.createdAt,
+            };
+          });
   }
 
   // ==================== ADMIN ENDPOINTS ====================
@@ -435,127 +275,95 @@ export class VehiclesService {
   async getAllVehicles(
     query: QueryVehiclesDto,
   ): Promise<{ data: VehicleWithStatsResponseDto[]; meta: any }> {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      year,
-      color,
-      sort_by = 'created_at',
-      sort_order = 'desc',
-      include_deleted = false,
-    } = query;
 
-    const skip = (page - 1) * limit;
-    const take = Math.min(limit, 50);
+          const {
+            page = 1,
+            limit = 20,
+            search,
+            year,
+            color,
+            sort_by = 'created_at',
+            sort_order = 'desc',
+            include_deleted = false,
+          } = query;
 
-    const where: any = {};
+          const skip = (page - 1) * limit;
+          const take = Math.min(limit, 50);
 
-    if (!include_deleted) {
-      where.client = { user: { deletedAt: null, isActive: true } };
-    }
+          const where: any = {};
 
-    if (search) {
-      where.OR = [
-        { licensePlate: { contains: search, mode: 'insensitive' } },
-        { model: { contains: search, mode: 'insensitive' } },
-        { client: { user: { fullName: { contains: search, mode: 'insensitive' } } } },
-      ];
-    }
+          if (!include_deleted) {
+            where.client = { user: { deletedAt: null, isActive: true } };
+          }
 
-    if (year) {
-      where.year = year;
-    }
+          if (search) {
+            where.OR = [
+              { licensePlate: { contains: search, mode: 'insensitive' } },
+              { model: { contains: search, mode: 'insensitive' } },
+              { client: { user: { fullName: { contains: search, mode: 'insensitive' } } } },
+            ];
+          }
 
-    if (color) {
-      where.color = { contains: color, mode: 'insensitive' };
-    }
+          if (year) {
+            where.year = year;
+          }
 
-    const orderField = SORT_FIELD_MAP[sort_by] || sort_by;
+          if (color) {
+            where.color = { contains: color, mode: 'insensitive' };
+          }
 
-    const [vehicles, total] = await Promise.all([
-      this.prisma.clientVehicle.findMany({
-        where,
-        include: {
-          client: {
-            include: {
-              user: {
-                select: {
-                  fullName: true,
-                  email: true,
-                  phone: true,
-                },
-              },
+          // Notice we import or handle SORT_FIELD_MAP internally here if needed. 
+          // We can assume it is available in the module scope.
+          const orderField = SORT_FIELD_MAP[sort_by] || sort_by;
+
+          const [vehicles, total] = await this.repository.getAllVehicles(where, { [orderField]: sort_order }, skip, take);
+
+          const vehiclesWithStats = await Promise.all(
+            vehicles.map(async (vehicle) => {
+              const stats = await this.getVehicleStats(vehicle.id);
+              return {
+                id: vehicle.id,
+                client_id: vehicle.clientId,
+                client_name: vehicle.client.user.fullName,
+                client_email: vehicle.client.user.email,
+                license_plate: vehicle.licensePlate,
+                model: vehicle.model ?? undefined,
+                year: vehicle.year ?? undefined,
+                color: vehicle.color ?? undefined,
+                created_at: vehicle.createdAt,
+                updated_at: vehicle.updatedAt,
+                ...stats,
+              };
+            }),
+          );
+
+          return {
+            data: vehiclesWithStats,
+            meta: {
+              total,
+              page,
+              limit,
+              totalPages: Math.ceil(total / limit),
             },
-          },
-        },
-        orderBy: { [orderField]: sort_order },
-        skip,
-        take,
-      }),
-      this.prisma.clientVehicle.count({ where }),
-    ]);
-
-    const vehiclesWithStats = await Promise.all(
-      vehicles.map(async (vehicle) => {
-        const stats = await this.getVehicleStats(vehicle.id);
-        return {
-          id: vehicle.id,
-          client_id: vehicle.clientId,
-          client_name: vehicle.client.user.fullName,
-          client_email: vehicle.client.user.email,
-          license_plate: vehicle.licensePlate,
-          model: vehicle.model ?? undefined,
-          year: vehicle.year ?? undefined,
-          color: vehicle.color ?? undefined,
-          created_at: vehicle.createdAt,
-          updated_at: vehicle.updatedAt,
-          ...stats,
-        };
-      }),
-    );
-
-    return {
-      data: vehiclesWithStats,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+          };
   }
 
   async getVehicleByIdAdmin(vehicleId: string): Promise<any> {
-    const vehicle = await this.prisma.clientVehicle.findUnique({
-      where: { id: vehicleId },
-      include: {
-        client: {
-          include: {
-            user: {
-              select: {
-                fullName: true,
-                email: true,
-                phone: true,
-              },
-            },
-          },
-        },
-      },
-    });
 
-    if (!vehicle) {
-      throw new NotFoundException('Vehicle not found');
-    }
+          const vehicle = await this.repository.getVehicleByIdAdmin(vehicleId);
 
-    const stats = await this.getVehicleStats(vehicleId);
+          if (!vehicle) {
+            throw new NotFoundException('Vehicle not found');
+          }
 
-    return {
-      ...vehicle,
-      client_name: vehicle.client.user.fullName,
-      client_email: vehicle.client.user.email,
-      ...stats,
-    };
+          const stats = await this.getVehicleStats(vehicleId);
+
+          return {
+            ...vehicle,
+            client_name: vehicle.client.user.fullName,
+            client_email: vehicle.client.user.email,
+            ...stats,
+          };
   }
 
   async getVehiclesByClient(
@@ -563,92 +371,52 @@ export class VehiclesService {
     page: number = 1,
     limit: number = 20,
   ): Promise<{ data: VehicleResponseDto[]; meta: any }> {
-    const skip = (page - 1) * limit;
-    const take = Math.min(limit, 50);
 
-    const [vehicles, total] = await Promise.all([
-      this.prisma.clientVehicle.findMany({
-        where: { clientId },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take,
-      }),
-      this.prisma.clientVehicle.count({ where: { clientId } }),
-    ]);
+          const skip = (page - 1) * limit;
+          const take = Math.min(limit, 50);
 
-    return {
-      data: vehicles.map(v => this.mapToResponseDto(v)),
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+          const [vehicles, total] = await this.repository.getVehiclesByClientPaginated(clientId, skip, take);
+
+          return {
+            data: vehicles.map(v => this.mapToResponseDto(v)),
+            meta: {
+              total,
+              page,
+              limit,
+              totalPages: Math.ceil(total / limit),
+            },
+          };
   }
 
   async getMostUsedVehicles(limit: number = 10): Promise<any[]> {
-    const results = await this.prisma.$queryRaw<any[]>`
-      SELECT
-        v.id,
-        v.license_plate,
-        v.model,
-        v.year,
-        v.color,
-        COUNT(b.id) as booking_count,
-        SUM(b.total_price) as total_revenue,
-        u.full_name as owner_name
-      FROM client_vehicles v
-      JOIN clients c ON v.client_id = c.id
-      JOIN users u ON c.user_id = u.id
-      LEFT JOIN bookings b ON v.id = b.vehicle_id
-      WHERE u.is_active = true
-        AND u.deleted_at IS NULL
-      GROUP BY v.id, u.full_name
-      ORDER BY booking_count DESC
-      LIMIT ${limit}
-    `;
 
-    return results;
+          return this.repository.getMostUsedVehicles(limit);
   }
 
   async archiveVehicle(vehicleId: string): Promise<{ success: boolean; message: string }> {
-    const vehicle = await this.prisma.clientVehicle.findUnique({
-      where: { id: vehicleId },
-    });
 
-    if (!vehicle) {
-      throw new NotFoundException('Vehicle not found');
-    }
+          const vehicle = await this.repository.findVehicleById(vehicleId);
 
-    const futureBookings = await this.prisma.booking.count({
-      where: {
-        vehicleId,
-        scheduledAt: { gt: new Date() },
-        statusHistory: {
-          none: {
-            status: { context: 'CANCELLED' },
-          },
-        },
-      },
-    });
+          if (!vehicle) {
+            throw new NotFoundException('Vehicle not found');
+          }
 
-    if (futureBookings > 0) {
-      throw new BadRequestException(
-        `Cannot archive vehicle with ${futureBookings} future booking(s)`,
-      );
-    }
+          const futureBookings = await this.repository.countFutureBookings(vehicleId);
 
-    await this.prisma.clientVehicle.delete({
-      where: { id: vehicleId },
-    });
+          if (futureBookings > 0) {
+            throw new BadRequestException(
+              `Cannot archive vehicle with ${futureBookings} future booking(s)`,
+            );
+          }
 
-    this.logger.log(`Vehicle archived: ${vehicleId}`);
+          await this.repository.deleteVehicle(vehicleId);
 
-    return {
-      success: true,
-      message: 'Vehicle archived successfully',
-    };
+          this.logger.log(`Vehicle archived: ${vehicleId}`);
+
+          return {
+            success: true,
+            message: 'Vehicle archived successfully',
+          };
   }
 
   // ==================== PRIVATE HELPERS ====================

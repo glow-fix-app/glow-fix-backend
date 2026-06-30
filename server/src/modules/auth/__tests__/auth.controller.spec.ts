@@ -5,7 +5,7 @@ import { AuthController } from '../auth.controller';
 import { AuthService } from '../auth.service';
 import { MfaService } from '../mfa.service';
 import { SessionService } from '../session.service';
-import { OtpPurpose } from '../dto/verify-otp.dto';
+import { OtpPurpose } from '../dto/request/verify-otp.dto';
 import { UserRole } from '@glow-fix/types';
 import { AuthUser } from '../types/auth.types';
 

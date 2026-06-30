@@ -141,4 +141,13 @@ export class UserResponseAdminDto {
 
   @ApiProperty()
   updated_at: Date;
+
+  @ApiPropertyOptional()
+  total_bookings?: number;
+
+  @ApiPropertyOptional()
+  total_spent?: number;
+
+  @ApiPropertyOptional()
+  last_booking_date?: Date | null;
 }
