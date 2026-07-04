@@ -2,7 +2,7 @@ import { BaseEntity } from '../common/index';
 import { LoyaltyTransactionType } from '../enums';
 
 export interface LoyaltyTransaction extends BaseEntity {
-  customerId: string;
+  clientId: string;
   bookingId: string | null;
   points: number;
   type: LoyaltyTransactionType;

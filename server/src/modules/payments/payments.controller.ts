@@ -20,7 +20,9 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { PaymentsService } from './services/payments.service';
+import { PaymentProcessingService } from './services/payment-processing.service';
+import { PaymentQueryService } from './services/payment-query.service';
+import { PaymentDisputeService } from './services/payment-dispute.service';
 import { PaymentWebhookService } from './services/payment-webhook.service';
 import { PaymentPayoutService } from './services/payment-payout.service';
 import { ProcessPaymentDto, ConfirmPaymentDto } from './dto/request/process-payment.dto';
@@ -37,7 +39,9 @@ import { JwtPayload } from '@glow-fix/types';
 @Controller({ path: 'payments', version: '1' })
 export class PaymentsController {
   constructor(
-    private readonly paymentsService: PaymentsService,
+    private readonly paymentProcessingService: PaymentProcessingService,
+    private readonly paymentQueryService: PaymentQueryService,
+    private readonly paymentDisputeService: PaymentDisputeService,
     private readonly paymentWebhookService: PaymentWebhookService,
     private readonly paymentPayoutService: PaymentPayoutService,
   ) {}
@@ -52,7 +56,7 @@ export class PaymentsController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: ProcessPaymentDto,
   ): Promise<ProcessPaymentResponseDto> {
-    return this.paymentsService.processPayment(user.sub, dto);
+    return this.paymentProcessingService.processPayment(user.sub, dto);
   }
 
   @Post('confirm')
@@ -63,7 +67,7 @@ export class PaymentsController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: ConfirmPaymentDto,
   ): Promise<ProcessPaymentResponseDto> {
-    return this.paymentsService.confirmPayment(user.sub, dto);
+    return this.paymentProcessingService.confirmPayment(user.sub, dto);
   }
 
   @Get()
@@ -75,7 +79,7 @@ export class PaymentsController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
   ): Promise<{ data: PaymentResponseDto[]; meta: any }> {
-    return this.paymentsService.getUserPayments(user.sub, page, limit);
+    return this.paymentQueryService.getUserPayments(user.sub, page, limit);
   }
 
   @Get(':paymentId')
@@ -85,7 +89,7 @@ export class PaymentsController {
     @Param('paymentId', ParseUUIDPipe) paymentId: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<PaymentResponseDto> {
-    return this.paymentsService.getPayment(paymentId, user.sub, user.role);
+    return this.paymentQueryService.getPayment(paymentId, user.sub, user.role);
   }
 
   @Get('booking/:bookingId')
@@ -95,7 +99,7 @@ export class PaymentsController {
     @Param('bookingId') bookingId: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<PaymentResponseDto | null> {
-    return this.paymentsService.getBookingPayment(bookingId, user.sub);
+    return this.paymentQueryService.getBookingPayment(bookingId, user.sub);
   }
 
   @Get(':paymentId/receipt')
@@ -105,7 +109,7 @@ export class PaymentsController {
     @Param('paymentId', ParseUUIDPipe) paymentId: string,
     @CurrentUser() user: JwtPayload,
   ): Promise<ReceiptResponseDto> {
-    return this.paymentsService.getReceipt(paymentId, user.sub);
+    return this.paymentQueryService.getReceipt(paymentId, user.sub);
   }
 
   // ==================== DISPUTES ====================
@@ -117,7 +121,7 @@ export class PaymentsController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateDisputeDto,
   ): Promise<{ success: boolean; dispute_id: string }> {
-    return this.paymentsService.createDispute(user.sub, dto);
+    return this.paymentDisputeService.createDispute(user.sub, dto);
   }
 
   // ==================== STRIPE WEBHOOK (Public) ====================

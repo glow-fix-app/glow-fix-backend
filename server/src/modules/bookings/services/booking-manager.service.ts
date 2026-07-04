@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../core/prisma/prisma.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import { PaymentsService } from '../../payments/services/payments.service';
 import { PaymentPayoutService } from '../../payments/services/payment-payout.service';
 import { BookingsRepository } from '../repositories/bookings.repository';
 import { BookingMapper } from '../mappers/booking.mapper';
@@ -22,7 +21,6 @@ export class BookingManagerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationsService: NotificationsService,
-    private readonly paymentsService: PaymentsService,
     private readonly paymentPayoutService: PaymentPayoutService,
     private readonly bookingsRepository: BookingsRepository,
     private readonly bookingMapper: BookingMapper,

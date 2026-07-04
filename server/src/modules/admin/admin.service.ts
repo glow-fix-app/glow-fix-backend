@@ -17,8 +17,8 @@ import {
   CreateUserAdminDto,
   UpdateUserAdminDto,
   UserResponseAdminDto,
-  UserRole,
 } from './dto/admin-users.dto';
+import { UserRole } from '@glow-fix/types';
 import {
   GetBusinessesAdminDto,
   ApproveBusinessDto,
