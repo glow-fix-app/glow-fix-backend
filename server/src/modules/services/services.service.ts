@@ -22,6 +22,8 @@ import {
   CategoryResponseDto,
   BulkAssignResponseDto,
   AvailableServiceDto,
+  BusinessCategoriesResponseDto,
+  CategoryWithServicesDto,
 } from './dto/service-response.dto';
 import { validate as isUUID } from 'uuid';
 
@@ -716,6 +718,71 @@ export class ServicesService {
       price: Number(bs.price),
       duration_minutes: bs.averageDuration,
     }));
+  }
+
+  async getBusinessServicesGroupedByCategory(
+    businessId: string,
+  ): Promise<BusinessCategoriesResponseDto> {
+    const business = await this.repository.business.findUnique({
+      where: { id: businessId },
+      include: {
+        statusHistory: {
+          include: { status: true },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    const status = business.statusHistory[0]?.status?.context;
+    if (status !== 'APPROVED') {
+      throw new NotFoundException('Business is not available');
+    }
+
+    const categories = await this.repository.category.findMany({
+      orderBy: { name: 'asc' },
+    });
+
+    const businessServices = await this.repository.businessService.findMany({
+      where: {
+        businessId: businessId,
+        isActive: true,
+      },
+      include: {
+        service: {
+          include: {
+            category: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const categoriesWithServices: CategoryWithServicesDto[] = categories.map(category => ({
+      id: category.id,
+      name: category.name,
+      services: businessServices
+        .filter(bs => bs.service.categoryId === category.id)
+        .map(bs => ({
+          business_service_id: bs.id,
+          service_id: bs.service.id,
+          title: bs.service.title,
+          description: bs.service.description || undefined,
+          category_name: bs.service.category.name,
+          price: Number(bs.price),
+          duration_minutes: bs.averageDuration,
+        })),
+    })).filter(category => category.services.length > 0);
+
+    return {
+      business_id: business.id,
+      business_name: business.businessName,
+      categories: categoriesWithServices,
+    };
   }
 
   async getAvailableServicesByCategory(
