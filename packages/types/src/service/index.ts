@@ -1,55 +1,49 @@
-import { BaseEntity } from '../common/index';
-import { ServiceType } from '../enums';
+import { BaseEntity, Coordinates } from '../common/index';
+
+export interface Category extends BaseEntity {
+  name: string;
+  isActive: boolean;
+}
 
 export interface Service extends BaseEntity {
-  carWashId: string;
+  categoryId: string;
   name: string;
-  description: string;
-  type: ServiceType;
-  durationMinutes: number;
-  basePrice: number;
-  peakPrice: number | null;
-  isActive: boolean;
-  sortOrder: number;
-}
-
-export interface AddOn extends BaseEntity {
-  carWashId: string;
-  name: string;
-  description: string;
-  price: number;
-  durationMinutes: number;
-  isActive: boolean;
-}
-
-export interface CarWash extends BaseEntity {
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  phone: string;
-  email: string;
   description: string | null;
-  photos: string[];
-  averageRating: number;
-  totalReviews: number;
   isActive: boolean;
+}
+
+export interface BusinessService extends BaseEntity {
+  businessId: string;
+  serviceId: string;
+  price: number;
+  durationMinutes: number | null;
+  isActive: boolean;
+}
+
+export interface Business extends BaseEntity {
+  managerId: string;
+  name: string;
+  description: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  location: Coordinates | null;
   operatingHours: OperatingHours[];
 }
 
 export interface OperatingHours {
-  dayOfWeek: number; // 0 = Sunday
-  openTime: string;  // "08:00"
-  closeTime: string; // "18:00"
+  dayOfWeek: number;
+  openTime: string;
+  closeTime: string;
   isClosed: boolean;
 }
 
-export interface NearbyCarWashQuery {
+export interface NearbyBusinessQuery {
   latitude: number;
   longitude: number;
   radiusKm?: number;
-  serviceType?: ServiceType;
-  minRating?: number;
+  categoryId?: string;
   openNow?: boolean;
 }
 
@@ -57,5 +51,4 @@ export interface TimeSlot {
   startTime: string;
   endTime: string;
   available: boolean;
-  staffCount: number;
 }

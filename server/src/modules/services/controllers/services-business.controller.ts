@@ -27,6 +27,7 @@ import {
   AssignedBusinessServiceResponseDto,
   BulkAssignResponseDto,
   AvailableServiceDto,
+  BusinessCategoriesResponseDto,
 } from '../dto/service-response.dto';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -53,6 +54,15 @@ export class ServicesBusinessController {
     @Param('businessId') businessId: string,
   ): Promise<ServiceCatalogResponseDto[]> {
     return this.servicesService.getUnassignedServicesForBusiness(user.id, businessId);
+  }
+
+  @Get('business/:businessId/grouped')
+  @Public()
+  @ApiOperation({ summary: 'Get all available services for a business grouped by category (public)' })
+  async getBusinessServicesGroupedByCategory(
+    @Param('businessId') businessId: string,
+  ): Promise<BusinessCategoriesResponseDto> {
+    return this.servicesService.getBusinessServicesGroupedByCategory(businessId);
   }
 
   @Get('business/:businessId')

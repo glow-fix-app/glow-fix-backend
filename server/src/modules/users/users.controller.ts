@@ -207,7 +207,7 @@ export class UsersController {
 
   // ─── GET /v1/users/:id/business (manager's business) ───
   @Get(':id/business')
-  @Roles(UserRole.ADMIN, 'MANAGER' as any)
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
   @ApiOperation({ summary: "Get manager's business (admin/manager only)" })
   async getManagerBusiness(@Param('id') id: string) {
     return this.usersService.getManagerBusiness(id);

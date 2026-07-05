@@ -49,8 +49,8 @@ export class PaymentWebhookService {
   private async handlePaymentIntentSucceeded(paymentIntent: any): Promise<void> {
     const payment = await this.paymentsRepository.findPaymentByProviderRef(paymentIntent.id);
 
-    // The actual finalization is handled by the main orchestrator (PaymentsService)
-    // We only log here because PaymentsService.finalizePayment should handle the success case.
+    // The actual finalization is handled by the main orchestrator (PaymentProcessingService)
+    // We only log here because PaymentProcessingService.finalizePayment should handle the success case.
     if (payment && payment.status?.context !== PAYMENT_STATUS_CONTEXTS.PAID) {
       this.logger.log(`Payment succeeded for booking: ${payment.bookingId} - Pending finalization.`);
     }

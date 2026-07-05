@@ -36,24 +36,28 @@ export function getClearCookieOptions(isProduction: boolean) {
 // ─── Role permissions map ─────────────────────────────────────────────────────
 
 export const ROLE_PERMISSIONS: RolePermissionsMap = {
-  [UserRole.CUSTOMER]: [
+  [UserRole.CLIENT]: [
     Permission.MANAGE_OWN_VEHICLES,
     Permission.CREATE_BOOKING,
     Permission.VIEW_OWN_BOOKINGS,
     Permission.CANCEL_OWN_BOOKING,
     Permission.MANAGE_OWN_PROFILE,
   ],
-  [UserRole.STAFF]: [
-    Permission.VIEW_ASSIGNED_BOOKINGS,
-    Permission.UPDATE_BOOKING_STATUS,
-    Permission.CREATE_DIVR,
-    Permission.UPLOAD_PHOTOS,
-    Permission.MANAGE_OWN_AVAILABILITY,
+  [UserRole.ADMIN]: [
+    Permission.MANAGE_USERS,
+    Permission.VIEW_ALL_BOOKINGS,
+    Permission.MANAGE_ALL_BOOKINGS,
+    Permission.PROCESS_REFUNDS,
+    Permission.MANAGE_CONTENT,
+    Permission.VIEW_ANALYTICS,
+    Permission.MANAGE_SYSTEM_SETTINGS,
+    Permission.VIEW_AUDIT_LOGS,
+    Permission.SEND_BROADCASTS,
   ],
-  [UserRole.ADMIN]: [Permission.MANAGE_USERS],
   [UserRole.MANAGER]: [
     Permission.MANAGE_BUSINESS,
     Permission.VIEW_BUSINESS_ANALYTICS,
-    Permission.MANAGE_EMPLOYEES,
+    Permission.VIEW_ASSIGNED_BOOKINGS,
+    Permission.UPDATE_BOOKING_STATUS,
   ],
 };

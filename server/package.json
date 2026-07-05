@@ -87,7 +87,6 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@glow-fix/config": "*",
     "@nestjs/cli": "^10.4.9",
     "@nestjs/schematics": "^10.1.0",
     "@nestjs/testing": "^10.4.0",
@@ -110,6 +109,7 @@
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "bcrypt": "^6.0.0",
+    "cacheable": "^2.5.0",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.0",

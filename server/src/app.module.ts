@@ -27,7 +27,6 @@ import mailConfig from './config/mail.config';
 import storageConfig from './config/storage.config';
 import { ClientsModule } from './modules/clients/clients.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
-import { CategoriesModule } from './modules/categories/categories.module';
 import { ServicesModule } from './modules/services/services.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
@@ -91,7 +90,6 @@ import { AdminModule } from './modules/admin/admin.module';
     UsersModule,
     ClientsModule,
     VehiclesModule,
-    CategoriesModule,
     BusinessesModule,
     ServicesModule,
     ReviewsModule,

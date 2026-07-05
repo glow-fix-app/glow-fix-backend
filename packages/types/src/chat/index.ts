@@ -1,29 +1,29 @@
 import { BaseEntity } from '../common/index';
-import { ChatMessageType } from '../enums/index';
+import { ConversationType, ParticipantRole } from '../enums/index';
 
 export interface ChatConversation extends BaseEntity {
   bookingId: string | null;
-  customerId: string;
-  staffId: string | null;
-  lastMessageAt: Date;
-  customerUnreadCount: number;
-  staffUnreadCount: number;
-  isClosed: boolean;
+  type: ConversationType;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface ChatParticipant extends BaseEntity {
+  conversationId: string;
+  userId: string;
+  role: ParticipantRole;
+  lastReadAt: Date | null;
 }
 
 export interface ChatMessage extends BaseEntity {
   conversationId: string;
-  senderId: string;
-  senderRole: 'CUSTOMER' | 'STAFF';
-  type: ChatMessageType;
+  senderId: string | null;
   content: string;
-  mediaUrls: string[];
-  readAt: Date | null;
+  isSystem: boolean;
+  metadata: Record<string, unknown> | null;
 }
 
 export interface SendMessageRequest {
   conversationId: string;
   content: string;
-  type?: ChatMessageType;
-  mediaUrls?: string[];
+  isSystem?: boolean;
 }

@@ -2,7 +2,8 @@ export { PaymentsModule } from './payments.module';
 export { PaymentsController } from './payments.controller';
 
 // Services
-export { PaymentsService } from './services/payments.service';
+export { PaymentProcessingService } from './services/payment-processing.service';
+export { PaymentQueryService } from './services/payment-query.service';
 export { PaymentPayoutService } from './services/payment-payout.service';
 
 // Providers

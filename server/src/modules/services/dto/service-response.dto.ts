@@ -117,3 +117,25 @@ export class BulkAssignResponseDto {
   @ApiProperty({ type: [String] })
   skipped_services: string[];
 }
+
+export class CategoryWithServicesDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty({ type: [AvailableServiceDto] })
+  services: AvailableServiceDto[];
+}
+
+export class BusinessCategoriesResponseDto {
+  @ApiProperty()
+  business_id: string;
+
+  @ApiProperty()
+  business_name: string;
+
+  @ApiProperty({ type: [CategoryWithServicesDto] })
+  categories: CategoryWithServicesDto[];
+}

@@ -2,11 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, IsEmail, IsEnum, IsBoolean, IsInt, Min } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
-export enum UserRole {
-  CLIENT = 'CLIENT',
-  MANAGER = 'MANAGER',
-  ADMIN = 'ADMIN',
-}
+import { UserRole } from '@glow-fix/types';
 
 export class GetUsersAdminDto {
   @ApiPropertyOptional({ enum: UserRole })
